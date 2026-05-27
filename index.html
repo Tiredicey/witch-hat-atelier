@@ -96,6 +96,17 @@
       </svg>
       <span class="shelf__label">Settings</span>
     </button>
+
+    <!-- Mobile-only help affordance. Desktop users reach the cheat-sheet via
+         the `?` button in .reader__actions; on mobile that button is inside
+         .reader-wrap which is display:none in list view. -->
+    <button class="shelf shelf--help" id="helpBtnRail" aria-label="Shortcuts">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M 8 9 Q 8 5, 12 5 Q 16 5, 16 9 Q 16 12, 13 13 L 12 14 L 12 16"/>
+        <path d="M 11.9 19 L 12.1 19"/>
+      </svg>
+      <span class="shelf__label">Shortcuts</span>
+    </button>
   </nav>
 
   <!-- ═══════════════════════ ARTICLE LIST ════════════════════════ -->

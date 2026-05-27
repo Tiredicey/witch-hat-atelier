@@ -41,14 +41,13 @@ test.describe('accessibility basics', () => {
     await expect(page.locator('.reader article h1')).toBeVisible();
   });
   test('shortcuts overlay is a labelled modal dialog', async ({ page }, info) => {
-    test.skip(
-      info.project.name === 'mobile-chromium',
-      'help button lives in .reader-wrap which is display:none in mobile list view. ' +
-      'Tracked as a real UX gap: mobile needs a discoverable shortcuts surface. ' +
-      'See README "follow-ups" section.'
-    );
     await page.goto('/');
-    await page.locator('#helpBtn').click();
+    // Click the appropriate help affordance for this viewport.
+    // Desktop: #helpBtn in the reader actions toolbar.
+    // Mobile:  #helpBtnRail in the rail (added because .reader__actions is
+    //          display:none in mobile list view).
+    const sel = info.project.name === 'mobile-chromium' ? '#helpBtnRail' : '#helpBtn';
+    await page.locator(sel).click();
     const scrim = page.locator('#scrim');
     await expect(scrim).toHaveAttribute('role', 'dialog');
     await expect(scrim).toHaveAttribute('aria-modal', 'true');
