@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CODA — the calm after the noise feed</title>
+  <meta name="description" content="An RSS reader that respects the open web and the reader's hard drive. Three-pane shell, no telemetry, sample content only." />
+  <meta name="color-scheme" content="light dark" />
+
+  <!-- Self-hosted in production per ROADMAP §6. Stylesheet fallback used here so the demo runs offline-ish. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Source+Serif+4:wght@400;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ------------------------------------------------------------------
+       Shell layout — strictly the ROADMAP §7 rules. No new tokens.
+       ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+
+    .app {
+      display: grid;
+      grid-template-columns: var(--rail-w) var(--list-w) 1fr;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* ─── Sigil rail ────────────────────────────────────────────────── */
+    .rail {
+      grid-column: 1;
+      border-right: var(--stroke-1) solid var(--line);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--gutter-m) 0;
+      gap: 4px;
+    }
+    .rail__brand {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: var(--gutter-m);
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+    .rail__spacer { flex: 1; }
+
+    .shelf {
+      position: relative;
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border-radius: var(--radius-s);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background var(--motion-fast);
+    }
+    .shelf:hover { background: var(--wash); }
+    .shelf[aria-current="true"] { background: var(--wash-strong); }
+    .shelf[aria-current="true"] .sigil { stroke: var(--sepia); }
+    .shelf .count {
+      position: absolute;
+      bottom: 2px; right: 2px;
+      font-family: var(--font-ui);
+      font-size: 10px;
+      color: var(--sepia);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .shelf .err {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--sigil-red);
+    }
+
+    /* Hand-lettered tooltip — appears after 400ms hover, per §7 */
+    .shelf__label {
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface-raised);
+      color: var(--ink);
+      border: var(--stroke-1) solid var(--line);
+      border-radius: var(--radius-s);
+      padding: 4px 8px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--motion-fast) 400ms;
+      box-shadow: var(--shadow-1);
+      z-index: 20;
+    }
+    .shelf:hover .shelf__label,
+    .shelf:focus-visible .shelf__label { opacity: 1; }
+
+    /* ─── Middle list ──────────────────────────────────────────────── */
+    .list {
+      grid-column: 2;
+      border-right: var(--stroke-1) solid var(--line);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .list__header {
+      padding: var(--gutter-l) var(--gutter-l) var(--gutter-s);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--gutter-s);
+    }
+    .list__title { margin: 0; font-size: var(--size-display-m); }
+    .list__meta { color: var(--ink-faint); }
+    .list__density {
+      display: flex; gap: 2px;
+      padding: 2px;
+      border: var(--stroke-1) solid var(--line);
+      border-radius: var(--radius-s);
+    }
+    .list__density button {
+      border: none;
+      padding: 3px 8px;
+      font-size: var(--size-ui-s);
+      letter-spacing: var(--tracking-smallcaps);
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--ink-faint);
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .list__density button[aria-pressed="true"] {
+      background: var(--wash-strong);
+      color: var(--ink);
+    }
+
+    .list__scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 var(--gutter-l) var(--gutter-l);
+    }
+
+    .article-row {
+      position: relative;
+      padding: var(--gutter-m) var(--gutter-s);
+      cursor: pointer;
+      transition: background var(--motion-fast);
+      border-radius: var(--radius-s);
+    }
+    .article-row:hover { background: var(--wash); }
+    .article-row[aria-selected="true"] {
+      background: var(--surface);
+      box-shadow: inset 0 0 0 var(--stroke-1) var(--line);
+    }
+    .article-row__top {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      margin-bottom: 4px;
+    }
+    .article-row__source {
+      font-family: var(--font-ui);
+      font-size: var(--size-ui-s);
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-smallcaps);
+      color: var(--ink-faint);
+      font-weight: 500;
+    }
+    .article-row__age {
+      font-family: var(--font-ui);
+      font-size: var(--size-ui-s);
+      color: var(--ink-faint);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .article-row__title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 500;
+      color: var(--ink);
+      margin: 0 0 4px 0;
+    }
+    .article-row__excerpt {
+      font-family: var(--font-body);
+      font-size: var(--size-body-s);
+      line-height: 1.4;
+      color: var(--ink-soft);
+      margin: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .article-row[data-read="true"] .article-row__title { color: var(--ink-faint); font-weight: 400; }
+    .article-row[data-read="true"] .article-row__excerpt { color: var(--ink-faint); }
+
+    /* Hand-drawn divider between rows, three random variants */
+    .article-row + .article-row::before {
+      content: "";
+      display: block;
+      height: 14px;
+      margin: 0 -4px 4px;
+      background-size: 100% 100%;
+      background-repeat: no-repeat;
+      opacity: 0.7;
+    }
+    .article-row + .article-row[data-divider="a"]::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 14' preserveAspectRatio='none'><path d='M2 7 C 40 5, 80 9, 120 6 S 200 8, 240 7 S 300 6, 318 7' fill='none' stroke='%231B2438' stroke-width='0.8' stroke-opacity='0.28' stroke-linecap='round'/></svg>");
+    }
+    .article-row + .article-row[data-divider="b"]::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 14' preserveAspectRatio='none'><path d='M3 8 C 60 6, 100 7, 150 7 S 220 9, 260 6 S 308 8, 317 7' fill='none' stroke='%231B2438' stroke-width='0.8' stroke-opacity='0.26' stroke-linecap='round'/></svg>");
+    }
+    .article-row + .article-row[data-divider="c"]::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 14' preserveAspectRatio='none'><path d='M2 6 C 30 9, 70 6, 110 8 S 190 6, 230 8 S 290 9, 318 6' fill='none' stroke='%231B2438' stroke-width='0.8' stroke-opacity='0.30' stroke-linecap='round'/></svg>");
+    }
+
+    /* Compact density */
+    .list[data-density="compact"] .article-row { padding: 8px var(--gutter-s); }
+    .list[data-density="compact"] .article-row__title { font-size: 14px; font-family: var(--font-ui); font-weight: 500; }
+    .list[data-density="compact"] .article-row__excerpt { display: none; }
+    .list[data-density="compact"] .article-row + .article-row::before { height: 8px; }
+
+    /* ─── Reader ───────────────────────────────────────────────────── */
+    .reader-wrap {
+      grid-column: 3;
+      background: var(--surface);
+      overflow-y: auto;
+      position: relative;
+    }
+    .reader-wrap::after {
+      /* watercolour wash overlay, off-screen by default; only swells on selection */
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background: radial-gradient(60% 80% at 50% 30%, rgba(28,36,56,0.04), transparent 70%);
+      opacity: 0;
+      transition: opacity var(--motion-slow);
+    }
+    .reader-wrap.has-selection::after { opacity: 1; }
+
+    .reader article > .flourish {
+      display: block;
+      width: 120px;
+      height: 18px;
+      margin: var(--gutter-m) 0 var(--gutter-l);
+      opacity: 0.6;
+    }
+
+    .reader article h1 { margin-top: 0; }
+    .reader__actions {
+      display: flex;
+      gap: 8px;
+      padding: var(--gutter-m) var(--gutter-l) 0;
+      max-width: var(--reader-max-ch);
+      margin: 0 auto;
+      justify-content: flex-end;
+    }
+    .reader__actions button {
+      padding: 4px 10px;
+      font-size: var(--size-ui-s);
+      letter-spacing: var(--tracking-smallcaps);
+      text-transform: uppercase;
+    }
+    .reader__empty {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: var(--gutter-xl);
+    }
+    .reader__empty p {
+      font-family: var(--font-display);
+      font-size: 22px;
+      color: var(--ink-faint);
+      margin: var(--gutter-m) 0 0;
+      font-style: italic;
+    }
+
+    /* ─── Atelier mode (hides rails per §7) ───────────────────────── */
+    .app[data-atelier="true"] { grid-template-columns: 0 0 1fr; }
+    .app[data-atelier="true"] .rail,
+    .app[data-atelier="true"] .list { display: none; }
+
+    /* ─── Shortcuts cheat-sheet ───────────────────────────────────── */
+    .scrim {
+      position: fixed; inset: 0;
+      background: rgba(28, 36, 56, 0.32);
+      display: none;
+      place-items: center;
+      z-index: 50;
+      backdrop-filter: blur(2px);
+    }
+    .scrim[data-open="true"] { display: grid; }
+    .cheat {
+      background: var(--surface-raised);
+      border: var(--stroke-2) solid var(--line);
+      border-radius: var(--radius-m);
+      padding: var(--gutter-l) var(--gutter-xl);
+      max-width: 520px;
+      width: calc(100% - 32px);
+      box-shadow: var(--shadow-2);
+    }
+    .cheat h2 { margin: 0 0 var(--gutter-m) 0; }
+    .cheat table { width: 100%; border-collapse: collapse; }
+    .cheat td {
+      padding: 4px 0;
+      font-family: var(--font-body);
+      font-size: var(--size-body-m);
+      color: var(--ink-soft);
+    }
+    .cheat td.k {
+      font-family: var(--font-mono);
+      font-size: var(--size-mono);
+      color: var(--ink);
+      width: 90px;
+    }
+
+    /* ─── Mobile: single pane, swipe ──────────────────────────────── */
+    @media (max-width: 768px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .app[data-atelier="true"] { grid-template-columns: 1fr; }
+      .rail {
+        flex-direction: row;
+        border-right: none;
+        border-bottom: var(--stroke-1) solid var(--line);
+        padding: 8px var(--gutter-m);
+        overflow-x: auto;
+      }
+      .rail__brand { margin: 0 var(--gutter-m) 0 0; font-size: 18px; }
+      .rail__spacer { flex: 0; }
+      .shelf__label { display: none; }
+      .list, .reader-wrap { grid-column: 1; }
+      .list { display: var(--mobile-list-display, flex); }
+      .reader-wrap { display: var(--mobile-reader-display, none); }
+      .app[data-mobile-view="reader"] { --mobile-list-display: none; --mobile-reader-display: block; }
+      .app[data-mobile-view="list"]   { --mobile-list-display: flex; --mobile-reader-display: none; }
+      .reader__actions .mobile-back { display: inline-block !important; }
+    }
+    .reader__actions .mobile-back { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="app" id="app" data-mobile-view="list">
+
+  <!-- ═══════════════════════ SIGIL RAIL ═════════════════════════ -->
+  <nav class="rail" aria-label="Shelves">
+    <div class="rail__brand" title="CODA">C</div>
+
+    <!-- "All" sigil at top per §7 -->
+    <button class="shelf" data-shelf="all" aria-current="true" aria-label="All">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.2"/>
+        <path d="M5.5 12 Q 12 6.5, 18.5 12 Q 12 17.5, 5.5 12 Z"/>
+        <circle cx="12" cy="12" r="1.8"/>
+      </svg>
+      <span class="count">42</span>
+      <span class="shelf__label">All</span>
+    </button>
+
+    <button class="shelf" data-shelf="standards" aria-label="Standards & specs">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 4 L 19 4 L 19 20 L 5 20 Z"/>
+        <path d="M8 9 L 16 9 M 8 13 L 14 13 M 8 17 L 12 17"/>
+      </svg>
+      <span class="count">12</span>
+      <span class="shelf__label">Standards &amp; specs</span>
+    </button>
+
+    <button class="shelf" data-shelf="indie" aria-label="Indie writing">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 18 Q 8 6, 12 12 T 20 6"/>
+        <path d="M4 21 L 20 21"/>
+      </svg>
+      <span class="count">7</span>
+      <span class="shelf__label">Indie writing</span>
+    </button>
+
+    <button class="shelf" data-shelf="engineering" aria-label="Engineering blogs">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 L 21 8 L 21 16 L 12 21 L 3 16 L 3 8 Z"/>
+        <path d="M12 8 L 12 16 M 8 10 L 16 10 M 8 14 L 16 14"/>
+      </svg>
+      <span class="count">5</span>
+      <span class="err" aria-label="One feed has a fetch error" title="one feed has a fetch error"></span>
+      <span class="shelf__label">Engineering blogs</span>
+    </button>
+
+    <button class="shelf" data-shelf="science" aria-label="Science & research">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="2.5"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.5"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(60 12 12)"/>
+        <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(120 12 12)"/>
+      </svg>
+      <span class="count">18</span>
+      <span class="shelf__label">Science &amp; research</span>
+    </button>
+
+    <button class="shelf" data-shelf="quiet" aria-label="Quiet places">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20 Q 8 8, 12 14 Q 16 18, 20 10"/>
+        <path d="M4 4 L 4 20 M 20 4 L 20 20"/>
+      </svg>
+      <span class="shelf__label">Quiet places</span>
+    </button>
+
+    <div class="rail__spacer"></div>
+
+    <!-- "Starred" sigil at bottom per §7 -->
+    <button class="shelf" data-shelf="starred" aria-label="Starred">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 L 14.3 9.5 L 21 9.8 L 15.7 13.9 L 17.6 20.4 L 12 16.5 L 6.4 20.4 L 8.3 13.9 L 3 9.8 L 9.7 9.5 Z"/>
+      </svg>
+      <span class="count">3</span>
+      <span class="shelf__label">Starred</span>
+    </button>
+
+    <button class="shelf" data-shelf="settings" aria-label="Settings">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2 L 12 5 M 12 19 L 12 22 M 2 12 L 5 12 M 19 12 L 22 12 M 4.9 4.9 L 7 7 M 17 17 L 19.1 19.1 M 4.9 19.1 L 7 17 M 17 7 L 19.1 4.9"/>
+      </svg>
+      <span class="shelf__label">Settings</span>
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════ ARTICLE LIST ════════════════════════ -->
+  <section class="list" id="list" data-density="comfortable" aria-label="Articles">
+    <header class="list__header">
+      <h2 class="list__title" id="shelf-title">All</h2>
+      <span class="list__meta smallcaps" id="shelf-meta">42 unread</span>
+    </header>
+    <div class="list__density" role="group" aria-label="Density" style="margin: 0 var(--gutter-l) var(--gutter-s); align-self: flex-start;">
+      <button data-density="comfortable" aria-pressed="true">Comfortable</button>
+      <button data-density="compact" aria-pressed="false">Compact</button>
+    </div>
+    <div class="divider-hand" style="margin: 0 var(--gutter-l)"></div>
+
+    <div class="list__scroll" id="rows">
+      <!-- rows injected by JS so divider data-attrs randomise -->
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ READER ══════════════════════════════ -->
+  <main class="reader-wrap" id="readerWrap" aria-label="Reader">
+
+    <div class="reader__actions">
+      <button class="mobile-back" id="mobileBack" title="Back to list" aria-label="Back to list">← List</button>
+      <button id="markBtn" title="Mark read/unread (m)">Mark read</button>
+      <button id="starBtn" title="Star (s)">Star</button>
+      <button id="atelierBtn" title="Atelier mode (a)">Atelier</button>
+      <button id="helpBtn" title="Shortcuts (?)">?</button>
+    </div>
+
+    <div class="reader" id="reader">
+      <!-- filled by JS -->
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════════ SHORTCUTS CHEAT-SHEET ═══════════════════ -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="cheat">
+    <h2>Keyboard</h2>
+    <table>
+      <tbody>
+        <tr><td class="k">j / k</td><td>next / prev article</td></tr>
+        <tr><td class="k">o / Enter</td><td>open</td></tr>
+        <tr><td class="k">m</td><td>mark read / unread</td></tr>
+        <tr><td class="k">s</td><td>star</td></tr>
+        <tr><td class="k">n</td><td>add note</td></tr>
+        <tr><td class="k">a</td><td>atelier mode</td></tr>
+        <tr><td class="k">g g</td><td>go to All</td></tr>
+        <tr><td class="k">g s</td><td>go to Starred</td></tr>
+        <tr><td class="k">/</td><td>quick filter</td></tr>
+        <tr><td class="k">?</td><td>show this panel</td></tr>
+        <tr><td class="k">esc</td><td>close</td></tr>
+      </tbody>
+    </table>
+    <p class="smallcaps" style="margin-top: var(--gutter-l); color: var(--ink-faint);">
+      conventions inherited from google reader · per roadmap §7
+    </p>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   Sample content.
+   This is hand-written demo copy — NOT fetched from real feeds.
+   The roadmap deliverable for this step is an empty shell with
+   plausible content so the layout's typography and spacing are
+   visible. Real feed fetching is a Cloudflare Worker job (§4).
+   ------------------------------------------------------------------ */
+const SAMPLE = [
+  {
+    id: "a1",
+    source: "mnot.net",
+    title: "Web Feeds in 2026: a quieter conclusion",
+    age: "2h",
+    read: false,
+    excerpt: "Of 196,598 sites scanned, 35.9% still expose an autodiscovery link. Of those feeds, 22.6% clear a basic quality bar. The web didn't die — its tooling did.",
+    body: [
+      "Of 196,598 sites scanned across the Tranco top 500,000, 35.9% still expose a feed autodiscovery link. That number alone is not the story.",
+      "The story is the gap between exposure and quality. Of 543,577 feed URLs probed, the parse success rate sits at 98.3%. The web's plumbing works. But only 22.6% of parsed feeds clear a basic recency-plus-content quality bar.",
+      "WordPress feeds reach the bar at 36.5%. Blogger reaches it at 5.9%. Substack and Squarespace both land near 90%. Platform choice predicts feed health far more than any other variable we measured.",
+      "The reader you should build in 2026 is not one with more AI. It is one that filters at index time, so the user never sees the 77.4% of feeds that don't deserve their attention."
+    ]
+  },
+  {
+    id: "a2",
+    source: "ietf.org",
+    title: "draft-nottingham-feed-menu-00",
+    age: "11h",
+    read: false,
+    excerpt: "A small extension to the feed autodiscovery contract: instead of one rel=alternate, an explicit menu listing every feed a site publishes, with hints about which one is the canonical firehose.",
+    body: [
+      "The current contract is one rel=alternate per page. Sites that publish ten section feeds either burn ten link tags into every page or hide nine of them.",
+      "The proposed mechanism is a single feed-menu document at a well-known location. Readers fetch it once, cache it, and present the menu to the user instead of guessing.",
+      "Status: straw-man. No implementations yet. The point of publishing the draft is to find out who already solved this and why I haven't heard about it."
+    ]
+  },
+  {
+    id: "a3",
+    source: "jsonfeed.org",
+    title: "JSON Feed 1.1, six years on",
+    age: "yesterday",
+    read: true,
+    excerpt: "The spec did what it set out to do — make feeds writable by humans without an XML library. The adoption story is more complicated.",
+    body: [
+      "The spec did what it set out to do. You can write a valid JSON Feed by hand in a text editor, which is not true of any flavour of Atom.",
+      "Adoption is roughly 4% of feeds that publish at all. The big platforms (WordPress, Substack, Ghost) emit both Atom and JSON Feed; the long tail emits whatever their generator emits.",
+      "Verdict: a quiet success. Not the format that won, but a format that made the others better by example."
+    ]
+  },
+  {
+    id: "a4",
+    source: "w3.org",
+    title: "WebSub: still the only push spec that shipped",
+    age: "2d",
+    read: false,
+    excerpt: "Eight years after Recommendation status, WebSub is supported by roughly 4% of feeds — but those 4% include almost every high-volume publisher.",
+    body: [
+      "WebSub reached Recommendation status in January 2018. Eight years on, support sits at about 4% of feeds.",
+      "The 4% is not the long tail. It is the head: WordPress.com, Tumblr, Medium, every Substack. A reader that subscribes to ten Substacks via WebSub will see new posts within seconds, no polling cost.",
+      "If you build polling without WebSub fallback, you are paying for bandwidth you do not need to pay for."
+    ]
+  },
+  {
+    id: "a5",
+    source: "winters27 / github",
+    title: "Obsidian BYOC: bring your own cloud, twelve providers",
+    age: "3d",
+    read: false,
+    excerpt: "An architectural precedent for sync that doesn't lock the user into the vendor. Dropbox, Google Drive, OneDrive, S3, R2, B2, WebDAV — the user picks.",
+    body: [
+      "The architecture is straightforward. An event log written to a folder. A materialised snapshot updated periodically. The backend is whatever the user wired up.",
+      "Encryption is optional — rclone-crypt or in-app AES-256 — and lives on the client. The provider never sees plaintext.",
+      "This is the model CODA is borrowing. Not because it is novel, but because it is correct."
+    ]
+  },
+  {
+    id: "a6",
+    source: "opml.org",
+    title: "OPML 2.0 and the politics of import",
+    age: "4d",
+    read: true,
+    excerpt: "OPML is the only thing standing between the user and lock-in. Every reader exports it; every reader imports it. The friction is what to do with the import once it arrives.",
+    body: [
+      "OPML is older than half its users. It has no business still being the export format. And yet, every reader from Google Reader onward has implemented it, because the alternative is lock-in.",
+      "The interesting problem is not the import — it is the triage. A typical OPML export contains 89 feeds; 17 of them have not published in two years. A reader that imports everything wholesale is doing the user a quiet harm."
+    ]
+  }
+];
+
+const dividers = ["a", "b", "c"];
+const rows = document.getElementById("rows");
+SAMPLE.forEach((it, i) => {
+  const div = document.createElement("div");
+  div.className = "article-row";
+  div.setAttribute("role", "button");
+  div.setAttribute("tabindex", "0");
+  div.dataset.id = it.id;
+  div.dataset.read = String(it.read);
+  div.dataset.divider = dividers[i % dividers.length];
+  div.innerHTML = `
+    <div class="article-row__top">
+      <span class="article-row__source">${it.source}</span>
+      <span class="article-row__age">${it.age}</span>
+    </div>
+    <h3 class="article-row__title">${it.title}</h3>
+    <p class="article-row__excerpt">${it.excerpt}</p>
+  `;
+  div.addEventListener("click", () => selectArticle(it.id));
+  div.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectArticle(it.id); }
+  });
+  rows.appendChild(div);
+});
+
+/* ---------- Reader rendering ---------- */
+const reader = document.getElementById("reader");
+const readerWrap = document.getElementById("readerWrap");
+const app = document.getElementById("app");
+
+function renderEmpty() {
+  reader.innerHTML = `
+    <div class="reader__empty">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 24 24" style="stroke: var(--sepia); stroke-width: 1.2; fill: none; stroke-linecap: round; stroke-linejoin: round;">
+          <path d="M4 18 Q 8 6, 12 12 T 20 6"/>
+          <path d="M4 21 L 20 21"/>
+        </svg>
+        <p>This shelf is quiet.</p>
+      </div>
+    </div>`;
+}
+
+function renderArticle(a) {
+  reader.innerHTML = `
+    <article>
+      <h1>${a.title}</h1>
+      <p class="byline">${a.source} · ${a.age} ago${a.read ? " · read" : ""}</p>
+      <svg class="flourish" viewBox="0 0 120 18" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M2 9 Q 20 3, 40 9 T 80 9 T 118 9" fill="none" stroke="currentColor" stroke-width="0.9" stroke-opacity="0.5" stroke-linecap="round"/>
+        <circle cx="60" cy="9" r="1.4" fill="currentColor" opacity="0.5"/>
+      </svg>
+      ${a.body.map(p => `<p>${p}</p>`).join("")}
+      <p class="smallcaps" style="margin-top: var(--gutter-xl); color: var(--ink-faint);">
+        sample content · the real reader fetches via the §4 worker
+      </p>
+    </article>`;
+}
+
+let selectedId = null;
+function selectArticle(id) {
+  selectedId = id;
+  document.querySelectorAll(".article-row").forEach(r => {
+    r.setAttribute("aria-selected", r.dataset.id === id ? "true" : "false");
+  });
+  const a = SAMPLE.find(x => x.id === id);
+  if (a) {
+    renderArticle(a);
+    readerWrap.classList.add("has-selection");
+    app.setAttribute("data-mobile-view", "reader");
+  } else {
+    renderEmpty();
+    readerWrap.classList.remove("has-selection");
+  }
+}
+renderEmpty();
+
+/* ---------- Density toggle ---------- */
+document.querySelectorAll(".list__density button").forEach(b => {
+  b.addEventListener("click", () => {
+    const d = b.dataset.density;
+    document.getElementById("list").dataset.density = d;
+    document.querySelectorAll(".list__density button").forEach(x => {
+      x.setAttribute("aria-pressed", String(x.dataset.density === d));
+    });
+  });
+});
+
+/* ---------- Shelf switching (visual only — no real filtering on sample data) ---------- */
+document.querySelectorAll(".shelf").forEach(s => {
+  s.addEventListener("click", () => {
+    document.querySelectorAll(".shelf").forEach(x => x.setAttribute("aria-current", "false"));
+    s.setAttribute("aria-current", "true");
+    const label = s.querySelector(".shelf__label")?.textContent || "Shelf";
+    document.getElementById("shelf-title").textContent = label;
+  });
+});
+
+/* ---------- Atelier mode ---------- */
+const atelierBtn = document.getElementById("atelierBtn");
+function toggleAtelier() {
+  const cur = app.getAttribute("data-atelier") === "true";
+  app.setAttribute("data-atelier", String(!cur));
+}
+atelierBtn.addEventListener("click", toggleAtelier);
+
+/* ---------- Mark + star (visual stub) ---------- */
+document.getElementById("markBtn").addEventListener("click", () => {
+  if (!selectedId) return;
+  const row = document.querySelector(`.article-row[data-id="${selectedId}"]`);
+  const cur = row.dataset.read === "true";
+  row.dataset.read = String(!cur);
+});
+document.getElementById("starBtn").addEventListener("click", () => {
+  // visual-only stub for the shell. real starring writes to the event log per §5.
+  const b = document.getElementById("starBtn");
+  b.style.color = b.style.color === "var(--sepia)" ? "" : "var(--sepia)";
+});
+
+/* ---------- Mobile back ---------- */
+document.getElementById("mobileBack").addEventListener("click", () => {
+  app.setAttribute("data-mobile-view", "list");
+});
+
+/* ---------- Help overlay ---------- */
+const scrim = document.getElementById("scrim");
+function openHelp()  { scrim.setAttribute("data-open", "true"); }
+function closeHelp() { scrim.setAttribute("data-open", "false"); }
+document.getElementById("helpBtn").addEventListener("click", openHelp);
+scrim.addEventListener("click", e => { if (e.target === scrim) closeHelp(); });
+
+/* ---------- Keyboard shortcuts (§7) ---------- */
+let gPending = false, gTimer = null;
+document.addEventListener("keydown", e => {
+  // ignore when typing in an input
+  if (e.target.matches("input, textarea")) return;
+  if (e.key === "Escape") { closeHelp(); return; }
+  if (e.key === "?") { e.preventDefault(); openHelp(); return; }
+  if (e.key === "a") { toggleAtelier(); return; }
+  if (e.key === "j" || e.key === "k") {
+    e.preventDefault();
+    const ids = SAMPLE.map(x => x.id);
+    const idx = ids.indexOf(selectedId);
+    let next;
+    if (idx === -1) next = ids[0];
+    else next = e.key === "j" ? ids[Math.min(idx + 1, ids.length - 1)] : ids[Math.max(idx - 1, 0)];
+    selectArticle(next);
+    document.querySelector(`.article-row[data-id="${next}"]`)?.scrollIntoView({ block: "nearest" });
+    return;
+  }
+  if (e.key === "m" && selectedId) {
+    const row = document.querySelector(`.article-row[data-id="${selectedId}"]`);
+    row.dataset.read = String(row.dataset.read !== "true");
+    return;
+  }
+  if (e.key === "s" && selectedId) {
+    document.getElementById("starBtn").click();
+    return;
+  }
+  if (e.key === "o" || e.key === "Enter") {
+    if (!selectedId && SAMPLE[0]) selectArticle(SAMPLE[0].id);
+    return;
+  }
+  if (e.key === "g") {
+    if (gPending) {
+      // ignore second g (handled below by the followup)
+      return;
+    }
+    gPending = true;
+    clearTimeout(gTimer);
+    gTimer = setTimeout(() => { gPending = false; }, 800);
+    return;
+  }
+  if (gPending && (e.key === "g" || e.key === "s")) {
+    const target = e.key === "g" ? "all" : "starred";
+    document.querySelector(`.shelf[data-shelf="${target}"]`)?.click();
+    gPending = false;
+    return;
+  }
+});
+</script>
+</body>
+</html>
