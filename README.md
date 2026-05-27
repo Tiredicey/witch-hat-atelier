@@ -1,5 +1,7 @@
 # witch-hat-atelier
 
+[![tests](https://github.com/Tiredicey/witch-hat-atelier/actions/workflows/test.yml/badge.svg)](https://github.com/Tiredicey/witch-hat-atelier/actions/workflows/test.yml)
+
 CODA — a three-pane shell for a 2026 RSS reader. Static site. Real feed
 fetching, sync, and encryption live in a separate Cloudflare Worker and
 storage adapter layer (see `ROADMAP.md` §4 and §5).
