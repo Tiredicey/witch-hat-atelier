@@ -1,0 +1,105 @@
+// article-list.js
+//
+// Renders the middle pane: article rows + density toggle.
+// Single responsibility — owns the .list section.
+// Emits no events; callers register a row-select callback via the
+// constructor's `onSelect` argument.
+
+const DIVIDERS = ["a", "b", "c"];
+
+export class ArticleList {
+  /**
+   * @param {object} opts
+   * @param {HTMLElement} opts.listEl    — the .list root (data-density attr lives here)
+   * @param {HTMLElement} opts.rowsEl    — the .list__scroll container
+   * @param {Array}       opts.items     — array of sample data items
+   * @param {(id:string)=>void} opts.onSelect — fired when a row is activated
+   */
+  constructor({ listEl, rowsEl, items, onSelect }) {
+    this.listEl = listEl;
+    this.rowsEl = rowsEl;
+    this.items = items;
+    this.onSelect = onSelect;
+    this.selectedId = null;
+
+    this.#renderRows();
+    this.#bindDensity();
+  }
+
+  /** Public: which article id is currently selected (or null). */
+  getSelectedId() { return this.selectedId; }
+
+  /** Public: full id list, in display order (for j/k navigation). */
+  getIds() { return this.items.map(x => x.id); }
+
+  /** Public: mark row as selected (visual + aria), no callback fired. */
+  setSelected(id) {
+    this.selectedId = id;
+    this.rowsEl.querySelectorAll(".article-row").forEach(r => {
+      r.setAttribute("aria-selected", r.dataset.id === id ? "true" : "false");
+    });
+    if (id) {
+      const row = this.rowsEl.querySelector(`.article-row[data-id="${id}"]`);
+      row?.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  /** Public: toggle the read/unread state of a row (visual only). */
+  toggleRead(id) {
+    const row = this.rowsEl.querySelector(`.article-row[data-id="${id}"]`);
+    if (!row) return;
+    row.dataset.read = String(row.dataset.read !== "true");
+  }
+
+  /** Public: look up item by id. */
+  find(id) { return this.items.find(x => x.id === id) || null; }
+
+  // ────────────────────────────────────────────────────────────────
+  #renderRows() {
+    this.rowsEl.innerHTML = "";
+    this.items.forEach((it, i) => {
+      const div = document.createElement("div");
+      div.className = "article-row";
+      div.setAttribute("role", "button");
+      div.setAttribute("tabindex", "0");
+      div.setAttribute("aria-selected", "false");
+      div.dataset.id = it.id;
+      div.dataset.read = String(it.read);
+      div.dataset.divider = DIVIDERS[i % DIVIDERS.length];
+      div.innerHTML = `
+        <div class="article-row__top">
+          <span class="article-row__source"></span>
+          <span class="article-row__age"></span>
+        </div>
+        <h3 class="article-row__title"></h3>
+        <p class="article-row__excerpt"></p>
+      `;
+      // textContent assignments — never innerHTML on user-ish fields
+      div.querySelector(".article-row__source").textContent  = it.source;
+      div.querySelector(".article-row__age").textContent     = it.age;
+      div.querySelector(".article-row__title").textContent   = it.title;
+      div.querySelector(".article-row__excerpt").textContent = it.excerpt;
+
+      const activate = () => {
+        this.setSelected(it.id);
+        this.onSelect?.(it.id);
+      };
+      div.addEventListener("click", activate);
+      div.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
+      });
+      this.rowsEl.appendChild(div);
+    });
+  }
+
+  #bindDensity() {
+    const buttons = this.listEl.querySelectorAll(".list__density button");
+    buttons.forEach(b => {
+      b.addEventListener("click", () => {
+        const d = b.dataset.density;
+        this.listEl.dataset.density = d;
+        buttons.forEach(x => x.setAttribute("aria-pressed", String(x.dataset.density === d)));
+      });
+    });
+  }
+}
