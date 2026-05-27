@@ -28,6 +28,9 @@ function boot() {
   const titleEl   = $("#shelf-title");
   const scrimEl   = $("#scrim");
   const helpBtn   = $("#helpBtn");
+  // Rail help button — only present on mobile widths (see .shelf--help in
+  // shell.css). Optional because some smaller layouts might omit it.
+  const helpBtnRail = document.getElementById("helpBtnRail");
   const atelierBtn= $("#atelierBtn");
   const markBtn   = $("#markBtn");
   const starBtn   = $("#starBtn");
@@ -37,6 +40,7 @@ function boot() {
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
   const mobile  = new Mobile({ appEl, backBtn });
   const help    = new Help({ scrimEl, openEl: helpBtn });
+  if (helpBtnRail) helpBtnRail.addEventListener("click", () => help.open());
 
   const list = new ArticleList({
     listEl, rowsEl, items: SAMPLE,

@@ -314,8 +314,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   width: 90px;
 }
 
+/* Help button in the rail. Hidden by default — only shown at mobile widths
+   where the .reader__actions help button is occluded by display:none. */
+.shelf--help { display: none; }
+
 /* ─── Mobile: single pane ──────────────────────────────────────── */
 @media (max-width: 768px) {
+  .shelf--help { display: grid; }
   .app {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
