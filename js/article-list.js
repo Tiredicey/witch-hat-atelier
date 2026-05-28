@@ -44,11 +44,14 @@ export class ArticleList {
     }
   }
 
-  /** Public: toggle the read/unread state of a row (visual only). */
-  toggleRead(id) {
-    const row = this.rowsEl.querySelector(`.article-row[data-id="${id}"]`);
-    if (!row) return;
-    row.dataset.read = String(row.dataset.read !== "true");
+  /** Public: reflect read/starred state from the store onto every row. */
+  refreshFromStore(store) {
+    this.store = store;
+    this.rowsEl.querySelectorAll(".article-row").forEach(r => {
+      const id = r.dataset.id;
+      r.dataset.read = String(store.isRead(id));
+      r.dataset.starred = String(store.isStarred(id));
+    });
   }
 
   /** Public: look up item by id. */
@@ -65,6 +68,7 @@ export class ArticleList {
       div.setAttribute("aria-selected", "false");
       div.dataset.id = it.id;
       div.dataset.read = String(it.read);
+      div.dataset.starred = "false";
       div.dataset.divider = DIVIDERS[i % DIVIDERS.length];
       div.innerHTML = `
         <div class="article-row__top">
