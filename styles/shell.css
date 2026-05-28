@@ -831,3 +831,105 @@ body[data-page="settings"] .scrim { display: none !important; }
   .settings { padding: var(--gutter-l) var(--gutter-m); }
   .settings__title { font-size: var(--size-display-l); }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Failover chain — Settings sub-form (PR #14)
+ * ════════════════════════════════════════════════════════════════════════ */
+.chain-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter-m);
+}
+.chain-slot {
+  border: var(--stroke-1) solid var(--line);
+  border-radius: 4px;
+  padding: var(--gutter-m);
+  background: var(--paper);
+}
+.chain-slot__header {
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-s);
+  margin-bottom: var(--gutter-s);
+  flex-wrap: wrap;
+}
+.chain-slot__index {
+  width: 1.6em;
+  height: 1.6em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--stroke-1) solid var(--ink-soft);
+  border-radius: 50%;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  color: var(--ink-soft);
+  flex: 0 0 auto;
+}
+.chain-slot__kind {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 12em;
+}
+.chain-slot__kind > span {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.chain-slot__kind select {
+  font-family: var(--font-body);
+  font-size: var(--size-body-m);
+  padding: 6px 8px;
+  border: var(--stroke-1) solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+.chain-slot__remove {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: var(--stroke-1) solid var(--line);
+  background: transparent;
+  color: var(--sigil-red);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.chain-slot__remove:hover {
+  border-color: var(--sigil-red);
+}
+.chain-slot__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter-s);
+  padding-left: calc(1.6em + var(--gutter-s));
+}
+.chain-slot__local-hint {
+  margin: 0;
+  padding-left: 0;
+}
+.chain-add {
+  margin-top: var(--gutter-m);
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border: var(--stroke-1) dashed var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.chain-add:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+  border-style: solid;
+}
+@media (max-width: 768px) {
+  .chain-slot__fields { padding-left: 0; }
+}
