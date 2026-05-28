@@ -23,6 +23,11 @@ This repo currently ships only the **shell** described in ROADMAP §7:
 - DMZ page (§15): a shared, unencrypted scratch-board for family use.
   Sibling storage path `coda/dmz/...`, never co-mingled with the private
   reader. Reachable in one click from the rail; one click back.
+- Storage adapters (§8.2, opt-in): Settings page (rail → cog sigil) lets you
+  switch the private reader and DMZ from `LocalAdapter` to **WebDAV**,
+  **Dropbox**, or **S3-compatible** (R2 / B2 / Wasabi). Enabling any cloud
+  adapter requires typing `PLAINTEXT` into a confirmation field — encryption
+  lands in a follow-up PR. Default remains `LocalAdapter`.
 
 The sample articles in `js/sample-data.js` are hand-written demo content,
 not fetched from real feeds. Every quantitative claim in the sample
@@ -49,7 +54,14 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── storage.js          ← StorageAdapter interface + LocalAdapter (localStorage)
 │   ├── store.js            ← §5 event log + materialised snapshot store
 │   ├── notes.js            ← class Notes — note pane bound to current article
-│   └── dmz.js              ← class Dmz + mountRouter — the §15 shared board page
+│   ├── dmz.js              ← class Dmz + mountRouter — the §15 shared board page
+│   ├── settings.js         ← class Settings — adapter configuration page
+│   └── adapters/
+│       ├── index.js        ← makeAdapter factory + settings load/save
+│       ├── webdav.js       ← WebDAV adapter (PUT/GET/DELETE)
+│       ├── dropbox.js      ← Dropbox adapter (paste-token)
+│       ├── s3.js           ← S3-compatible adapter (R2 / B2 / Wasabi)
+│       └── sigv4.js        ← browser SigV4 signer (SubtleCrypto)
 ├── tests/
 │   ├── shell.spec.js
 │   ├── empty-and-reader.spec.js
@@ -59,7 +71,8 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── motion-and-contrast.spec.js
 │   ├── a11y-basics.spec.js
 │   ├── persistence-and-notes.spec.js
-│   └── dmz.spec.js
+│   ├── dmz.spec.js
+│   └── adapters.spec.js
 ├── playwright.config.js    ← desktop + mobile + reduced-motion projects
 ├── package.json
 └── README.md
@@ -102,8 +115,8 @@ npm run test:report
 | Capability                          | Roadmap section | Status |
 |-------------------------------------|-----------------|--------|
 | Feed fetching, parse, quality score | §4 (Worker)     | not built |
-| Storage adapters (Dropbox/R2/WebDAV)| §5              | interface shipped, only `LocalAdapter` concrete |
-| AES-256-GCM client encryption       | §5              | not built (ships with cloud adapters) |
+| Storage adapters (Dropbox/R2/WebDAV)| §5 + §8.2       | **all three shipped (opt-in, plaintext)**; cloud-DMZ split deferred |
+| AES-256-GCM client encryption       | §5              | not built (PR #7 — required before cloud adapters become default) |
 | OPML 2.0 import + triage screen     | §8.1            | not built |
 | WebSub subscriber                   | §8.10           | not built |
 | AI summarisation                    | explicitly punted (§8 "does NOT ship") | won't build in v1 |

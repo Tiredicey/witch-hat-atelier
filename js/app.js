@@ -10,6 +10,8 @@ import { Store } from "./store.js";
 import { LocalAdapter } from "./storage.js";
 import { Notes } from "./notes.js";
 import { Dmz, mountRouter } from "./dmz.js";
+import { Settings } from "./settings.js";
+import { loadSettings, makeAdapter } from "./adapters/index.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -41,8 +43,20 @@ async function boot() {
   const notesSave  = $("#notesSave");
   const notesCancel = $("#notesCancel");
 
-  const store = new Store({ adapter: new LocalAdapter() });
-  await store.load();
+  const settings = loadSettings();
+  let adapter;
+  try {
+    adapter = makeAdapter(settings, "coda/v1");
+  } catch (e) {
+    console.warn("primary adapter init failed, falling back to local", e);
+    adapter = new LocalAdapter("coda/v1");
+  }
+  const store = new Store({ adapter });
+  try {
+    await store.load();
+  } catch (e) {
+    console.warn("primary store load failed, continuing with empty snapshot", e);
+  }
 
   const reader  = new Reader({ wrapEl, readerEl });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
@@ -158,8 +172,19 @@ async function boot() {
 
   list.refreshFromStore(store);
 
-  const dmzStore = new Store({ adapter: new LocalAdapter("coda/dmz") });
-  await dmzStore.load();
+  let dmzAdapter;
+  try {
+    dmzAdapter = makeAdapter(settings, "coda/dmz");
+  } catch (e) {
+    console.warn("dmz adapter init failed, falling back to local", e);
+    dmzAdapter = new LocalAdapter("coda/dmz");
+  }
+  const dmzStore = new Store({ adapter: dmzAdapter });
+  try {
+    await dmzStore.load();
+  } catch (e) {
+    console.warn("dmz store load failed, continuing with empty snapshot", e);
+  }
   const dmz = new Dmz({
     pageEl:     $("#dmzPage"),
     listEl:     $("#dmzList"),
@@ -168,11 +193,29 @@ async function boot() {
     submitBtn:  $("#dmzSubmit"),
     store:      dmzStore,
   });
-  mountRouter({
+  const router = mountRouter({
     enterDmzBtn: $("#enterDmzBtn"),
     exitDmzBtn:  $("#exitDmzBtn"),
     dmz,
   });
+
+  const settingsPage = $("#settingsPage");
+  const settingsCtrl = new Settings({
+    pageEl:         settingsPage,
+    formEl:         $("#settingsForm"),
+    kindSelect:     $("#settingsKind"),
+    groupsEl:       $("#settingsGroups"),
+    plaintextGate:  $("#plaintextGate"),
+    plaintextInput: $("#plaintextConfirm"),
+    testBtn:        $("#testSettingsBtn"),
+    saveBtn:        $("#saveSettingsBtn"),
+    resetBtn:       $("#resetSettingsBtn"),
+    testOutput:     $("#settingsTestOutput"),
+    activeBanner:   $("#settingsActiveBanner"),
+  });
+  document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
+  $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
+  void settingsCtrl;
 }
 
 if (document.readyState === "loading") {
