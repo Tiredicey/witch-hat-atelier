@@ -16,7 +16,7 @@
 </head>
 <body>
 
-<div class="app" id="app" data-mobile-view="list">
+<div class="app" id="app" data-mobile-view="list" data-page-target="reader">
 
   <!-- ═══════════════════════ SIGIL RAIL ═════════════════════════ -->
   <nav class="rail" aria-label="Shelves">
@@ -80,6 +80,14 @@
     </button>
 
     <div class="rail__spacer"></div>
+
+    <button class="shelf shelf--dmz" id="enterDmzBtn" aria-label="DMZ — shared board">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 21 L 5 9 Q 12 3, 19 9 L 19 21"/>
+        <path d="M3 21 L 21 21"/>
+      </svg>
+      <span class="shelf__label">DMZ &mdash; shared board</span>
+    </button>
 
     <button class="shelf" data-shelf="starred" aria-label="Starred">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
@@ -156,6 +164,29 @@
     </section>
   </main>
 </div>
+
+<main class="dmz" id="dmzPage" aria-label="DMZ — shared board">
+  <header class="dmz__header">
+    <button type="button" class="dmz__exit" id="exitDmzBtn" aria-label="Back to reader">&larr; Back to reader</button>
+    <div class="dmz__title-wrap">
+      <h1 class="dmz__title">The DMZ</h1>
+      <p class="dmz__subtitle smallcaps">shared &middot; unencrypted &middot; everyone</p>
+    </div>
+  </header>
+  <div class="divider-hand dmz__divider"></div>
+
+  <section class="dmz__board" aria-label="Board notes">
+    <div class="dmz__list" id="dmzList" aria-live="polite"></div>
+  </section>
+
+  <form class="dmz__form" id="dmzForm" aria-label="Pin a note to the board">
+    <label for="dmzTextarea" class="smallcaps dmz__form-label">Pin a thought to the board</label>
+    <textarea id="dmzTextarea" rows="3" placeholder="A line, a link, a quote &mdash; anything the others might want to see&hellip;" aria-label="Board note"></textarea>
+    <div class="dmz__form-actions">
+      <button type="submit" id="dmzSubmit" data-variant="primary" disabled>Pin to board</button>
+    </div>
+  </form>
+</main>
 
 <!-- ═══════════════════════ SHORTCUTS CHEAT-SHEET ═══════════════════ -->
 <div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">

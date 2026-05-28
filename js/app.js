@@ -9,6 +9,7 @@ import { Shortcuts } from "./shortcuts.js";
 import { Store } from "./store.js";
 import { LocalAdapter } from "./storage.js";
 import { Notes } from "./notes.js";
+import { Dmz, mountRouter } from "./dmz.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -156,6 +157,22 @@ async function boot() {
   });
 
   list.refreshFromStore(store);
+
+  const dmzStore = new Store({ adapter: new LocalAdapter("coda/dmz") });
+  await dmzStore.load();
+  const dmz = new Dmz({
+    pageEl:     $("#dmzPage"),
+    listEl:     $("#dmzList"),
+    formEl:     $("#dmzForm"),
+    textareaEl: $("#dmzTextarea"),
+    submitBtn:  $("#dmzSubmit"),
+    store:      dmzStore,
+  });
+  mountRouter({
+    enterDmzBtn: $("#enterDmzBtn"),
+    exitDmzBtn:  $("#exitDmzBtn"),
+    dmz,
+  });
 }
 
 if (document.readyState === "loading") {

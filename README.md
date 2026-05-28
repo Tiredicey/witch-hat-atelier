@@ -20,6 +20,9 @@ This repo currently ships only the **shell** described in ROADMAP §7:
 - local persistence (read · starred · notes) via a §5 event-log store
   backed by a `LocalAdapter` writing to `localStorage`. Cloud adapters
   (Dropbox / R2 / WebDAV) and encryption land in a follow-up PR.
+- DMZ page (§15): a shared, unencrypted scratch-board for family use.
+  Sibling storage path `coda/dmz/...`, never co-mingled with the private
+  reader. Reachable in one click from the rail; one click back.
 
 The sample articles in `js/sample-data.js` are hand-written demo content,
 not fetched from real feeds. Every quantitative claim in the sample
@@ -45,7 +48,8 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── shortcuts.js        ← class Shortcuts — keyboard bindings + g g prefix
 │   ├── storage.js          ← StorageAdapter interface + LocalAdapter (localStorage)
 │   ├── store.js            ← §5 event log + materialised snapshot store
-│   └── notes.js            ← class Notes — note pane bound to current article
+│   ├── notes.js            ← class Notes — note pane bound to current article
+│   └── dmz.js              ← class Dmz + mountRouter — the §15 shared board page
 ├── tests/
 │   ├── shell.spec.js
 │   ├── empty-and-reader.spec.js
@@ -54,7 +58,8 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── atelier-and-mobile.spec.js
 │   ├── motion-and-contrast.spec.js
 │   ├── a11y-basics.spec.js
-│   └── persistence-and-notes.spec.js
+│   ├── persistence-and-notes.spec.js
+│   └── dmz.spec.js
 ├── playwright.config.js    ← desktop + mobile + reduced-motion projects
 ├── package.json
 └── README.md
