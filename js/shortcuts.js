@@ -59,6 +59,8 @@ export class Shortcuts {
 
       if (e.key === "o" || e.key === "Enter") { this.h.openFirstIfNone(); return; }
 
+      if (e.key === "n") { e.preventDefault(); this.h.addNote(); return; }
+
       // `g g` and `g s` — two-key prefix
       if (this.gPending && (e.key === "g" || e.key === "s")) {
         this.h.goShelf(e.key === "g" ? "all" : "starred");

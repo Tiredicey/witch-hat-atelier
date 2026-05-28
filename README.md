@@ -14,9 +14,12 @@ This repo currently ships only the **shell** described in ROADMAP §7:
 
 - sigil rail · article list · reader pane
 - atelier mode (rails hidden), mobile single-pane swap
-- keyboard shortcuts inherited from Google Reader (j/k/o/m/s/a/?/g g/g s)
+- keyboard shortcuts inherited from Google Reader (j/k/o/m/s/n/a/?/g g/g s)
 - empty state ("This shelf is quiet."), error dot on a shelf
 - hand-drawn SVG dividers between rows, watercolour wash on the reader
+- local persistence (read · starred · notes) via a §5 event-log store
+  backed by a `LocalAdapter` writing to `localStorage`. Cloud adapters
+  (Dropbox / R2 / WebDAV) and encryption land in a follow-up PR.
 
 The sample articles in `js/sample-data.js` are hand-written demo content,
 not fetched from real feeds. Every quantitative claim in the sample
@@ -39,7 +42,10 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── atelier.js          ← class Atelier — rails-hidden toggle
 │   ├── mobile.js           ← class Mobile — single-pane swap at ≤768px
 │   ├── help.js             ← class Help — shortcuts overlay
-│   └── shortcuts.js        ← class Shortcuts — keyboard bindings + g g prefix
+│   ├── shortcuts.js        ← class Shortcuts — keyboard bindings + g g prefix
+│   ├── storage.js          ← StorageAdapter interface + LocalAdapter (localStorage)
+│   ├── store.js            ← §5 event log + materialised snapshot store
+│   └── notes.js            ← class Notes — note pane bound to current article
 ├── tests/
 │   ├── shell.spec.js
 │   ├── empty-and-reader.spec.js
@@ -47,7 +53,8 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── shelves-and-density.spec.js
 │   ├── atelier-and-mobile.spec.js
 │   ├── motion-and-contrast.spec.js
-│   └── a11y-basics.spec.js
+│   ├── a11y-basics.spec.js
+│   └── persistence-and-notes.spec.js
 ├── playwright.config.js    ← desktop + mobile + reduced-motion projects
 ├── package.json
 └── README.md
@@ -90,8 +97,8 @@ npm run test:report
 | Capability                          | Roadmap section | Status |
 |-------------------------------------|-----------------|--------|
 | Feed fetching, parse, quality score | §4 (Worker)     | not built |
-| Storage adapters (Dropbox/R2/WebDAV)| §5              | not built |
-| AES-256-GCM client encryption       | §5              | not built |
+| Storage adapters (Dropbox/R2/WebDAV)| §5              | interface shipped, only `LocalAdapter` concrete |
+| AES-256-GCM client encryption       | §5              | not built (ships with cloud adapters) |
 | OPML 2.0 import + triage screen     | §8.1            | not built |
 | WebSub subscriber                   | §8.10           | not built |
 | AI summarisation                    | explicitly punted (§8 "does NOT ship") | won't build in v1 |

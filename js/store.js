@@ -1,0 +1,124 @@
+import { LocalAdapter } from "./storage.js";
+
+const COMPACT_THRESHOLD = 256;
+
+function blankItem(id) {
+  return { id, read: false, starred: false, notes: [] };
+}
+
+function blankSnapshot() {
+  return { version: 1, items: [], generated: 0 };
+}
+
+export function materialise(base, events) {
+  const items = new Map();
+  for (const it of base?.items || []) {
+    items.set(it.id, { id: it.id, read: !!it.read, starred: !!it.starred, notes: (it.notes || []).map(n => ({ ...n })) });
+  }
+  const ensure = (id) => {
+    if (!items.has(id)) items.set(id, blankItem(id));
+    return items.get(id);
+  };
+  for (const ev of events) {
+    switch (ev.t) {
+      case "item.read":   ensure(ev.itemId).read = true; break;
+      case "item.unread": ensure(ev.itemId).read = false; break;
+      case "item.star": {
+        const it = ensure(ev.itemId);
+        it.starred = !!ev.on;
+        break;
+      }
+      case "note.add": {
+        const it = ensure(ev.itemId);
+        it.notes.push({ id: ev.noteId, body: String(ev.body || ""), at: ev.at });
+        break;
+      }
+      case "note.del": {
+        const it = items.get(ev.itemId);
+        if (it) it.notes = it.notes.filter(n => n.id !== ev.noteId);
+        break;
+      }
+      default: break;
+    }
+  }
+  return { version: 1, items: [...items.values()], generated: Date.now() };
+}
+
+export class Store {
+  constructor({ adapter } = {}) {
+    this.adapter = adapter || new LocalAdapter();
+    this.snapshot = blankSnapshot();
+    this.listeners = new Set();
+    this.eventsSinceSnapshot = 0;
+  }
+
+  async load() {
+    const base = (await this.adapter.readSnapshot()) || blankSnapshot();
+    const events = await this.adapter.readLog();
+    this.eventsSinceSnapshot = events.length;
+    this.snapshot = materialise(base, events);
+    this.#emit();
+    return this.snapshot;
+  }
+
+  itemFor(id) {
+    return this.snapshot.items.find(it => it.id === id) || blankItem(id);
+  }
+
+  isRead(id)    { return this.itemFor(id).read; }
+  isStarred(id) { return this.itemFor(id).starred; }
+  notesFor(id)  { return this.itemFor(id).notes.map(n => ({ ...n })); }
+
+  setRead(id, read) {
+    return this.#append({ t: read ? "item.read" : "item.unread", itemId: id, at: Date.now() });
+  }
+
+  toggleRead(id) {
+    return this.setRead(id, !this.isRead(id));
+  }
+
+  setStarred(id, on) {
+    return this.#append({ t: "item.star", itemId: id, on: !!on, at: Date.now() });
+  }
+
+  toggleStarred(id) {
+    return this.setStarred(id, !this.isStarred(id));
+  }
+
+  async addNote(id, body) {
+    const trimmed = String(body || "").trim();
+    if (!trimmed) return null;
+    const noteId = this.#noteId();
+    await this.#append({ t: "note.add", itemId: id, noteId, body: trimmed, at: Date.now() });
+    return noteId;
+  }
+
+  delNote(id, noteId) {
+    return this.#append({ t: "note.del", itemId: id, noteId, at: Date.now() });
+  }
+
+  subscribe(fn) {
+    this.listeners.add(fn);
+    fn(this.snapshot);
+    return () => this.listeners.delete(fn);
+  }
+
+  async #append(ev) {
+    this.snapshot = materialise(this.snapshot, [ev]);
+    await this.adapter.appendLog([ev]);
+    this.eventsSinceSnapshot += 1;
+    if (this.eventsSinceSnapshot >= COMPACT_THRESHOLD) {
+      await this.adapter.writeSnapshot(this.snapshot);
+      this.eventsSinceSnapshot = 0;
+    }
+    this.#emit();
+  }
+
+  #emit() {
+    for (const fn of this.listeners) fn(this.snapshot);
+  }
+
+  #noteId() {
+    return `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+}

@@ -131,11 +131,29 @@
       <button class="mobile-back" id="mobileBack" title="Back to list" aria-label="Back to list">← List</button>
       <button id="markBtn" title="Mark read/unread (m)">Mark read</button>
       <button id="starBtn" title="Star (s)">Star</button>
+      <button id="noteBtn" title="Note (n)">Note</button>
       <button id="atelierBtn" title="Atelier mode (a)">Atelier</button>
       <button id="helpBtn" title="Shortcuts (?)">?</button>
     </div>
 
     <div class="reader" id="reader"></div>
+
+    <section class="notes" id="notesPanel" aria-label="Notes" data-open="false">
+      <div class="notes__inner">
+        <header class="notes__header">
+          <h2 class="notes__title">Notes</h2>
+          <p class="smallcaps notes__hint">press n to add · esc to close · cmd/ctrl + enter to save</p>
+        </header>
+        <form id="notesForm" class="notes__form">
+          <textarea id="notesTextarea" rows="3" placeholder="A short note about this piece…" aria-label="Note text"></textarea>
+          <div class="notes__form-actions">
+            <button type="button" id="notesCancel">Cancel</button>
+            <button type="submit" id="notesSave" data-variant="primary">Save note</button>
+          </div>
+        </form>
+        <div class="notes__list" id="notesList" aria-live="polite"></div>
+      </div>
+    </section>
   </main>
 </div>
 
