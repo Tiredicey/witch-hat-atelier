@@ -47,6 +47,38 @@ curl -i 'http://127.0.0.1:8787/fetch?url=https://www.jsonfeed.org/feed.json' \
 
 You should see `200 OK`, `Access-Control-Allow-Origin: *`, the original `Content-Type`, and the JSON Feed body. The proxy adds nothing to the body.
 
+### The `/discover` endpoint
+
+`GET /discover?url=<page>` returns the feed candidates for a given web page. It uses the same `proxyFetch` primitive as `/fetch`, so the `PROXY_ALLOW` gate, the private-host SSRF block, the `MAX_BYTES` cap, and the 15 s timeout all apply identically.
+
+Strategy:
+
+1. Fetch the page HTML.
+2. Scan the `<head>` for `<link rel="alternate" type="application/(rss|atom)+xml">` and `<link rel="alternate" type="application/json" href="...feed...">` tags. Resolve each `href` against the page URL.
+3. If at least one alternate link is found, return it.
+4. Otherwise probe a fixed list of common feed paths at the host root and at the containing directory (`/feed`, `/feed/`, `/feed.xml`, `/feed.json`, `/rss`, `/rss.xml`, `/atom.xml`, `/index.xml`), capped at eight probes per request and 200 KB per probe.
+
+Response shape:
+
+```json
+{
+  "candidates": [
+    { "url": "https://example.com/feed.xml", "type": "rss",  "title": "Main feed" },
+    { "url": "https://example.com/atom",     "type": "atom", "title": "" }
+  ],
+  "probed": false
+}
+```
+
+`probed: true` means no alternate links were found and the candidates came from the common-path probe. `candidates: []` with `probed: true` means neither path produced a feed; the caller should ask the user for a URL.
+
+**Verify locally:**
+
+```bash
+PROXY_ALLOW="*" npx wrangler dev
+curl -s "http://127.0.0.1:8787/discover?url=https://www.jsonfeed.org/" | jq .
+```
+
 ## Deploy
 
 One-time setup:
