@@ -461,3 +461,161 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   background: var(--sepia);
 }
 .article-row { position: relative; }
+
+
+/* ─── Page routing (§15 DMZ) ──────────────────────────────────────── */
+body:not([data-page="dmz"]) .dmz { display: none; }
+body[data-page="dmz"] .app { display: none; }
+body[data-page="dmz"] .scrim { display: none !important; }
+
+.shelf--dmz .sigil { stroke: var(--sepia); }
+.shelf--dmz:hover .sigil { stroke: var(--sepia-bright); }
+
+/* ─── DMZ page ─────────────────────────────────────────────────────── */
+.dmz {
+  display: block;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  padding: var(--gutter-xl) var(--gutter-l) var(--gutter-xl);
+}
+.dmz__header {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter-m);
+}
+.dmz__exit {
+  align-self: flex-start;
+  padding: 4px 12px;
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  background: transparent;
+  border: var(--stroke-1) solid var(--line);
+}
+.dmz__exit:hover {
+  border-color: var(--ink-soft);
+  background: var(--wash);
+}
+.dmz__title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--gutter-l);
+}
+.dmz__title {
+  font-family: var(--font-display);
+  font-size: var(--size-display-xl);
+  margin: 0;
+  line-height: var(--leading-display);
+}
+.dmz__subtitle {
+  color: var(--ink-faint);
+  margin: 0;
+}
+.dmz__divider {
+  max-width: 720px;
+  margin: var(--gutter-l) auto;
+}
+.dmz__board {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.dmz__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter-m);
+  min-height: 80px;
+}
+.dmz__empty {
+  font-family: var(--font-display);
+  font-size: var(--size-display-m);
+  font-style: italic;
+  color: var(--ink-faint);
+  text-align: center;
+  margin: var(--gutter-xl) 0;
+}
+
+.dmz-note {
+  background: var(--surface-raised);
+  border: var(--stroke-1) solid var(--line);
+  border-radius: var(--radius-m);
+  padding: var(--gutter-m) var(--gutter-l);
+  box-shadow: var(--shadow-1);
+}
+.dmz-note__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-faint);
+  margin-bottom: var(--gutter-s);
+}
+.dmz-note__delete {
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 6px;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  transition: color var(--motion-fast), background var(--motion-fast);
+}
+.dmz-note__delete:hover {
+  color: var(--sigil-red);
+  background: var(--wash);
+}
+.dmz-note__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--size-body-l);
+  line-height: var(--leading-body);
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.dmz__form {
+  max-width: 720px;
+  margin: var(--gutter-xl) auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter-s);
+  padding-top: var(--gutter-l);
+  border-top: var(--stroke-1) solid var(--line);
+}
+.dmz__form-label {
+  color: var(--ink-soft);
+  margin: 0;
+}
+.dmz__form textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  font-family: var(--font-body);
+  font-size: var(--size-body-m);
+  line-height: var(--leading-body);
+  background: var(--surface);
+  padding: var(--gutter-s) var(--gutter-m);
+}
+.dmz__form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.dmz__form-actions button {
+  padding: 6px 16px;
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+}
+.dmz__form-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .dmz { padding: var(--gutter-l) var(--gutter-m); }
+  .dmz__title { font-size: var(--size-display-l); }
+}
