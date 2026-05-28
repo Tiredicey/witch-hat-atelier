@@ -13,6 +13,7 @@ import { Dmz, mountRouter } from "./dmz.js";
 import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
+import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 
@@ -77,16 +78,26 @@ async function boot() {
     store,
   });
 
-  // Try to load real entries from the §4 Worker R2 snapshot. Falls back to
-  // SAMPLE if the user is not on the S3 adapter, the bucket has no snapshot,
-  // or the fetch fails (network, CORS, expired creds). Never blocks boot for
-  // longer than 15s; loadFeedSnapshot has its own AbortController.
+  // Try to load real entries. Preference order:
+  //   1. R2 snapshot written by the §4 Worker (S3 adapter only).
+  //   2. Browser-side fetch via the same-origin /fetch proxy, reading the
+  //      subscriptions written by Settings → Import OPML. Works on every
+  //      adapter and is the path that makes OPML imports visible on the
+  //      default LocalAdapter.
+  //   3. SAMPLE, so the shell never boots empty.
+  // Never blocks boot for longer than the per-feed timeout; loadFeedSnapshot
+  // and the browser engine each have their own AbortControllers.
   let items = SAMPLE;
   try {
-    const real = await loadFeedSnapshot(settings, adapter);
-    if (real && real.length > 0) items = real;
+    const r2 = await loadFeedSnapshot(settings, adapter);
+    if (r2 && r2.length > 0) {
+      items = r2;
+    } else {
+      const browser = await loadFeedFromBrowserEngine({ adapter });
+      if (browser && browser.length > 0) items = browser;
+    }
   } catch (e) {
-    console.warn("app: feed snapshot load failed, using SAMPLE", e);
+    console.warn("app: feed load failed, using SAMPLE", e);
   }
 
   const list = new ArticleList({

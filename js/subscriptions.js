@@ -217,7 +217,7 @@ export class Subscriptions {
       const dropped = this.pendingFeeds.length - keptFeeds.length;
       const parts = [`Imported ${keptFeeds.length} feed(s) from ${this.pendingFileName}.`];
       if (dropped) parts.push(`${dropped} unchecked feed(s) skipped.`);
-      parts.push(`The Worker picks these up on its next cron tick (up to 30 min).`);
+      parts.push(`Reload the page to load the new entries.`);
       this.#setStatus(parts.join(" "), "ok");
       this.#hideTriage();
     } catch (e) {
