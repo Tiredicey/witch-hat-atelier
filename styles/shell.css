@@ -933,3 +933,170 @@ body[data-page="settings"] .scrim { display: none !important; }
 @media (max-width: 768px) {
   .chain-slot__fields { padding-left: 0; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * OPML triage — Settings sub-form (PR #15)
+ * ════════════════════════════════════════════════════════════════════════ */
+.opml-triage {
+  margin-top: var(--gutter-m);
+  border: var(--stroke-1) solid var(--line);
+  border-radius: 4px;
+  padding: var(--gutter-m);
+  background: var(--paper);
+}
+.opml-triage__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--gutter-s);
+  flex-wrap: wrap;
+  margin-bottom: var(--gutter-s);
+  padding-bottom: var(--gutter-s);
+  border-bottom: var(--stroke-1) solid var(--line);
+}
+.opml-triage__summary {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.opml-triage__bulk {
+  display: flex;
+  gap: var(--gutter-xs, 8px);
+}
+.opml-triage__bulk button {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border: var(--stroke-1) solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.opml-triage__bulk button:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+.opml-triage__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.opml-triage__group {
+  margin-bottom: var(--gutter-s);
+}
+.opml-triage__group-title {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: var(--gutter-s) 0 4px;
+}
+.opml-triage__group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.opml-triage__item {
+  border-bottom: var(--stroke-1) solid var(--line);
+}
+.opml-triage__item:last-child { border-bottom: none; }
+.opml-triage__label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--gutter-s);
+  align-items: start;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.opml-triage__label input[type="checkbox"] {
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+.opml-triage__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.opml-triage__title {
+  font-family: var(--font-body);
+  font-size: var(--size-body-m);
+  color: var(--ink);
+  word-break: break-word;
+}
+.opml-triage__url {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  color: var(--ink-faint);
+  word-break: break-all;
+}
+.opml-triage__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--gutter-s);
+  margin-top: var(--gutter-m);
+  padding-top: var(--gutter-s);
+  border-top: var(--stroke-1) solid var(--line);
+}
+.opml-triage__actions button {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border: var(--stroke-1) solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.opml-triage__actions button:hover { color: var(--ink); border-color: var(--ink-soft); }
+.opml-triage__actions button[data-variant="primary"] {
+  color: var(--sepia);
+  border-color: var(--sepia);
+}
+.opml-triage__actions button[data-variant="primary"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.opml-export {
+  margin-top: var(--gutter-m);
+  padding-top: var(--gutter-s);
+  border-top: var(--stroke-1) dashed var(--line);
+}
+.opml-export summary {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 6px 0;
+}
+.opml-export summary:hover { color: var(--ink); }
+.opml-export__row {
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-m);
+  flex-wrap: wrap;
+}
+.opml-export__row button {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border: var(--stroke-1) solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.opml-export__row button:hover { color: var(--ink); border-color: var(--ink-soft); }

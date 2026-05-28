@@ -273,6 +273,45 @@
       </div>
     </section>
 
+    <section class="settings__section settings__subs">
+      <h2 class="settings__section-title">Import subscriptions (OPML)</h2>
+      <p class="settings__note">
+        Drop an OPML 2.0 file from Inoreader, Feedly, NetNewsWire, Reeder, or any other reader. The parsed feed list appears below; uncheck anything dormant or unwanted before committing.
+      </p>
+      <p class="settings__hint">
+        Automated dormancy detection (the &ldquo;17 of your 89 feeds haven&rsquo;t published in 2+ years&rdquo; signal) needs per-feed last-publish metadata from the &sect;4 Worker. Until that lands, triage is manual &mdash; every feed visible, every feed togglable.
+      </p>
+      <label class="settings__field">
+        <span>OPML file (<code>.opml</code> or <code>.xml</code>)</span>
+        <input id="opml-import-file" type="file" accept=".opml,.xml,application/xml,text/xml" autocomplete="off">
+      </label>
+      <p class="settings__test" id="opml-import-status" aria-live="polite"></p>
+
+      <div class="opml-triage" id="opml-triage" hidden>
+        <header class="opml-triage__header">
+          <p class="opml-triage__summary" id="opml-triage-summary" aria-live="polite"></p>
+          <div class="opml-triage__bulk">
+            <button type="button" id="opml-select-all">Select all</button>
+            <button type="button" id="opml-select-none">Select none</button>
+          </div>
+        </header>
+        <ul class="opml-triage__list" id="opml-triage-list"></ul>
+        <div class="opml-triage__actions">
+          <button type="button" id="opml-cancel-import">Cancel</button>
+          <button type="button" id="opml-commit-import" data-variant="primary" disabled>Import (none selected)</button>
+        </div>
+      </div>
+
+      <details class="opml-export">
+        <summary>Export current subscriptions</summary>
+        <p class="settings__hint">Downloads <code>coda-subscriptions.opml</code> with whatever&rsquo;s currently stored at <code>coda/subs/subscriptions.json</code> on the active adapter.</p>
+        <div class="opml-export__row">
+          <button type="button" id="opml-export-btn">Export OPML</button>
+          <p class="settings__test" id="opml-export-status" aria-live="polite"></p>
+        </div>
+      </details>
+    </section>
+
     <section class="settings__section settings__stars">
       <h2 class="settings__section-title">Import starred items</h2>
       <p class="settings__note">
