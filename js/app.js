@@ -14,6 +14,7 @@ import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { StarsImport } from "./inoreader-import.js";
+import { Subscriptions } from "./subscriptions.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -251,6 +252,22 @@ async function boot() {
     store,
   });
   void starsImport;
+
+  const subs = new Subscriptions({
+    importInput:     document.getElementById("opml-import-file"),
+    statusEl:        document.getElementById("opml-import-status"),
+    triageEl:        document.getElementById("opml-triage"),
+    triageListEl:    document.getElementById("opml-triage-list"),
+    triageSummaryEl: document.getElementById("opml-triage-summary"),
+    selectAllBtn:    document.getElementById("opml-select-all"),
+    selectNoneBtn:   document.getElementById("opml-select-none"),
+    commitBtn:       document.getElementById("opml-commit-import"),
+    cancelBtn:       document.getElementById("opml-cancel-import"),
+    exportBtn:       document.getElementById("opml-export-btn"),
+    exportStatusEl:  document.getElementById("opml-export-status"),
+    adapter,
+  });
+  void subs;
 }
 
 if (document.readyState === "loading") {

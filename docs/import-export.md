@@ -5,10 +5,15 @@ CODA Settings can read and write OPML 2.0 — the lingua franca of feed-reader e
 ## Import: OPML → CODA
 
 1. Open the deployed site → click the cog sigil at the bottom of the rail.
-2. Scroll to **Subscriptions**.
-3. Click **Import OPML…** and pick your `subscriptions.xml` (or any OPML 2.0 file from a previous reader).
-4. The status line shows how many feeds were imported.
-5. Wait up to 30 minutes for the next Worker cron tick. The Worker fetches every feed, applies the §1 quality heuristic, and writes the merged entries snapshot to `coda/feeds/snapshot.json`. The site reads that on reload.
+2. Scroll to **Import subscriptions (OPML)**.
+3. Pick your `subscriptions.opml` (or `.xml` from a previous reader — Inoreader, Feedly, NetNewsWire, Reeder all work).
+4. A **triage panel** appears with every parsed feed grouped by folder. Every feed is checked by default; uncheck anything dormant, broken, or unwanted.
+5. Click **Import N of M** to commit. The status line shows how many feeds landed and how many you dropped. **Cancel** abandons the import without writing anything.
+6. Wait up to 30 minutes for the next Worker cron tick. The Worker fetches every feed, applies the §1 quality heuristic, and writes the merged entries snapshot to `coda/feeds/snapshot.json`. The site reads that on reload.
+
+### Why manual triage instead of auto-flagging dormant feeds?
+
+The §1 pitch was "17 of your 89 feeds haven't published in 2+ years — keep, archive, or unsubscribe?" That signal needs per-feed last-publish metadata that only the §4 Worker can produce: the browser can't fetch most feeds directly (CORS), and probing 89 feeds inline during import would stall the page for minutes. Until the Worker exposes a `dormantFeeds[]` field on its snapshot, triage is fully manual. When that lands, the same triage UI will pre-uncheck dormant rows so you only have to confirm.
 
 Where this lands in your storage:
 
@@ -24,9 +29,10 @@ The Worker only reads the R2 path. If you are on a non-R2 adapter, your subscrip
 
 ## Export: CODA → OPML
 
-1. Same Settings → Subscriptions section.
-2. Click **Export OPML**.
-3. A file named `coda-subscriptions.opml` downloads. Open it in any feed reader to migrate out, or re-import into CODA on another browser to sync your subscription list.
+1. Same Settings → **Import subscriptions** section.
+2. Open the **Export current subscriptions** drawer at the bottom.
+3. Click **Export OPML**.
+4. A file named `coda-subscriptions.opml` downloads. Open it in any feed reader to migrate out, or re-import into CODA on another browser to sync your subscription list.
 
 The exported OPML preserves your feed URLs, titles, and folder/shelf assignment. Read state, starred items, and notes are stored in the event log (`coda/v1/log.ndjson` on the active adapter), not in OPML — OPML is for subscriptions only.
 
