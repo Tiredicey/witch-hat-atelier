@@ -1,0 +1,193 @@
+// index.js
+//
+// Cloudflare Worker entry. Two surfaces:
+//   1. scheduled() — cron-triggered (every 30 min by default). Iterates the
+//      FEEDS env var (JSON array of {id, url}), fetches each politely,
+//      parses, scores, and writes the consolidated entries snapshot to R2.
+//   2. fetch() — HTTP handler. Two routes:
+//        GET /healthz       → "ok"
+//        POST /parse        → { url, etag? } body; returns the parsed feed
+//                              without persisting. Useful for the future
+//                              /discover flow and for manual debugging.
+//
+// R2 layout (under the user's bucket, prefix `coda/feeds/`):
+//   coda/feeds/snapshot.json   ← all entries from all subscribed feeds,
+//                                merged + sorted desc by `published`.
+//   coda/feeds/meta.json       ← per-feed { etag, lastModified, lastCheck,
+//                                  lastError, score } — keeps conditional
+//                                  fetch state across runs.
+//
+// No user-identifying data is written. The Worker has no notion of who its
+// requests serve — it just fetches the URL list it was configured with.
+//
+// Bindings (see wrangler.toml):
+//   env.R2     — R2Bucket binding to the user's storage bucket
+//   env.FEEDS  — JSON string: [{ id: string, url: string, shelf?: string }]
+//   env.UA     — optional User-Agent override
+//   env.PREFIX — optional R2 key prefix (default "coda/feeds")
+
+import { fetchFeed } from "./fetch-feed.js";
+import { parseFeed } from "./parse.js";
+import { scoreFeed, passesQuality } from "./quality.js";
+
+const DEFAULT_PREFIX = "coda/feeds";
+
+export default {
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(runPoll(env));
+  },
+
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (req.method === "GET" && url.pathname === "/healthz") {
+      return new Response("ok", { headers: corsHeaders() });
+    }
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+    if (req.method === "POST" && url.pathname === "/parse") {
+      const { url: feedUrl, etag, lastModified } = await safeJson(req);
+      if (!feedUrl) return jsonError(400, "missing url");
+      const fetched = await fetchFeed(feedUrl, { etag, lastModified, ua: env.UA });
+      if (fetched.status === 304) return jsonResp({ status: 304 });
+      if (fetched.status !== 200)  return jsonResp({ status: fetched.status, error: fetched.error });
+      try {
+        const parsed = parseFeed(fetched.body, fetched.contentType);
+        const scored = scoreFeed(parsed);
+        return jsonResp({ status: 200, parsed, scored });
+      } catch (e) {
+        return jsonError(422, e.message || "parse failed");
+      }
+    }
+    return jsonError(404, "not found");
+  },
+};
+
+async function runPoll(env) {
+  if (!env.R2) {
+    console.warn("CODA Worker: no R2 binding; nothing persisted");
+  }
+  const feeds = parseFeedList(env.FEEDS);
+  if (!feeds.length) {
+    console.warn("CODA Worker: env.FEEDS empty; no feeds to poll");
+    return;
+  }
+  const prefix = (env.PREFIX || DEFAULT_PREFIX).replace(/\/+$/, "");
+  const metaKey = `${prefix}/meta.json`;
+  const snapKey = `${prefix}/snapshot.json`;
+
+  const meta = (await readJson(env.R2, metaKey)) || {};
+  const allEntries = [];
+  const newMeta = {};
+
+  for (const { id, url, shelf } of feeds) {
+    const prev = meta[id] || {};
+    const result = await pollOne({ id, url, shelf, prev, ua: env.UA });
+    newMeta[id] = result.meta;
+    for (const e of result.entries) allEntries.push({ ...e, shelf: shelf || "all" });
+  }
+
+  // Dedupe across feeds by id, sort by published desc.
+  const byId = new Map();
+  for (const e of allEntries) {
+    const existing = byId.get(e.id);
+    if (!existing || (e.published || 0) > (existing.published || 0)) byId.set(e.id, e);
+  }
+  const sorted = [...byId.values()].sort((a, b) => (b.published || 0) - (a.published || 0));
+
+  const snapshot = { generated: Date.now(), entries: sorted };
+  if (env.R2) {
+    await env.R2.put(snapKey, JSON.stringify(snapshot), {
+      httpMetadata: { contentType: "application/json" },
+    });
+    await env.R2.put(metaKey, JSON.stringify(newMeta), {
+      httpMetadata: { contentType: "application/json" },
+    });
+  }
+  console.log(`CODA Worker: ${feeds.length} feed(s) polled, ${sorted.length} entries written`);
+}
+
+async function pollOne({ id, url, prev, ua }) {
+  const fetched = await fetchFeed(url, {
+    etag: prev.etag,
+    lastModified: prev.lastModified,
+    ua,
+  });
+  const now = Date.now();
+  if (fetched.status === 304) {
+    return {
+      entries: prev.entries || [],
+      meta: { ...prev, lastCheck: now, lastError: null },
+    };
+  }
+  if (fetched.status !== 200) {
+    return {
+      entries: prev.entries || [],
+      meta: { ...prev, lastCheck: now, lastError: fetched.error || `status ${fetched.status}` },
+    };
+  }
+  try {
+    const parsed = parseFeed(fetched.body, fetched.contentType);
+    const scored = scoreFeed(parsed);
+    const entries = passesQuality(scored) ? parsed.entries : [];
+    return {
+      entries,
+      meta: {
+        etag: fetched.etag || "",
+        lastModified: fetched.lastModified || "",
+        lastCheck: now,
+        lastError: null,
+        score: scored.score,
+        feedTitle: parsed.feedTitle,
+        // Cache the last-good entries so a future 304 still produces output.
+        entries,
+      },
+    };
+  } catch (e) {
+    return {
+      entries: prev.entries || [],
+      meta: { ...prev, lastCheck: now, lastError: e.message || "parse failed" },
+    };
+  }
+}
+
+function parseFeedList(raw) {
+  if (!raw) return [];
+  try {
+    const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(list)) return [];
+    return list.filter(x => x && typeof x.url === "string" && typeof x.id === "string");
+  } catch {
+    return [];
+  }
+}
+
+async function readJson(r2, key) {
+  if (!r2) return null;
+  const obj = await r2.get(key);
+  if (!obj) return null;
+  try { return await obj.json(); } catch { return null; }
+}
+
+async function safeJson(req) {
+  try { return await req.json(); } catch { return {}; }
+}
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+
+function jsonResp(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders() },
+  });
+}
+
+function jsonError(status, message) {
+  return jsonResp({ error: message }, status);
+}

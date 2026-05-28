@@ -64,6 +64,8 @@ Audience excluded on purpose: the casual "Twitter replacement" user. CODA is for
 
 ## 4 · Architecture
 
+**Status (2026-05-28):** MVP shipped in `worker/`. The Worker covers the `/poll` (via cron) and `/parse` (via POST) flows from the diagram below, applies the §1 quality heuristic, and writes a consolidated entries snapshot to R2. The `/websub`, `/opml`, and `/discover` endpoints are scoped to follow-up PRs.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Client (PWA: SvelteKit, TypeScript, vanilla CSS w/ tokens)     │

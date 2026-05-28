@@ -1,0 +1,36 @@
+# Cloudflare Worker config for the CODA feed engine.
+#
+# Deploy:
+#   cd worker && npm install && npx wrangler login && npx wrangler deploy
+#
+# Required setup (one-time):
+#   1. Create an R2 bucket (e.g. `coda-state`) in your Cloudflare account.
+#      The bucket can be the same one the browser uses for state sync —
+#      this Worker writes under the `coda/feeds/` prefix.
+#   2. Replace the bucket_name below with yours.
+#   3. Replace the FEEDS env var below with your subscription list.
+
+name = "coda-feeds"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# Cron trigger: poll every 30 minutes. Cloudflare cron syntax (UTC).
+[triggers]
+crons = ["*/30 * * * *"]
+
+# R2 binding. Replace `coda-state` with your bucket name.
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "coda-state"
+
+# Subscription list — edit this to point at the feeds you want.
+# Each entry: { id (stable), url, shelf (optional rail group) }.
+# id must be unique and stable across deploys (used for ETag cache keying).
+[vars]
+FEEDS = '''[
+  { "id": "mnot",      "url": "https://www.mnot.net/blog/index.atom",       "shelf": "standards" },
+  { "id": "jsonfeed",  "url": "https://www.jsonfeed.org/feed.json",         "shelf": "standards" },
+  { "id": "ietf-blog", "url": "https://www.ietf.org/blog/feed/",            "shelf": "standards" }
+]'''
+UA     = "CODA/0.1 (+https://github.com/Tiredicey/witch-hat-atelier)"
+PREFIX = "coda/feeds"
