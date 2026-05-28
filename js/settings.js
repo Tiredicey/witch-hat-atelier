@@ -6,12 +6,14 @@ const FIELD_IDS = {
   webdav:  ["webdav-url", "webdav-username", "webdav-password"],
   dropbox: ["dropbox-token", "dropbox-path"],
   s3:      ["s3-endpoint", "s3-region", "s3-accessKey", "s3-secretKey", "s3-bucket"],
+  github:  ["github-token", "github-owner", "github-repo", "github-branch"],
 };
 
 const REQUIRED = {
   webdav:  ["webdav-url"],
   dropbox: ["dropbox-token"],
   s3:      ["s3-endpoint", "s3-accessKey", "s3-secretKey", "s3-bucket"],
+  github:  ["github-token", "github-owner", "github-repo"],
 };
 
 export class Settings {
@@ -68,6 +70,11 @@ export class Settings {
       this.#set("s3-accessKey", cur.accessKeyId);
       this.#set("s3-secretKey", cur.secretAccessKey);
       this.#set("s3-bucket", cur.bucket);
+    } else if (cur.kind === "github") {
+      this.#set("github-token", cur.token);
+      this.#set("github-owner", cur.owner);
+      this.#set("github-repo", cur.repo);
+      this.#set("github-branch", cur.branch || "main");
     }
   }
 
@@ -126,6 +133,13 @@ export class Settings {
       secretAccessKey: this.#get("s3-secretKey"),
       bucket: this.#get("s3-bucket").trim(),
     };
+    if (kind === "github") return {
+      kind,
+      token: this.#get("github-token").trim(),
+      owner: this.#get("github-owner").trim(),
+      repo: this.#get("github-repo").trim(),
+      branch: this.#get("github-branch").trim() || "main",
+    };
     throw new Error(`unknown kind: ${kind}`);
   }
 
@@ -170,6 +184,7 @@ function labelFor(kind) {
     webdav: "WebDAV",
     dropbox: "Dropbox",
     s3: "S3-compatible",
+    github: "GitHub",
   };
   return map[kind] || kind;
 }

@@ -214,6 +214,7 @@
         <span>Adapter</span>
         <select id="settingsKind">
           <option value="local">Local (browser only)</option>
+          <option value="github">GitHub (private repo, free forever)</option>
           <option value="webdav">WebDAV (Nextcloud, generic)</option>
           <option value="dropbox">Dropbox</option>
           <option value="s3">S3-compatible (R2, B2, Wasabi)</option>
@@ -221,6 +222,15 @@
       </label>
 
       <div id="settingsGroups">
+        <fieldset class="settings__group" data-kind="github" hidden>
+          <legend>GitHub configuration</legend>
+          <label class="settings__field"><span>Personal access token</span><input id="github-token" type="password" placeholder="github_pat_&hellip; or ghp_&hellip;" autocomplete="off"></label>
+          <label class="settings__field"><span>Owner</span><input id="github-owner" type="text" placeholder="your-username" autocomplete="off"></label>
+          <label class="settings__field"><span>Repository</span><input id="github-repo" type="text" placeholder="coda-state" autocomplete="off"></label>
+          <label class="settings__field"><span>Branch</span><input id="github-branch" type="text" value="main" autocomplete="off"></label>
+          <p class="settings__hint">Create a private repo, then a <strong>fine-grained PAT</strong> at <code>github.com/settings/personal-access-tokens</code> scoped to that one repo with <code>Contents: Read &amp; Write</code>. No bucket, no CORS, no card on file &mdash; unlimited private repos are free for individuals. Each save is a real git commit, so your event log gets free version history and rollback.</p>
+        </fieldset>
+
         <fieldset class="settings__group" data-kind="webdav" hidden>
           <legend>WebDAV configuration</legend>
           <label class="settings__field"><span>Server URL</span><input id="webdav-url" type="url" placeholder="https://nextcloud.example.com/remote.php/dav/files/me" autocomplete="off"></label>

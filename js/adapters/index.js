@@ -2,11 +2,13 @@ import { LocalAdapter } from "../storage.js";
 import { WebDAVAdapter } from "./webdav.js";
 import { DropboxAdapter } from "./dropbox.js";
 import { S3Adapter } from "./s3.js";
+import { GitHubAdapter } from "./github.js";
 
-export const ADAPTER_KINDS = ["local", "webdav", "dropbox", "s3"];
+export const ADAPTER_KINDS = ["local", "github", "webdav", "dropbox", "s3"];
 
 export const ADAPTER_LABELS = {
   local: "Local (browser only)",
+  github: "GitHub (private repo)",
   webdav: "WebDAV (Nextcloud, generic)",
   dropbox: "Dropbox",
   s3: "S3-compatible (R2, B2, Wasabi)",
@@ -64,6 +66,14 @@ export function makeAdapter(cfg, prefix = "coda/v1") {
         accessKeyId: cfg.accessKeyId,
         secretAccessKey: cfg.secretAccessKey,
         bucket: cfg.bucket,
+        prefix,
+      });
+    case "github":
+      return new GitHubAdapter({
+        token: cfg.token,
+        owner: cfg.owner,
+        repo: cfg.repo,
+        branch: cfg.branch || "main",
         prefix,
       });
     default:
