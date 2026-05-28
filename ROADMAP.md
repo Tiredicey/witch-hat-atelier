@@ -271,6 +271,7 @@ After beta, six weeks of bugfix / quality bar before public 1.0.
 |---|---|
 | RSS 2.0 [§S1 — 378,287 feeds in the wild] | Parsed at index time. Not emitted (we don't host content). |
 | Atom 1.0 [S4] | Parsed at index time. |
+| Storage adapters: WebDAV / Dropbox / S3-compatible (R2 / B2 / Wasabi) | **v1.1 ships opt-in.** Default is `LocalAdapter`. Enabling a cloud adapter requires the user to type `PLAINTEXT` into a gate field — events go up unencrypted until §5 crypto (`feat(crypto)`, PR #7) ships AES-256-GCM + Argon2id KDF. Settings page surfaces this on every visit. |
 | JSON Feed 1.1 [S3] | Parsed at index time. Used for our own admin endpoints' output. |
 | OPML 2.0 [S8] | Round-trip import and export. Quality triage on import per §1. |
 | WebSub [S7] | Implemented as a subscriber. Worker hosts /websub/cb. Falls back to polling if the publisher's hub goes dark. |

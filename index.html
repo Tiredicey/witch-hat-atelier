@@ -97,7 +97,7 @@
       <span class="shelf__label">Starred</span>
     </button>
 
-    <button class="shelf" data-shelf="settings" aria-label="Settings">
+    <button class="shelf" id="enterSettingsBtn" aria-label="Settings">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="3"/>
         <path d="M12 2 L 12 5 M 12 19 L 12 22 M 2 12 L 5 12 M 19 12 L 22 12 M 4.9 4.9 L 7 7 M 17 17 L 19.1 19.1 M 4.9 19.1 L 7 17 M 17 7 L 19.1 4.9"/>
@@ -184,6 +184,91 @@
     <textarea id="dmzTextarea" rows="3" placeholder="A line, a link, a quote &mdash; anything the others might want to see&hellip;" aria-label="Board note"></textarea>
     <div class="dmz__form-actions">
       <button type="submit" id="dmzSubmit" data-variant="primary" disabled>Pin to board</button>
+    </div>
+  </form>
+</main>
+
+<main class="settings" id="settingsPage" aria-label="Settings">
+  <header class="settings__header">
+    <button type="button" class="settings__exit" id="exitSettingsBtn" aria-label="Back to reader">&larr; Back to reader</button>
+    <div class="settings__title-wrap">
+      <h1 class="settings__title">Settings</h1>
+      <p class="settings__subtitle smallcaps">storage adapter &middot; cloud sync</p>
+    </div>
+  </header>
+  <div class="divider-hand settings__divider"></div>
+
+  <form id="settingsForm" class="settings__form" novalidate>
+    <p class="settings__active" id="settingsActiveBanner" data-kind="local">Active adapter: Local (browser only)</p>
+
+    <section class="settings__section">
+      <h2 class="settings__section-title">Storage adapter</h2>
+      <p class="settings__note">
+        The private reader writes its event log to this storage. The DMZ board uses the
+        same adapter with a sibling path (<code>coda/dmz</code>). Cross-device DMZ requires
+        a separate DMZ adapter, queued as a follow-up.
+        Encryption (AES-256-GCM, Argon2id KDF) is not in this release &mdash; see ROADMAP &sect;5 and PR #7.
+      </p>
+
+      <label class="settings__field">
+        <span>Adapter</span>
+        <select id="settingsKind">
+          <option value="local">Local (browser only)</option>
+          <option value="webdav">WebDAV (Nextcloud, generic)</option>
+          <option value="dropbox">Dropbox</option>
+          <option value="s3">S3-compatible (R2, B2, Wasabi)</option>
+        </select>
+      </label>
+
+      <div id="settingsGroups">
+        <fieldset class="settings__group" data-kind="webdav" hidden>
+          <legend>WebDAV configuration</legend>
+          <label class="settings__field"><span>Server URL</span><input id="webdav-url" type="url" placeholder="https://nextcloud.example.com/remote.php/dav/files/me" autocomplete="off"></label>
+          <label class="settings__field"><span>Username</span><input id="webdav-username" type="text" autocomplete="username"></label>
+          <label class="settings__field"><span>Password or app token</span><input id="webdav-password" type="password" autocomplete="current-password"></label>
+          <p class="settings__hint">The server URL is the WebDAV root for your user. Nextcloud format: <code>https://&lt;host&gt;/remote.php/dav/files/&lt;username&gt;</code>.</p>
+        </fieldset>
+
+        <fieldset class="settings__group" data-kind="dropbox" hidden>
+          <legend>Dropbox configuration</legend>
+          <label class="settings__field"><span>Access token</span><input id="dropbox-token" type="password" placeholder="sl.&hellip;" autocomplete="off"></label>
+          <label class="settings__field"><span>Folder path</span><input id="dropbox-path" type="text" value="/Apps/CODA"></label>
+          <p class="settings__hint">Generate a token at <code>dropbox.com/developers/apps</code> &rarr; your app &rarr; Settings &rarr; Generated access token. Full OAuth lands in a follow-up PR.</p>
+        </fieldset>
+
+        <fieldset class="settings__group" data-kind="s3" hidden>
+          <legend>S3-compatible configuration</legend>
+          <label class="settings__field"><span>Endpoint</span><input id="s3-endpoint" type="url" placeholder="https://&lt;account&gt;.r2.cloudflarestorage.com" autocomplete="off"></label>
+          <label class="settings__field"><span>Region</span><input id="s3-region" type="text" value="auto"></label>
+          <label class="settings__field"><span>Access key ID</span><input id="s3-accessKey" type="text" autocomplete="off"></label>
+          <label class="settings__field"><span>Secret access key</span><input id="s3-secretKey" type="password" autocomplete="off"></label>
+          <label class="settings__field"><span>Bucket</span><input id="s3-bucket" type="text" autocomplete="off"></label>
+          <p class="settings__hint">Works with Cloudflare R2, Backblaze B2, Wasabi, MinIO, and AWS S3. Configure CORS on the bucket so the browser can write to it.</p>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="settings__section settings__gate" id="plaintextGate" hidden>
+      <h2 class="settings__section-title settings__warning">Plaintext acknowledgement</h2>
+      <p class="settings__note">
+        <strong>This release writes your data to your cloud without encryption.</strong>
+        Anyone with your credentials can read every event in your event log.
+        PR #7 adds AES-256-GCM with a passphrase-derived key. Until then, type
+        <code>PLAINTEXT</code> below to confirm you understand.
+      </p>
+      <label class="settings__field">
+        <span>Type <code>PLAINTEXT</code> to enable</span>
+        <input id="plaintextConfirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </label>
+    </section>
+
+    <div class="settings__actions">
+      <output id="settingsTestOutput" class="settings__test" aria-live="polite"></output>
+      <div class="settings__buttons">
+        <button type="button" id="resetSettingsBtn">Reset to local</button>
+        <button type="button" id="testSettingsBtn" disabled>Test connection</button>
+        <button type="submit" id="saveSettingsBtn" data-variant="primary" disabled>Save and reload</button>
+      </div>
     </div>
   </form>
 </main>
