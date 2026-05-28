@@ -30,6 +30,7 @@ import { fetchFeed } from "./fetch-feed.js";
 import { parseFeed } from "./parse.js";
 import { scoreFeed, passesQuality } from "./quality.js";
 import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
+import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
@@ -52,6 +53,9 @@ export default {
     }
     if (req.method === "GET" && url.pathname === "/discover") {
       return handleDiscover(url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/extract") {
+      return handleExtract(req, url, env);
     }
     if (req.method === "POST" && url.pathname === "/parse") {
       const { url: feedUrl, etag, lastModified } = await safeJson(req);
@@ -228,6 +232,36 @@ async function handleProxy(req, url, env) {
   if (fetched.etag)         headers["ETag"]          = fetched.etag;
   if (fetched.lastModified) headers["Last-Modified"] = fetched.lastModified;
   return new Response(fetched.body, { status: fetched.status, headers });
+}
+
+async function handleExtract(req, url, env) {
+  const target = url.searchParams.get("url");
+  if (!target) return jsonError(400, "missing url");
+  const gate = allowProxy(target, env.PROXY_ALLOW);
+  if (!gate.ok) return jsonError(403, gate.reason);
+  const fetched = await proxyFetch(target, {
+    ua: env.UA,
+    maxBytes: Number(env.PROXY_MAX_BYTES || DEFAULT_MAX_BYTES),
+  });
+  if (fetched.status === 0 || !fetched.body) {
+    return jsonError(502, fetched.error || "upstream fetch failed");
+  }
+  const ct = (fetched.contentType || "").toLowerCase();
+  if (!ct.includes("html") && !ct.includes("xml")) {
+    return jsonError(415, `unsupported content-type: ${fetched.contentType || "unknown"}`);
+  }
+  const raw = new TextDecoder("utf-8").decode(fetched.body);
+  const cleaned = extractArticle(raw, target);
+  return new Response(cleaned, {
+    status: 200,
+    headers: {
+      ...corsHeaders(),
+      "Content-Type":         "text/html; charset=utf-8",
+      "Cache-Control":        "no-store",
+      "Content-Security-Policy": "default-src 'none'; img-src * data:; style-src 'unsafe-inline' *; font-src * data:; base-uri 'self'",
+      "X-CODA-Extract":       "scripts-stripped; print-promoted",
+    },
+  });
 }
 
 async function handleDiscover(url, env) {
