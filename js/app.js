@@ -90,10 +90,23 @@ async function boot() {
     }
   });
 
+  const metaEl = document.getElementById("shelf-meta");
+  function applyShelf(shelfId) {
+    let pred;
+    if (shelfId === "all")          pred = () => true;
+    else if (shelfId === "starred") pred = (it) => store.isStarred(it.id);
+    else                            pred = (it) => it.shelf === shelfId;
+    list.setFilter(pred);
+    if (metaEl) {
+      const n = list.getIds().length;
+      metaEl.textContent = n === 1 ? "1 item" : `${n} items`;
+    }
+  }
   new Shelves({
     railEl, titleEl,
-    onSwitch: (_shelfId) => { /* shelf filtering belongs to a §5 follow-up */ }
+    onSwitch: (shelfId) => applyShelf(shelfId)
   });
+  applyShelf("all"); // align the list-header meta with the actual sample-item count
 
   function syncToolbar(id) {
     const starred = store.isStarred(id);

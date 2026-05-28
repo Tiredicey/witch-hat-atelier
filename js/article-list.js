@@ -18,7 +18,9 @@ export class ArticleList {
   constructor({ listEl, rowsEl, items, onSelect }) {
     this.listEl = listEl;
     this.rowsEl = rowsEl;
-    this.items = items;
+    this.allItems = items;
+    this.items = items;            // currently-visible (post-filter)
+    this.filterFn = () => true;
     this.onSelect = onSelect;
     this.selectedId = null;
 
@@ -29,8 +31,23 @@ export class ArticleList {
   /** Public: which article id is currently selected (or null). */
   getSelectedId() { return this.selectedId; }
 
-  /** Public: full id list, in display order (for j/k navigation). */
+  /** Public: id list of currently visible items (for j/k navigation). */
   getIds() { return this.items.map(x => x.id); }
+
+  /**
+   * Public: filter the visible rows.
+   * @param {(item:object)=>boolean} fn predicate over an item
+   */
+  setFilter(fn) {
+    this.filterFn = typeof fn === "function" ? fn : () => true;
+    this.items = this.allItems.filter(this.filterFn);
+    this.#renderRows();
+    if (this.store) this.refreshFromStore(this.store);
+    // Drop selection if the selected id was filtered out.
+    if (this.selectedId && !this.items.some(x => x.id === this.selectedId)) {
+      this.selectedId = null;
+    }
+  }
 
   /** Public: mark row as selected (visual + aria), no callback fired. */
   setSelected(id) {
@@ -60,6 +77,13 @@ export class ArticleList {
   // ────────────────────────────────────────────────────────────────
   #renderRows() {
     this.rowsEl.innerHTML = "";
+    if (this.items.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "article-list__empty";
+      empty.textContent = "No items in this shelf yet.";
+      this.rowsEl.appendChild(empty);
+      return;
+    }
     this.items.forEach((it, i) => {
       const div = document.createElement("div");
       div.className = "article-row";
