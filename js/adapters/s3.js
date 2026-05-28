@@ -78,6 +78,18 @@ export class S3Adapter {
     await this.#request("DELETE", this.snapKey).catch(() => {});
   }
 
+  async read(key) {
+    const r = await this.#request("GET", key);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`S3 read ${key} ${r.status}`);
+    return await r.text();
+  }
+
+  async write(key, body) {
+    const r = await this.#request("PUT", key, body);
+    if (!r.ok) throw new Error(`S3 write ${key} ${r.status}`);
+  }
+
   async test() {
     const r = await this.#request("HEAD", this.snapKey);
     if (r.ok || r.status === 404) return { ok: true };

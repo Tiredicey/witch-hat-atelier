@@ -19,10 +19,10 @@ export class DropboxAdapter {
   constructor({ token, path = "/Apps/CODA", prefix = "coda/v1" }) {
     if (!token) throw new Error("DropboxAdapter: token is required");
     this.token = token;
-    const base = path.replace(/\/+$/, "");
+    this.base = path.replace(/\/+$/, "");
     const sub = prefix.replace(/^\/+|\/+$/g, "");
-    this.logPath = `${base}/${sub}/log.ndjson`;
-    this.snapPath = `${base}/${sub}/snapshot.json`;
+    this.logPath = `${this.base}/${sub}/log.ndjson`;
+    this.snapPath = `${this.base}/${sub}/snapshot.json`;
   }
 
   #auth() {
@@ -86,6 +86,15 @@ export class DropboxAdapter {
   async clear() {
     await this.#delete(this.logPath);
     await this.#delete(this.snapPath);
+  }
+
+  async read(key) {
+    const text = await this.#download(`${this.base}/${key.replace(/^\/+/, "")}`);
+    return text == null ? null : text;
+  }
+
+  async write(key, body) {
+    await this.#upload(`${this.base}/${key.replace(/^\/+/, "")}`, body);
   }
 
   async test() {

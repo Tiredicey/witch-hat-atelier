@@ -119,6 +119,8 @@ A minimum-viable §4 Cloudflare Worker lives in [`worker/`](worker/README.md). I
 
 The Worker is opt-in. Without it, the deployed site keeps using the hand-written sample articles. To deploy: `cd worker && npm install && npx wrangler login && npx wrangler deploy` after editing `worker/wrangler.toml` to point at your R2 bucket and feed list. See [`worker/README.md`](worker/README.md) for the full walkthrough and known limitations.
 
+Settings → Subscriptions now supports **OPML 2.0 import and export** — you no longer need to edit `wrangler.toml` to change your feed list. See [`docs/import-export.md`](docs/import-export.md) for the walkthrough.
+
 ## What's *not* here (and where it lives in the roadmap)
 
 | Capability                          | Roadmap section | Status |

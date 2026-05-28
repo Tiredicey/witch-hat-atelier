@@ -162,6 +162,14 @@ export class GitHubAdapter {
     await this.#delete(this.snapPath, "coda: clear snapshot");
   }
 
+  async read(key) {
+    return await this.#read(key);
+  }
+
+  async write(key, body) {
+    await this.#write(key, body, `coda: update ${key}`);
+  }
+
   async test() {
     const r = await fetch(`${API}/repos/${this.owner}/${this.repo}`, { headers: this.#headers() });
     if (r.ok) return { ok: true };
