@@ -266,6 +266,21 @@
       </div>
     </section>
 
+    <section class="settings__section settings__stars">
+      <h2 class="settings__section-title">Import starred items</h2>
+      <p class="settings__note">
+        Bring your starred archive from Inoreader (or any Google&nbsp;Reader-compatible export) into the active adapter&rsquo;s event log. One <code>item.star</code> event is written per article; the article URL is the match key.
+      </p>
+      <p class="settings__hint">
+        Export from Inoreader &rarr; <strong>Preferences</strong> &rarr; <strong>Reading list export</strong> and pick the JSON option (Google&nbsp;Reader shape). Re-importing the same file is idempotent &mdash; already-starred items are skipped. Articles whose feed uses an opaque GUID instead of the article URL land as orphan stars until the next Worker tick re-introduces them.
+      </p>
+      <label class="settings__field">
+        <span>Inoreader stars export (<code>.json</code>)</span>
+        <input id="inoreader-stars-file" type="file" accept="application/json,.json" autocomplete="off">
+      </label>
+      <p class="settings__test" id="inoreader-stars-status" aria-live="polite"></p>
+    </section>
+
     <section class="settings__section settings__resilience">
       <h2 class="settings__section-title">Failover &amp; resilience</h2>
       <p class="settings__note">

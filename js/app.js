@@ -13,6 +13,7 @@ import { Dmz, mountRouter } from "./dmz.js";
 import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
+import { StarsImport } from "./inoreader-import.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -243,6 +244,13 @@ async function boot() {
   document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
   $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
   void settingsCtrl;
+
+  const starsImport = new StarsImport({
+    fileInput: document.getElementById("inoreader-stars-file"),
+    statusEl:  document.getElementById("inoreader-stars-status"),
+    store,
+  });
+  void starsImport;
 }
 
 if (document.readyState === "loading") {
