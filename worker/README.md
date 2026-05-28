@@ -4,6 +4,8 @@ This Worker fetches the feeds in your subscription list, parses Atom / RSS 2.0 /
 
 ## What it does
 
+Subscription source precedence: the Worker first checks R2 for `coda/subs/subscriptions.json` (written by the browser Settings → Import OPML flow). If that file is absent, it falls back to the static `FEEDS` env var in `wrangler.toml`. This means once a user imports an OPML, the Worker picks up the new list on the next cron tick — no redeploy needed.
+
 Every 30 minutes (configurable in `wrangler.toml`), the Worker:
 
 1. Reads `coda/feeds/meta.json` from R2 to recover per-feed ETag / Last-Modified state.

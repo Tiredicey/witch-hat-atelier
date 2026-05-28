@@ -67,14 +67,19 @@ async function runPoll(env) {
   if (!env.R2) {
     console.warn("CODA Worker: no R2 binding; nothing persisted");
   }
-  const feeds = parseFeedList(env.FEEDS);
-  if (!feeds.length) {
-    console.warn("CODA Worker: env.FEEDS empty; no feeds to poll");
-    return;
-  }
   const prefix = (env.PREFIX || DEFAULT_PREFIX).replace(/\/+$/, "");
   const metaKey = `${prefix}/meta.json`;
   const snapKey = `${prefix}/snapshot.json`;
+
+  // Subscriptions precedence: prefer the browser-managed list at
+  // `coda/subs/subscriptions.json` (written by the Settings → Import OPML
+  // flow). If absent, fall back to the static env.FEEDS in wrangler.toml.
+  let feeds = await readSubscriptions(env.R2);
+  if (!feeds.length) feeds = parseFeedList(env.FEEDS);
+  if (!feeds.length) {
+    console.warn("CODA Worker: no subscriptions in R2 and env.FEEDS empty; nothing to poll");
+    return;
+  }
 
   const meta = (await readJson(env.R2, metaKey)) || {};
   const allEntries = [];
@@ -148,6 +153,19 @@ async function pollOne({ id, url, prev, ua }) {
       entries: prev.entries || [],
       meta: { ...prev, lastCheck: now, lastError: e.message || "parse failed" },
     };
+  }
+}
+
+async function readSubscriptions(r2) {
+  if (!r2) return [];
+  const obj = await r2.get("coda/subs/subscriptions.json");
+  if (!obj) return [];
+  try {
+    const j = await obj.json();
+    if (!j || !Array.isArray(j.feeds)) return [];
+    return j.feeds.filter(x => x && typeof x.url === "string" && typeof x.id === "string");
+  } catch {
+    return [];
   }
 }
 

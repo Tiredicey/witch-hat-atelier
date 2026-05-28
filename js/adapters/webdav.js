@@ -75,6 +75,24 @@ export class WebDAVAdapter {
     await fetch(this.snapUrl, { method: "DELETE", headers: this.#headers() }).catch(() => {});
   }
 
+  async read(key) {
+    const r = await fetch(`${this.base}/${key.replace(/^\/+/, "")}`, { headers: this.#headers() });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`WebDAV read ${key} ${r.status}`);
+    return await r.text();
+  }
+
+  async write(key, body) {
+    const r = await fetch(`${this.base}/${key.replace(/^\/+/, "")}`, {
+      method: "PUT",
+      headers: this.#headers({ "Content-Type": "application/octet-stream" }),
+      body,
+    });
+    if (!r.ok && r.status !== 201 && r.status !== 204) {
+      throw new Error(`WebDAV write ${key} ${r.status}`);
+    }
+  }
+
   async test() {
     const r = await fetch(this.snapUrl, { method: "HEAD", headers: this.#headers() });
     if (r.ok || r.status === 404) return { ok: true };
