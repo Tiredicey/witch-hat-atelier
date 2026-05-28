@@ -28,6 +28,9 @@ This repo currently ships only the **shell** described in ROADMAP §7:
   **Dropbox**, or **S3-compatible** (R2 / B2 / Wasabi). Enabling any cloud
   adapter requires typing `PLAINTEXT` into a confirmation field — encryption
   lands in a follow-up PR. Default remains `LocalAdapter`.
+  Bucket-side CORS configuration is required for the S3-compatible and
+  WebDAV adapters; see [`docs/cors.md`](docs/cors.md) for per-provider recipes
+  (Cloudflare R2, Dropbox, Nextcloud / generic WebDAV).
 
 The sample articles in `js/sample-data.js` are hand-written demo content,
 not fetched from real feeds. Every quantitative claim in the sample
