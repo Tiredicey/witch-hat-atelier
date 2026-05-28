@@ -114,6 +114,18 @@ export class Store {
     this.#emit();
   }
 
+  async bulkAppend(events) {
+    if (!events || !events.length) return;
+    this.snapshot = materialise(this.snapshot, events);
+    await this.adapter.appendLog(events);
+    this.eventsSinceSnapshot += events.length;
+    if (this.eventsSinceSnapshot >= COMPACT_THRESHOLD) {
+      await this.adapter.writeSnapshot(this.snapshot);
+      this.eventsSinceSnapshot = 0;
+    }
+    this.#emit();
+  }
+
   #emit() {
     for (const fn of this.listeners) fn(this.snapshot);
   }
