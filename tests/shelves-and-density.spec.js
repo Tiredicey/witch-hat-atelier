@@ -34,6 +34,58 @@ test.describe('shelf rail', () => {
     const tooltip = page.locator('.shelf[data-shelf="science"] .shelf__label');
     await expect(tooltip).toHaveText('Science & research');
   });
+
+  test('switching to the standards shelf filters rows to standards items', async ({ page }) => {
+    // Baseline: All shows every sample item.
+    const allCount = await page.locator('.article-row').count();
+    expect(allCount).toBeGreaterThan(0);
+
+    await page.locator('.shelf[data-shelf="standards"]').click();
+    const standardsCount = await page.locator('.article-row').count();
+    expect(standardsCount).toBeGreaterThan(0);
+    expect(standardsCount).toBeLessThan(allCount);
+    // Every visible row should be a standards-tagged source.
+    const sources = await page.locator('.article-row__source').allTextContents();
+    for (const s of sources) {
+      expect(['ietf.org', 'jsonfeed.org', 'w3.org', 'opml.org', 'mnot.net']).toContain(s);
+    }
+  });
+
+  test('switching to a shelf with no items renders the empty state', async ({ page }) => {
+    await page.locator('.shelf[data-shelf="science"]').click();
+    await expect(page.locator('.article-row')).toHaveCount(0);
+    await expect(page.locator('.article-list__empty'))
+      .toHaveText(/No items in this shelf yet\./);
+  });
+
+  test('switching back to All restores the full list', async ({ page }) => {
+    const allCount = await page.locator('.article-row').count();
+    await page.locator('.shelf[data-shelf="engineering"]').click();
+    await page.locator('.shelf[data-shelf="all"]').click();
+    await expect(page.locator('.article-row')).toHaveCount(allCount);
+  });
+
+  test('list__scroll is the actual scroll container when content overflows', async ({ page }) => {
+    // Inflate the list by cloning the first row many times so content exceeds the cell.
+    await page.evaluate(() => {
+      const scroll = document.querySelector('.list__scroll');
+      const row = scroll.querySelector('.article-row');
+      if (!scroll || !row) return;
+      for (let i = 0; i < 30; i++) scroll.appendChild(row.cloneNode(true));
+    });
+    const metrics = await page.locator('.list__scroll').evaluate(el => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      overflowY: getComputedStyle(el).overflowY,
+    }));
+    expect(metrics.overflowY).toMatch(/auto|scroll/);
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+
+    // Programmatic scroll should actually move the element.
+    await page.locator('.list__scroll').evaluate(el => { el.scrollTop = 200; });
+    const after = await page.locator('.list__scroll').evaluate(el => el.scrollTop);
+    expect(after).toBeGreaterThan(0);
+  });
 });
 
 test.describe('density toggle', () => {

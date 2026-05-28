@@ -99,6 +99,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* min-height: 0 lets this grid item shrink to its cell so .list__scroll
+     can become the actual scroll container. Without it the grid item grows
+     past 100dvh and html/body { overflow: hidden } clips the overflow,
+     leaving the list unscrollable. */
+  min-height: 0;
 }
 .list__header {
   padding: var(--gutter-l) var(--gutter-l) var(--gutter-s);
@@ -137,6 +142,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   flex: 1;
   overflow-y: auto;
   padding: 0 var(--gutter-l) var(--gutter-l);
+  min-height: 0;
+}
+
+.article-list__empty {
+  color: var(--ink-faint);
+  font-family: var(--font-display);
+  font-size: var(--size-body-l);
+  margin: var(--gutter-l) var(--gutter-s);
+  font-style: italic;
 }
 
 .article-row {

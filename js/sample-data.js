@@ -12,6 +12,7 @@ export const SAMPLE = [
   {
     id: "a1",
     source: "mnot.net",
+    shelf: "standards",
     title: "Web Feeds in 2026: a quieter conclusion",
     age: "2h",
     read: false,
@@ -26,6 +27,7 @@ export const SAMPLE = [
   {
     id: "a2",
     source: "ietf.org",
+    shelf: "standards",
     title: "draft-nottingham-feed-menu-00",
     age: "11h",
     read: false,
@@ -39,6 +41,7 @@ export const SAMPLE = [
   {
     id: "a3",
     source: "jsonfeed.org",
+    shelf: "standards",
     title: "JSON Feed 1.1, six years on",
     age: "yesterday",
     read: true,
@@ -52,6 +55,7 @@ export const SAMPLE = [
   {
     id: "a4",
     source: "w3.org",
+    shelf: "standards",
     title: "WebSub: still the only push spec that shipped",
     age: "2d",
     read: false,
@@ -65,6 +69,7 @@ export const SAMPLE = [
   {
     id: "a5",
     source: "winters27 / github",
+    shelf: "engineering",
     title: "Obsidian BYOC: bring your own cloud, twelve providers",
     age: "3d",
     read: false,
@@ -78,6 +83,7 @@ export const SAMPLE = [
   {
     id: "a6",
     source: "opml.org",
+    shelf: "standards",
     title: "OPML 2.0 and the politics of import",
     age: "4d",
     read: true,
