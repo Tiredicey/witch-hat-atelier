@@ -3,23 +3,25 @@ import { loadSettings, saveSettings, clearSettings, makeAdapter, ADAPTER_KINDS }
 const GATE_WORD = "PLAINTEXT";
 
 const FIELD_IDS = {
-  webdav:  ["webdav-url", "webdav-username", "webdav-password"],
-  dropbox: ["dropbox-token", "dropbox-path"],
-  s3:      ["s3-endpoint", "s3-region", "s3-accessKey", "s3-secretKey", "s3-bucket"],
-  github:  ["github-token", "github-owner", "github-repo", "github-branch"],
+  webdav:   ["webdav-url", "webdav-username", "webdav-password"],
+  dropbox:  ["dropbox-token", "dropbox-path"],
+  s3:       ["s3-endpoint", "s3-region", "s3-accessKey", "s3-secretKey", "s3-bucket"],
+  github:   ["github-token", "github-owner", "github-repo", "github-branch"],
+  telegram: ["telegram-token", "telegram-chatId"],
 };
 
 const REQUIRED = {
-  webdav:  ["webdav-url"],
-  dropbox: ["dropbox-token"],
-  s3:      ["s3-endpoint", "s3-accessKey", "s3-secretKey", "s3-bucket"],
-  github:  ["github-token", "github-owner", "github-repo"],
+  webdav:   ["webdav-url"],
+  dropbox:  ["dropbox-token"],
+  s3:       ["s3-endpoint", "s3-accessKey", "s3-secretKey", "s3-bucket"],
+  github:   ["github-token", "github-owner", "github-repo"],
+  telegram: ["telegram-token", "telegram-chatId"],
 };
 
 export class Settings {
   constructor({
     pageEl, formEl, kindSelect, groupsEl, plaintextGate, plaintextInput,
-    testBtn, saveBtn, resetBtn, testOutput, activeBanner,
+    testBtn, saveBtn, resetBtn, testOutput, activeBanner, mirrorLocalInput,
   }) {
     this.pageEl = pageEl;
     this.formEl = formEl;
@@ -32,6 +34,7 @@ export class Settings {
     this.resetBtn = resetBtn;
     this.testOutput = testOutput;
     this.activeBanner = activeBanner;
+    this.mirrorLocalInput = mirrorLocalInput || null;
 
     this.#hydrate();
     this.#bind();
@@ -43,6 +46,9 @@ export class Settings {
     this.plaintextInput.addEventListener("input", () => this.#syncSaveEnabled());
     for (const fs of this.groupsEl.querySelectorAll("fieldset[data-kind] input")) {
       fs.addEventListener("input", () => this.#syncSaveEnabled());
+    }
+    if (this.mirrorLocalInput) {
+      this.mirrorLocalInput.addEventListener("change", () => this.#syncSaveEnabled());
     }
     this.formEl.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -75,6 +81,12 @@ export class Settings {
       this.#set("github-owner", cur.owner);
       this.#set("github-repo", cur.repo);
       this.#set("github-branch", cur.branch || "main");
+    } else if (cur.kind === "telegram") {
+      this.#set("telegram-token", cur.token);
+      this.#set("telegram-chatId", cur.chatId);
+    }
+    if (this.mirrorLocalInput) {
+      this.mirrorLocalInput.checked = !!cur.mirrorLocal;
     }
   }
 
@@ -114,33 +126,45 @@ export class Settings {
   #buildConfig() {
     const kind = this.kindSelect.value;
     if (kind === "local") return { kind };
-    if (kind === "webdav") return {
+    if (kind === "webdav") return this.#decorate({
       kind,
       url: this.#get("webdav-url").trim(),
       username: this.#get("webdav-username"),
       password: this.#get("webdav-password"),
-    };
-    if (kind === "dropbox") return {
+    }, true);
+    if (kind === "dropbox") return this.#decorate({
       kind,
       token: this.#get("dropbox-token").trim(),
       path: this.#get("dropbox-path").trim() || "/Apps/CODA",
-    };
-    if (kind === "s3") return {
+    }, true);
+    if (kind === "s3") return this.#decorate({
       kind,
       endpoint: this.#get("s3-endpoint").trim(),
       region: this.#get("s3-region").trim() || "auto",
       accessKeyId: this.#get("s3-accessKey").trim(),
       secretAccessKey: this.#get("s3-secretKey"),
       bucket: this.#get("s3-bucket").trim(),
-    };
-    if (kind === "github") return {
+    }, true);
+    if (kind === "github") return this.#decorate({
       kind,
       token: this.#get("github-token").trim(),
       owner: this.#get("github-owner").trim(),
       repo: this.#get("github-repo").trim(),
       branch: this.#get("github-branch").trim() || "main",
-    };
+    });
+    if (kind === "telegram") return this.#decorate({
+      kind,
+      token: this.#get("telegram-token").trim(),
+      chatId: this.#get("telegram-chatId").trim(),
+    });
     throw new Error(`unknown kind: ${kind}`);
+  }
+
+  #decorate(cfg) {
+    if (cfg.kind !== "local" && this.mirrorLocalInput && this.mirrorLocalInput.checked) {
+      cfg.mirrorLocal = true;
+    }
+    return cfg;
   }
 
   async #testConnection() {
@@ -185,6 +209,7 @@ function labelFor(kind) {
     dropbox: "Dropbox",
     s3: "S3-compatible",
     github: "GitHub",
+    telegram: "Telegram",
   };
   return map[kind] || kind;
 }
