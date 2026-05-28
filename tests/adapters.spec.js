@@ -185,6 +185,83 @@ test.describe('storage adapters + settings page (§5 + §8.2)', () => {
     expect(stored).toBeNull();
   });
 
+  test('GitHub adapter PUTs base64 contents with Bearer token + sha-aware updates', async ({ page }) => {
+    const requests = [];
+    await page.route(/api\.github\.com/, async (route, request) => {
+      requests.push({
+        method: request.method(),
+        url: request.url(),
+        body: request.postData(),
+        headers: request.headers(),
+      });
+      const url = request.url();
+      const m = request.method();
+      if (m === 'GET' && /\/repos\/me\/coda-state\??$|\/repos\/me\/coda-state$/.test(url.split('?')[0])) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ full_name: 'me/coda-state' }) });
+      }
+      if (m === 'GET' && url.includes('/contents/coda/v1/log.ndjson')) {
+        return route.fulfill({ status: 404, contentType: 'application/json', body: '{"message":"Not Found"}' });
+      }
+      if (m === 'GET' && url.includes('/contents/coda/v1/snapshot.json')) {
+        return route.fulfill({ status: 404, contentType: 'application/json', body: '{"message":"Not Found"}' });
+      }
+      if (m === 'PUT') {
+        return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ content: { sha: 'newsha123' } }) });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await gotoSettings(page);
+    await configure(page, 'github', {
+      'github-token': 'ghp_testtoken',
+      'github-owner': 'me',
+      'github-repo': 'coda-state',
+      'github-branch': 'main',
+    });
+
+    await page.locator('.article-row').first().click();
+    await page.locator('#starBtn').click();
+
+    await expect.poll(() => requests.filter(r => r.method === 'PUT').length).toBeGreaterThan(0);
+    const put = requests.find(r => r.method === 'PUT');
+    expect(put.url).toContain('/repos/me/coda-state/contents/coda/v1/log.ndjson');
+    expect(put.headers['authorization']).toBe('Bearer ghp_testtoken');
+    expect(put.headers['accept']).toBe('application/vnd.github+json');
+    expect(put.headers['x-github-api-version']).toBe('2022-11-28');
+    const parsed = JSON.parse(put.body);
+    expect(parsed.branch).toBe('main');
+    expect(typeof parsed.content).toBe('string');
+    const decoded = Buffer.from(parsed.content, 'base64').toString('utf-8');
+    expect(decoded).toContain('item.star');
+  });
+
+  test('GitHub Test connection surfaces 401 as auth rejected', async ({ page }) => {
+    await page.route(/api\.github\.com/, async (route) => route.fulfill({ status: 401, contentType: 'application/json', body: '{"message":"Bad credentials"}' }));
+
+    await gotoSettings(page);
+    await page.locator('#settingsKind').selectOption('github');
+    await page.locator('#github-token').fill('ghp_bad');
+    await page.locator('#github-owner').fill('me');
+    await page.locator('#github-repo').fill('coda-state');
+    await expect(page.locator('#testSettingsBtn')).toBeEnabled();
+    await page.locator('#testSettingsBtn').click();
+    await expect(page.locator('#settingsTestOutput')).toHaveAttribute('data-status', 'fail');
+    await expect(page.locator('#settingsTestOutput')).toContainText('auth rejected');
+  });
+
+  test('GitHub Test connection surfaces 404 with helpful message', async ({ page }) => {
+    await page.route(/api\.github\.com/, async (route) => route.fulfill({ status: 404, contentType: 'application/json', body: '{"message":"Not Found"}' }));
+
+    await gotoSettings(page);
+    await page.locator('#settingsKind').selectOption('github');
+    await page.locator('#github-token').fill('ghp_x');
+    await page.locator('#github-owner').fill('me');
+    await page.locator('#github-repo').fill('missing');
+    await page.locator('#testSettingsBtn').click();
+    await expect(page.locator('#settingsTestOutput')).toHaveAttribute('data-status', 'fail');
+    await expect(page.locator('#settingsTestOutput')).toContainText('repo not found');
+  });
+
   test('Boot falls back to local if cloud config is invalid', async ({ page }) => {
     await page.evaluate(() => localStorage.setItem('coda/settings', JSON.stringify({
       kind: 'webdav',

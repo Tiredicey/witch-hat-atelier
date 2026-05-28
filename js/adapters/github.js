@@ -1,0 +1,173 @@
+const API = "https://api.github.com";
+
+function parseNdjson(text) {
+  if (!text) return [];
+  const out = [];
+  for (const line of text.split("\n")) {
+    if (!line) continue;
+    try { out.push(JSON.parse(line)); } catch {}
+  }
+  return out;
+}
+
+function eventsToNdjson(events) {
+  return events.map(e => JSON.stringify(e)).join("\n");
+}
+
+function b64encode(text) {
+  return btoa(unescape(encodeURIComponent(text)));
+}
+
+function b64decode(b64) {
+  return decodeURIComponent(escape(atob(b64.replace(/\n/g, ""))));
+}
+
+export class GitHubAdapter {
+  constructor({ token, owner, repo, branch = "main", prefix = "coda/v1" }) {
+    if (!token) throw new Error("GitHubAdapter: token is required");
+    if (!owner) throw new Error("GitHubAdapter: owner is required");
+    if (!repo) throw new Error("GitHubAdapter: repo is required");
+    this.token = token;
+    this.owner = owner.replace(/^\/+|\/+$/g, "");
+    this.repo = repo.replace(/^\/+|\/+$/g, "");
+    this.branch = branch || "main";
+    const sub = prefix.replace(/^\/+|\/+$/g, "");
+    this.logPath = `${sub}/log.ndjson`;
+    this.snapPath = `${sub}/snapshot.json`;
+    this.shaCache = new Map();
+  }
+
+  #headers(extra = {}) {
+    return {
+      "Authorization": `Bearer ${this.token}`,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...extra,
+    };
+  }
+
+  #contentsUrl(path) {
+    return `${API}/repos/${this.owner}/${this.repo}/contents/${encodeURI(path)}?ref=${encodeURIComponent(this.branch)}`;
+  }
+
+  #writeUrl(path) {
+    return `${API}/repos/${this.owner}/${this.repo}/contents/${encodeURI(path)}`;
+  }
+
+  async #read(path) {
+    const r = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+    if (r.status === 404) {
+      this.shaCache.delete(path);
+      return null;
+    }
+    if (!r.ok) throw new Error(`GitHub read ${path} ${r.status}`);
+    const j = await r.json();
+    if (j && j.sha) this.shaCache.set(path, j.sha);
+    if (!j || typeof j.content !== "string") return "";
+    return b64decode(j.content);
+  }
+
+  async #write(path, text, message) {
+    const body = {
+      message: message || `coda: update ${path}`,
+      content: b64encode(text),
+      branch: this.branch,
+    };
+    let sha = this.shaCache.get(path);
+    if (!sha) {
+      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+      if (probe.ok) {
+        const pj = await probe.json();
+        if (pj && pj.sha) { sha = pj.sha; this.shaCache.set(path, sha); }
+      } else if (probe.status !== 404) {
+        throw new Error(`GitHub probe ${path} ${probe.status}`);
+      }
+    }
+    if (sha) body.sha = sha;
+    let r = await fetch(this.#writeUrl(path), {
+      method: "PUT",
+      headers: this.#headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+    if (r.status === 409 || r.status === 422) {
+      this.shaCache.delete(path);
+      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+      if (probe.ok) {
+        const pj = await probe.json();
+        if (pj && pj.sha) { body.sha = pj.sha; this.shaCache.set(path, pj.sha); }
+      } else if (probe.status === 404) {
+        delete body.sha;
+      }
+      r = await fetch(this.#writeUrl(path), {
+        method: "PUT",
+        headers: this.#headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+    }
+    if (!r.ok) throw new Error(`GitHub write ${path} ${r.status}`);
+    const j = await r.json();
+    if (j && j.content && j.content.sha) this.shaCache.set(path, j.content.sha);
+  }
+
+  async #delete(path, message) {
+    let sha = this.shaCache.get(path);
+    if (!sha) {
+      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+      if (probe.status === 404) return;
+      if (!probe.ok) return;
+      const pj = await probe.json();
+      sha = pj && pj.sha;
+      if (!sha) return;
+    }
+    const r = await fetch(this.#writeUrl(path), {
+      method: "DELETE",
+      headers: this.#headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        message: message || `coda: delete ${path}`,
+        sha,
+        branch: this.branch,
+      }),
+    });
+    if (r.ok || r.status === 404) {
+      this.shaCache.delete(path);
+      return;
+    }
+  }
+
+  async readLog() {
+    const text = await this.#read(this.logPath);
+    return text ? parseNdjson(text) : [];
+  }
+
+  async appendLog(events) {
+    if (!events.length) return;
+    const existing = await this.readLog();
+    const body = eventsToNdjson([...existing, ...events]);
+    await this.#write(this.logPath, body, `coda: append ${events.length} event(s)`);
+  }
+
+  async readSnapshot() {
+    const text = await this.#read(this.snapPath);
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  async writeSnapshot(snapshot) {
+    await this.#write(this.snapPath, JSON.stringify(snapshot), "coda: write snapshot");
+    await this.#delete(this.logPath, "coda: snapshot rotated, clearing log");
+  }
+
+  async clear() {
+    await this.#delete(this.logPath, "coda: clear log");
+    await this.#delete(this.snapPath, "coda: clear snapshot");
+  }
+
+  async test() {
+    const r = await fetch(`${API}/repos/${this.owner}/${this.repo}`, { headers: this.#headers() });
+    if (r.ok) return { ok: true };
+    if (r.status === 401) return { ok: false, error: "auth rejected" };
+    if (r.status === 403) return { ok: false, error: "token lacks contents:write" };
+    if (r.status === 404) return { ok: false, error: "repo not found or token lacks access" };
+    return { ok: false, error: `status ${r.status}` };
+  }
+}
