@@ -21,6 +21,31 @@ It also exposes two HTTP endpoints:
 |--------|-------------|---------|
 | GET    | `/healthz`  | Returns `ok` — for uptime monitoring. |
 | POST   | `/parse`    | Body: `{ "url": "...", "etag"?: "...", "lastModified"?: "..." }`. Returns the parsed feed and quality score without persisting. Useful for the planned §8.1 add-by-URL flow and for debugging. |
+| GET    | `/fetch?url=<feed_url>` | Universal CORS proxy. Gated by the `PROXY_ALLOW` env var (default disabled). Forwards conditional headers (`If-None-Match`, `If-Modified-Since`), returns the upstream body with original `Content-Type` plus `ETag` / `Last-Modified` passthrough, capped at `MAX_BYTES` (default 5 MB). Used by the browser app when bucket-side CORS is unavailable. |
+
+### The `/fetch` proxy in detail
+
+The browser app cannot fetch arbitrary feeds directly: most publishers do not send `Access-Control-Allow-Origin` headers, so the browser blocks the response. `/fetch` is a thin pass-through on the Worker that adds those headers and returns the body, so any HTTP feed becomes reachable from the static site without storing credentials.
+
+**Gating.** The route is closed by default. To enable it, set `PROXY_ALLOW` to either:
+- `*` — allow any public http(s) URL. Private addresses (`localhost`, `127.0.0.1`, RFC-1918 ranges, `169.254/16`, `::1`, `0.0.0.0`) are blocked regardless, as SSRF defense.
+- A comma-separated list of URL prefixes — only URLs starting with one of these prefixes pass the gate. Example: `https://www.mnot.net/, https://www.jsonfeed.org/`.
+
+**Size cap.** Responses larger than `MAX_BYTES` (default 5 MB, matching ROADMAP §11 risk 8) return `502 upstream too large: <n> > <max>`. The cap is checked against the upstream-declared `Content-Length` first and then against the actual `arrayBuffer().byteLength` for servers that omit `Content-Length`.
+
+**Timeout.** Hard 15 s upstream timeout; on timeout the proxy returns `502 timeout after 15000ms`.
+
+**Caching.** The proxy never adds its own cache. `Cache-Control: no-store` is set on responses so browsers re-validate on every load. The upstream `ETag` / `Last-Modified` are forwarded so the browser can issue `If-None-Match` / `If-Modified-Since` on its own.
+
+**Verify locally:**
+
+```bash
+PROXY_ALLOW='*' npx wrangler dev
+curl -i 'http://127.0.0.1:8787/fetch?url=https://www.jsonfeed.org/feed.json' \
+  -H 'Origin: https://witch-hat-atelier.pages.dev'
+```
+
+You should see `200 OK`, `Access-Control-Allow-Origin: *`, the original `Content-Type`, and the JSON Feed body. The proxy adds nothing to the body.
 
 ## Deploy
 
