@@ -82,7 +82,7 @@ async function boot() {
   // longer than 15s; loadFeedSnapshot has its own AbortController.
   let items = SAMPLE;
   try {
-    const real = await loadFeedSnapshot(settings);
+    const real = await loadFeedSnapshot(settings, adapter);
     if (real && real.length > 0) items = real;
   } catch (e) {
     console.warn("app: feed snapshot load failed, using SAMPLE", e);
