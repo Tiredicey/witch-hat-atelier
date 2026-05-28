@@ -49,6 +49,7 @@ export class ChainAdapter {
     let lastErr = null;
     for (let i = 0; i < this.chain.length; i++) {
       if (!this.#usable(i)) continue;
+      if (typeof this.chain[i][method] !== "function") continue;
       try {
         const out = await this.chain[i][method](...args);
         this.#recordOk(i);
@@ -66,8 +67,12 @@ export class ChainAdapter {
 
   async #mirrorWrite(method, ...args) {
     const indices = [];
-    for (let i = 0; i < this.chain.length; i++) if (this.#usable(i)) indices.push(i);
-    if (!indices.length) throw new Error("ChainAdapter: no usable adapters");
+    for (let i = 0; i < this.chain.length; i++) {
+      if (!this.#usable(i)) continue;
+      if (typeof this.chain[i][method] !== "function") continue;
+      indices.push(i);
+    }
+    if (!indices.length) throw new Error(`ChainAdapter: no adapter in the chain supports ${method}`);
     const results = await Promise.allSettled(
       indices.map(i => this.chain[i][method](...args)),
     );
@@ -86,6 +91,15 @@ export class ChainAdapter {
   async appendLog(events) { return this.#mirrorWrite("appendLog", events); }
   async writeSnapshot(s)  { return this.#mirrorWrite("writeSnapshot", s); }
   async clear()           { return this.#mirrorWrite("clear"); }
+
+  // Generic key-based read/write. Required for features that store a JSON
+  // file at a fixed path independent of the event log; OPML subscriptions
+  // (coda/subs/subscriptions.json) was the first such feature. Adapters
+  // that do not implement these (TelegramAdapter, today) are skipped by the
+  // typeof guards in #tryRead / #mirrorWrite, so a chain containing Telegram
+  // does not crash; it just routes around it.
+  async read(key)         { return this.#tryRead("read", key); }
+  async write(key, body)  { return this.#mirrorWrite("write", key, body); }
 
   async test() {
     const results = await Promise.all(
