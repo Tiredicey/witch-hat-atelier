@@ -31,6 +31,7 @@ import { parseFeed } from "./parse.js";
 import { scoreFeed, passesQuality } from "./quality.js";
 import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
+import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
 
@@ -49,6 +50,9 @@ export default {
     }
     if (req.method === "GET" && url.pathname === "/fetch") {
       return handleProxy(req, url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/discover") {
+      return handleDiscover(url, env);
     }
     if (req.method === "GET" && url.pathname === "/extract") {
       return handleExtract(req, url, env);
@@ -258,6 +262,45 @@ async function handleExtract(req, url, env) {
       "X-CODA-Extract":       "scripts-stripped; print-promoted",
     },
   });
+}
+
+async function handleDiscover(url, env) {
+  const target = url.searchParams.get("url");
+  if (!target) return jsonError(400, "missing url");
+  const gate = allowProxy(target, env.PROXY_ALLOW);
+  if (!gate.ok) return jsonError(403, gate.reason);
+  const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
+  const page = await proxyFetch(target, { ua: env.UA, maxBytes });
+  if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
+  if (page.status >= 400) return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
+  const html = decodeText(page.body);
+  const fromHtml = extractFeedLinks(html, target);
+  if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false });
+  const probes = commonFeedPaths(target).slice(0, 8);
+  const found = [];
+  const seen = new Set();
+  for (const p of probes) {
+    const gate2 = allowProxy(p, env.PROXY_ALLOW);
+    if (!gate2.ok) continue;
+    const r = await proxyFetch(p, { ua: env.UA, maxBytes: 200_000 });
+    if (r.status !== 200) continue;
+    if (!looksLikeFeed(r.body, r.contentType)) continue;
+    if (seen.has(p)) continue;
+    seen.add(p);
+    found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
+    if (found.length >= 5) break;
+  }
+  return jsonResp({ candidates: found, probed: true });
+}
+
+function decodeText(buf) {
+  if (!buf) return "";
+  try {
+    const view = buf.byteLength !== undefined ? buf : new Uint8Array(buf);
+    return new TextDecoder("utf-8", { fatal: false }).decode(view);
+  } catch {
+    return "";
+  }
 }
 
 function corsHeaders() {
