@@ -113,11 +113,17 @@ To see the HTML report after a run:
 npm run test:report
 ```
 
+## Real feed fetching (§4 Worker)
+
+A minimum-viable §4 Cloudflare Worker lives in [`worker/`](worker/README.md). It polls the feeds you configure, parses Atom / RSS 2.0 / JSON Feed, applies the §1 quality heuristic, and writes a merged entries snapshot to your R2 bucket every 30 minutes. The browser site reads that snapshot via `js/feed-source.js` and replaces the sample data when entries are available.
+
+The Worker is opt-in. Without it, the deployed site keeps using the hand-written sample articles. To deploy: `cd worker && npm install && npx wrangler login && npx wrangler deploy` after editing `worker/wrangler.toml` to point at your R2 bucket and feed list. See [`worker/README.md`](worker/README.md) for the full walkthrough and known limitations.
+
 ## What's *not* here (and where it lives in the roadmap)
 
 | Capability                          | Roadmap section | Status |
 |-------------------------------------|-----------------|--------|
-| Feed fetching, parse, quality score | §4 (Worker)     | not built |
+| Feed fetching, parse, quality score | §4 (Worker)     | **MVP shipped** in `worker/` — poll/parse/quality; websub/opml/discover deferred |
 | Storage adapters (Dropbox/R2/WebDAV)| §5 + §8.2       | **all three shipped (opt-in, plaintext)**; cloud-DMZ split deferred |
 | AES-256-GCM client encryption       | §5              | not built (PR #7 — required before cloud adapters become default) |
 | OPML 2.0 import + triage screen     | §8.1            | not built |

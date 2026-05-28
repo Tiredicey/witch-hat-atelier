@@ -12,6 +12,7 @@ import { Notes } from "./notes.js";
 import { Dmz, mountRouter } from "./dmz.js";
 import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
+import { loadFeedSnapshot } from "./feed-source.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -74,8 +75,20 @@ async function boot() {
     store,
   });
 
+  // Try to load real entries from the §4 Worker R2 snapshot. Falls back to
+  // SAMPLE if the user is not on the S3 adapter, the bucket has no snapshot,
+  // or the fetch fails (network, CORS, expired creds). Never blocks boot for
+  // longer than 15s; loadFeedSnapshot has its own AbortController.
+  let items = SAMPLE;
+  try {
+    const real = await loadFeedSnapshot(settings);
+    if (real && real.length > 0) items = real;
+  } catch (e) {
+    console.warn("app: feed snapshot load failed, using SAMPLE", e);
+  }
+
   const list = new ArticleList({
-    listEl, rowsEl, items: SAMPLE,
+    listEl, rowsEl, items,
     onSelect: (id) => {
       const a = list.find(id);
       if (a) {
@@ -162,12 +175,12 @@ async function boot() {
         if (a) { reader.renderArticle(a); notes.bind(prev); mobile.showReader(); syncToolbar(prev); }
       },
       openFirstIfNone: () => {
-        if (!list.getSelectedId() && SAMPLE[0]) {
-          list.setSelected(SAMPLE[0].id);
-          reader.renderArticle(SAMPLE[0]);
-          notes.bind(SAMPLE[0].id);
+        if (!list.getSelectedId() && items[0]) {
+          list.setSelected(items[0].id);
+          reader.renderArticle(items[0]);
+          notes.bind(items[0].id);
           mobile.showReader();
-          syncToolbar(SAMPLE[0].id);
+          syncToolbar(items[0].id);
         }
       },
       markToggle: () => markBtn.click(),
