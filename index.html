@@ -219,6 +219,7 @@
           <option value="webdav">WebDAV (Nextcloud, generic)</option>
           <option value="dropbox">Dropbox</option>
           <option value="s3">S3-compatible (R2, B2, Wasabi)</option>
+          <option value="chain">Failover chain (up to 3 ordered backends)</option>
         </select>
       </label>
 
@@ -252,6 +253,12 @@
           <label class="settings__field"><span>Access token</span><input id="dropbox-token" type="password" placeholder="sl.&hellip;" autocomplete="off"></label>
           <label class="settings__field"><span>Folder path</span><input id="dropbox-path" type="text" value="/Apps/CODA"></label>
           <p class="settings__hint">Generate a token at <code>dropbox.com/developers/apps</code> &rarr; your app &rarr; Settings &rarr; Generated access token. Full OAuth lands in a follow-up PR.</p>
+        </fieldset>
+
+        <fieldset class="settings__group" data-kind="chain" hidden id="chainFieldset">
+          <legend>Failover chain &mdash; up to 3 ordered backends</legend>
+          <p class="settings__hint">Reads try slot 1 first, then 2, then 3. Writes mirror to every healthy slot. A failing slot enters a 60-second exponential cooldown and is skipped until it recovers. Put your cloud first, a local mirror last &mdash; the reader stays alive when the cloud blinks.</p>
+          <div id="chainFormHost"></div>
         </fieldset>
 
         <fieldset class="settings__group" data-kind="s3" hidden>

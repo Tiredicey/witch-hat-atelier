@@ -7,6 +7,23 @@ import { TelegramAdapter } from "./telegram.js";
 import { ChainAdapter } from "./chain.js";
 
 export const ADAPTER_KINDS = ["local", "github", "telegram", "webdav", "dropbox", "s3"];
+const CHAIN_KIND = "chain";
+const MAX_CHAIN_SLOTS = 3;
+
+function isValidSingleConfig(cfg) {
+  return cfg && typeof cfg === "object" && ADAPTER_KINDS.includes(cfg.kind);
+}
+
+export function isValidChainConfig(cfg) {
+  if (!cfg || cfg.kind !== CHAIN_KIND) return false;
+  if (!Array.isArray(cfg.adapters)) return false;
+  if (cfg.adapters.length < 1 || cfg.adapters.length > MAX_CHAIN_SLOTS) return false;
+  return cfg.adapters.every(isValidSingleConfig);
+}
+
+export function isValidSettings(cfg) {
+  return isValidSingleConfig(cfg) || isValidChainConfig(cfg);
+}
 
 export const ADAPTER_LABELS = {
   local: "Local (browser only)",
@@ -24,9 +41,7 @@ export function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { kind: "local" };
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !ADAPTER_KINDS.includes(parsed.kind)) {
-      return { kind: "local" };
-    }
+    if (!isValidSettings(parsed)) return { kind: "local" };
     return parsed;
   } catch {
     return { kind: "local" };
@@ -34,7 +49,7 @@ export function loadSettings() {
 }
 
 export function saveSettings(cfg) {
-  if (!cfg || !ADAPTER_KINDS.includes(cfg.kind)) {
+  if (!isValidSettings(cfg)) {
     throw new Error("invalid settings");
   }
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(cfg));

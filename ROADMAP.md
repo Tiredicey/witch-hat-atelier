@@ -371,3 +371,63 @@ A second, intentionally open area of the app, sitting alongside the private read
 ---
 
 *Last revised: 2026-05-28. If a date or stat in this document looks stale, check the source anchor first; if the source is gone, treat the claim as unverified and remove it.*
+
+
+---
+
+## 16 · Backend exploration shortlist (research pool, not commitments)
+
+The §5 sync protocol is adapter-shaped on purpose: every backend below could become a slot in a §5 chain or a standalone option. This section is a **research pool**, not a v1 promise. Each entry needs (a) a working CORS/auth recipe a browser can use, (b) durable semantics, and (c) a no-card-on-file free tier or a free-with-explicit-quota.
+
+Items marked **shipped** already have an adapter at `js/adapters/*.js`. Everything else needs a spike before promotion.
+
+### 16.1 · Free, durable, no-card-on-file (highest signal)
+
+- **GitHub Contents API** — shipped. Free unlimited private repos, every save is a real git commit, no CORS config needed. See `js/adapters/github.js`.
+- **Telegram Bot API** — shipped. Up to 2 GB per file (4 GB with Premium), unlimited files, message edits give us in-place updates. See `js/adapters/telegram.js`.
+- **Cloudflare R2 + Worker proxy** — Worker fronts the bucket so the browser never touches R2 directly. Kills the CORS recipe and hides the access keys. ROADMAP §4 Worker is already deployed; needs a `/storage/*` route + an API token check.
+- **Cloudflare Workers KV** — 1 GB free, 100k reads / 1k writes per day. Key-value semantics map cleanly to `read(key)` / `write(key, body)`. Worker proxy needed (no browser-direct API).
+- **Cloudflare D1** — 5 GB SQLite at the edge, 5M reads/day free. SQL is heavier than the current NDJSON event log needs, so this is a `kind: "d1"` option only if we ever want server-side queries.
+- **Deno Deploy KV** — 1 GB free, global replication, no card on file. Browser-direct via Deno Deploy edge function. Needs the same Worker-proxy pattern as Cloudflare KV.
+- **Supabase free tier** — 500 MB Postgres + 1 GB storage + realtime channels. CORS-friendly REST API. Heaviest stack on the list but unlocks the §15 DMZ realtime use case.
+- **Firebase Realtime Database** — 1 GB stored + 10 GB/month transfer, free. Built-in realtime push. Locks state into Google's auth model; only worth it if §15.2 needs sub-second multi-device sync.
+- **Google Sheets as a KV** — up to 10M cells per sheet via the Sheets REST API. Cheap-and-cheerful for users already in Google's tier; awful semantics for an append-only log (no atomic appends).
+- **Google Apps Script as a backend** — 6 hr/day free execution + PropertiesService (~50 MB per script). Useful as a free CORS proxy in front of services that don't allow browser writes; impractical as the durable store.
+
+### 16.2 · Per-doc / per-record databases
+
+- **Notion API** — free personal databases. Rate limits are generous but each row is one HTTP call; an event log of 474 stars would be 474 page creations.
+- **Airtable free** — 1,000 records per base, multiple free bases. Same per-row HTTP cost as Notion.
+
+### 16.3 · Browser-native (no server at all)
+
+- **Origin Private File System (OPFS)** — multi-GB browser-native storage, vastly larger than `localStorage`'s 5-10 MB ceiling. Synchronous-feeling access via the File System Access API. Replaces `LocalAdapter` for power users; not cross-device.
+- **IndexedDB with `navigator.storage.persist()`** — up to 60% of free disk on Chrome/Firefox, persistent across sessions. Same per-device limitation as OPFS.
+
+### 16.4 · Append-only / write-heavy (good for log slots, bad for snapshots)
+
+- **Discord webhook** — text events fine, attachments expire (CDN ~24 h). Use only as a fan-out log mirror, never as the primary.
+- **Mastodon / Lemmy / Reddit posts** — free unlimited, but every event is publicly readable. Use only when the user explicitly opts into a public log.
+
+### 16.5 · Generic file hosts (large blobs)
+
+- **MEGA** (20 GB free), **pCloud** (10 GB), **MediaFire** (10 GB), **Box.com** (10 GB), **Yandex.Disk** (10 GB) — all have working APIs, all need a per-provider CORS recipe and an OAuth dance.
+- **Catbox.moe / Pixeldrain** — anonymous blob upload, no account required. Best for one-shot exports, not a continuous event log.
+- **Internet Archive item uploads** — public-only, but truly permanent. The §15 DMZ public-share case fits perfectly.
+- **Arweave via free-tier gateways** — pay-once-store-forever. Often cheap enough to feel free for the §5 snapshot-only path.
+
+### 16.6 · S3-compatible drop-ins (use the existing `S3Adapter`)
+
+- **Cloudflare R2** — shipped via `S3Adapter` + CORS recipe (`docs/cors.md`).
+- **Storj DCS** — 25 GB free, S3-compatible. No code changes; user pastes the endpoint + access key into the existing form.
+- **Backblaze B2** — first 10 GB free, S3-compatible after enabling the B2 S3 endpoint. Same: no code changes.
+- **Wasabi**, **MinIO** (self-hosted) — same.
+
+### 16.7 · Promotion criteria (a spike becomes an adapter when)
+
+1. A working CORS / token-passthrough recipe exists for browser writes (or a Worker proxy is acceptable).
+2. The free tier or quota allows 474 events × a few writes per event without rolling over within the user's first week.
+3. The semantics fit either `appendLog([events])` (append-only) or `writeSnapshot(snap) + readLog()` (snapshot + log).
+4. A test exists at `tests/<provider>-adapter.spec.js` mocking the provider's HTTP surface.
+
+Items that fail any of (1)-(3) stay in this shortlist and never reach `js/adapters/*.js`.

@@ -1,4 +1,5 @@
 import { loadSettings, saveSettings, clearSettings, makeAdapter, ADAPTER_KINDS } from "./adapters/index.js";
+import { ChainForm } from "./chain-form.js";
 
 const GATE_WORD = "PLAINTEXT";
 
@@ -36,6 +37,15 @@ export class Settings {
     this.activeBanner = activeBanner;
     this.mirrorLocalInput = mirrorLocalInput || null;
 
+    this.chainForm = null;
+    const chainHost = document.getElementById("chainFormHost");
+    if (chainHost) {
+      this.chainForm = new ChainForm({
+        container: chainHost,
+        onChange: () => this.#syncSaveEnabled(),
+      });
+    }
+
     this.#hydrate();
     this.#bind();
     this.#syncFields();
@@ -62,6 +72,11 @@ export class Settings {
     const cur = loadSettings();
     this.activeBanner.textContent = `Active adapter: ${labelFor(cur.kind)}`;
     this.activeBanner.dataset.kind = cur.kind;
+    if (cur.kind === "chain" && this.chainForm) {
+      this.kindSelect.value = "chain";
+      this.chainForm.hydrate(cur);
+      return;
+    }
     this.kindSelect.value = cur.kind;
     if (cur.kind === "webdav") {
       this.#set("webdav-url", cur.url);
@@ -104,7 +119,9 @@ export class Settings {
     for (const fs of this.groupsEl.querySelectorAll("fieldset[data-kind]")) {
       fs.hidden = fs.dataset.kind !== kind;
     }
-    this.plaintextGate.hidden = kind === "local";
+    const isChain = kind === "chain";
+    const chainHasCloud = isChain && this.chainForm ? this.chainForm.hasAnyNonLocal() : false;
+    this.plaintextGate.hidden = isChain ? !chainHasCloud : kind === "local";
     this.testBtn.disabled = kind === "local";
     this.testOutput.textContent = "";
     this.testOutput.removeAttribute("data-status");
@@ -114,18 +131,27 @@ export class Settings {
   #syncSaveEnabled() {
     const kind = this.kindSelect.value;
     const fieldsOk = this.#requiredFilled(kind);
-    const gateOk = kind === "local" || this.plaintextInput.value === GATE_WORD;
+    const isChain = kind === "chain";
+    const chainHasCloud = isChain && this.chainForm ? this.chainForm.hasAnyNonLocal() : false;
+    this.plaintextGate.hidden = isChain ? !chainHasCloud : kind === "local";
+    const needsGate = isChain ? chainHasCloud : kind !== "local";
+    const gateOk = !needsGate || this.plaintextInput.value === GATE_WORD;
     this.saveBtn.disabled = !(fieldsOk && gateOk);
   }
 
   #requiredFilled(kind) {
     if (kind === "local") return true;
+    if (kind === "chain") return this.chainForm ? this.chainForm.isValid() : false;
     return (REQUIRED[kind] || []).every(id => this.#get(id).trim().length > 0);
   }
 
   #buildConfig() {
     const kind = this.kindSelect.value;
     if (kind === "local") return { kind };
+    if (kind === "chain") {
+      if (!this.chainForm) throw new Error("chain form not initialised");
+      return this.chainForm.getConfig();
+    }
     if (kind === "webdav") return this.#decorate({
       kind,
       url: this.#get("webdav-url").trim(),
@@ -210,6 +236,7 @@ function labelFor(kind) {
     s3: "S3-compatible",
     github: "GitHub",
     telegram: "Telegram",
+    chain: "Failover chain",
   };
   return map[kind] || kind;
 }
