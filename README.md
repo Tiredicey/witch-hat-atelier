@@ -31,6 +31,23 @@ This repo currently ships only the **shell** described in ROADMAP §7:
   Bucket-side CORS configuration is required for the S3-compatible and
   WebDAV adapters; see [`docs/cors.md`](docs/cors.md) for per-provider recipes
   (Cloudflare R2, Dropbox, Nextcloud / generic WebDAV).
+- Universal CORS proxy (§4): the Worker's `GET /fetch?url=…` route reaches
+  any HTTP feed the browser cannot fetch directly. The same handler runs
+  on Cloudflare Pages Functions (same-origin, see
+  [`functions/fetch.js`](functions/fetch.js)), a standalone Worker, Vercel
+  Edge, Netlify Edge, Deno Deploy, or any Node 20+ VM — recipes in
+  [`docs/deploy-anywhere.md`](docs/deploy-anywhere.md). The route is gated
+  by the `PROXY_ALLOW` env var and capped at `MAX_BYTES` (default 5 MB).
+- Universal CORS proxy at `/fetch?url=<feed>` (ROADMAP §4 follow-up). The
+  deployed site at `https://witch-hat-atelier.pages.dev/` ships a Cloudflare
+  Pages Function (`functions/fetch.js`) that re-exports the existing Worker
+  handler, so the proxy lives on the same origin as the site — no separate
+  Worker deploy required. The route is closed by default; set the
+  `PROXY_ALLOW` env var to `*` or a comma-separated URL-prefix allowlist to
+  open it. Size-capped (5 MB), timeout-bounded (15 s), SSRF-guarded (loopback
+  and RFC-1918 hosts blocked). The same handler runs on Workers, Vercel Edge,
+  Netlify Edge, Deno Deploy, and plain Node — see
+  [`docs/deploy-anywhere.md`](docs/deploy-anywhere.md) for the shims.
 
 The sample articles in `js/sample-data.js` are hand-written demo content,
 not fetched from real feeds. Every quantitative claim in the sample
@@ -76,6 +93,12 @@ excerpts cites the roadmap's `[S1]–[S8]` anchors.
 │   ├── persistence-and-notes.spec.js
 │   ├── dmz.spec.js
 │   └── adapters.spec.js
+├── functions/
+│   └── fetch.js           ← Cloudflare Pages Function: same-origin /fetch proxy
+├── docs/
+│   ├── cors.md            ← per-provider bucket CORS recipes
+│   ├── deploy-anywhere.md ← Workers / Pages / Vercel / Netlify / Deno / Node shims
+│   └── import-export.md   ← OPML / Inoreader Stars
 ├── playwright.config.js    ← desktop + mobile + reduced-motion projects
 ├── package.json
 └── README.md

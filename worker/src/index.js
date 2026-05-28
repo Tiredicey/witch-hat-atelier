@@ -29,6 +29,7 @@
 import { fetchFeed } from "./fetch-feed.js";
 import { parseFeed } from "./parse.js";
 import { scoreFeed, passesQuality } from "./quality.js";
+import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
 
@@ -44,6 +45,9 @@ export default {
     }
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+    if (req.method === "GET" && url.pathname === "/fetch") {
+      return handleProxy(req, url, env);
     }
     if (req.method === "POST" && url.pathname === "/parse") {
       const { url: feedUrl, etag, lastModified } = await safeJson(req);
@@ -189,6 +193,37 @@ async function readJson(r2, key) {
 
 async function safeJson(req) {
   try { return await req.json(); } catch { return {}; }
+}
+
+async function handleProxy(req, url, env) {
+  const target = url.searchParams.get("url");
+  if (!target) return jsonError(400, "missing url");
+  const gate = allowProxy(target, env.PROXY_ALLOW);
+  if (!gate.ok) return jsonError(403, gate.reason);
+  const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
+  const fetched = await proxyFetch(target, {
+    etag:         req.headers.get("if-none-match") || undefined,
+    lastModified: req.headers.get("if-modified-since") || undefined,
+    ua:           env.UA,
+    maxBytes,
+  });
+  if (fetched.status === 304) {
+    const h = { ...corsHeaders() };
+    if (fetched.etag)         h["ETag"]          = fetched.etag;
+    if (fetched.lastModified) h["Last-Modified"] = fetched.lastModified;
+    return new Response(null, { status: 304, headers: h });
+  }
+  if (fetched.status === 0) {
+    return jsonError(502, fetched.error || "upstream fetch failed");
+  }
+  const headers = {
+    ...corsHeaders(),
+    "Content-Type":  fetched.contentType || "application/octet-stream",
+    "Cache-Control": "no-store",
+  };
+  if (fetched.etag)         headers["ETag"]          = fetched.etag;
+  if (fetched.lastModified) headers["Last-Modified"] = fetched.lastModified;
+  return new Response(fetched.body, { status: fetched.status, headers });
 }
 
 function corsHeaders() {
