@@ -773,6 +773,28 @@ body[data-page="settings"] .scrim { display: none !important; }
   border-left: var(--stroke-3) solid var(--sigil-red);
   padding-left: var(--gutter-l);
 }
+.settings__resilience {
+  border-left: var(--stroke-3) solid var(--sepia);
+  padding-left: var(--gutter-l);
+}
+.settings__field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--gutter-s);
+}
+.settings__field--inline input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+.settings__field--inline span {
+  font-family: var(--font-body);
+  font-size: var(--size-body-m);
+  color: var(--ink);
+}
+.settings__field--inline span em {
+  color: var(--ink-faint);
+  font-style: italic;
+}
 .settings__actions {
   display: flex;
   flex-direction: column;
@@ -809,32 +831,3 @@ body[data-page="settings"] .scrim { display: none !important; }
   .settings { padding: var(--gutter-l) var(--gutter-m); }
   .settings__title { font-size: var(--size-display-l); }
 }
-
-/* ─── Settings: Subscriptions section ──────────────────────────────────── */
-.settings__subs-actions {
-  display: flex;
-  gap: var(--gutter-s);
-  margin: var(--gutter-s) 0 4px;
-  flex-wrap: wrap;
-}
-.settings__subs-import { display: inline-flex; }
-.settings__subs-import > span {
-  display: inline-block;
-  padding: 6px 14px;
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  font-size: var(--size-ui-m);
-  background: var(--ink);
-  color: var(--bg);
-  border: var(--stroke-1) solid var(--ink);
-  user-select: none;
-}
-.settings__subs-import:hover > span { background: var(--ink-soft); border-color: var(--ink-soft); }
-.settings__subs-status {
-  margin: 4px 0 0;
-  font-style: italic;
-  color: var(--ink-faint);
-  min-height: 1.4em;
-}
-.settings__subs-status[data-kind="ok"]   { color: var(--ink-soft); font-style: normal; }
-.settings__subs-status[data-kind="warn"] { color: var(--sigil-red); font-style: normal; }

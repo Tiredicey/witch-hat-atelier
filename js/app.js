@@ -13,7 +13,6 @@ import { Dmz, mountRouter } from "./dmz.js";
 import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
-import { Subscriptions } from "./subscriptions.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -79,10 +78,10 @@ async function boot() {
   // Try to load real entries from the §4 Worker R2 snapshot. Falls back to
   // SAMPLE if the user is not on the S3 adapter, the bucket has no snapshot,
   // or the fetch fails (network, CORS, expired creds). Never blocks boot for
-  // longer than 15s; the active adapter handles its own request lifecycle.
+  // longer than 15s; loadFeedSnapshot has its own AbortController.
   let items = SAMPLE;
   try {
-    const real = await loadFeedSnapshot(settings, adapter);
+    const real = await loadFeedSnapshot(settings);
     if (real && real.length > 0) items = real;
   } catch (e) {
     console.warn("app: feed snapshot load failed, using SAMPLE", e);
@@ -239,21 +238,11 @@ async function boot() {
     resetBtn:       $("#resetSettingsBtn"),
     testOutput:     $("#settingsTestOutput"),
     activeBanner:   $("#settingsActiveBanner"),
+    mirrorLocalInput: $("#mirrorLocalToggle"),
   });
   document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
   $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
   void settingsCtrl;
-
-  // Subscriptions: OPML import/export. Uses whichever adapter the user is on;
-  // for cloud adapters the file lands at `coda/subs/subscriptions.json` and
-  // the §4 Worker picks it up on next cron. Stays inert for LocalAdapter
-  // (still works — file lives in localStorage; useful for round-trip).
-  new Subscriptions({
-    importInput: document.getElementById("subsImportInput"),
-    exportBtn:   document.getElementById("subsExportBtn"),
-    statusEl:    document.getElementById("subsStatus"),
-    adapter,
-  });
 }
 
 if (document.readyState === "loading") {

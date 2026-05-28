@@ -215,6 +215,7 @@
         <select id="settingsKind">
           <option value="local">Local (browser only)</option>
           <option value="github">GitHub (private repo, free forever)</option>
+          <option value="telegram">Telegram bot (unlimited files, free forever)</option>
           <option value="webdav">WebDAV (Nextcloud, generic)</option>
           <option value="dropbox">Dropbox</option>
           <option value="s3">S3-compatible (R2, B2, Wasabi)</option>
@@ -222,6 +223,13 @@
       </label>
 
       <div id="settingsGroups">
+        <fieldset class="settings__group" data-kind="telegram" hidden>
+          <legend>Telegram bot configuration</legend>
+          <label class="settings__field"><span>Bot token</span><input id="telegram-token" type="password" placeholder="123456:ABC-DEF&hellip;" autocomplete="off"></label>
+          <label class="settings__field"><span>Chat ID</span><input id="telegram-chatId" type="text" placeholder="-1001234567890 or @your_channel" autocomplete="off"></label>
+          <p class="settings__hint">In Telegram, message <code>@BotFather</code> &rarr; <code>/newbot</code> to get a token. Create a private channel, add your bot as admin (needs <em>edit messages</em> + <em>pin messages</em> permissions), then forward any message from the channel to <code>@userinfobot</code> to find the negative numeric ID. Free forever: 2 GB per file (4 GB with Premium), unlimited files, no card on file.</p>
+        </fieldset>
+
         <fieldset class="settings__group" data-kind="github" hidden>
           <legend>GitHub configuration</legend>
           <label class="settings__field"><span>Personal access token</span><input id="github-token" type="password" placeholder="github_pat_&hellip; or ghp_&hellip;" autocomplete="off"></label>
@@ -258,21 +266,17 @@
       </div>
     </section>
 
-    <section class="settings__section">
-      <h2 class="settings__section-title">Subscriptions</h2>
+    <section class="settings__section settings__resilience">
+      <h2 class="settings__section-title">Failover &amp; resilience</h2>
       <p class="settings__note">
-        Import an OPML 2.0 file (most readers can export one) to populate the §4 Worker's feed list. The file is written to your storage adapter at <code>coda/subs/subscriptions.json</code>; the Worker reads it on its next cron tick (up to 30 min).
-        Export to round-trip back out to OPML.
+        CODA can mirror every write to a second backend, so the reader keeps working
+        offline and a single dead provider can&rsquo;t take your state down.
       </p>
-
-      <div class="settings__subs-actions">
-        <label class="settings__subs-import" for="subsImportInput">
-          <span data-variant="primary">Import OPML&hellip;</span>
-          <input id="subsImportInput" type="file" accept=".opml,.xml,application/xml,text/xml" hidden>
-        </label>
-        <button type="button" id="subsExportBtn">Export OPML</button>
-      </div>
-      <p class="settings__subs-status smallcaps" id="subsStatus" data-kind="info" aria-live="polite"></p>
+      <label class="settings__field settings__field--inline">
+        <input id="mirrorLocalToggle" type="checkbox">
+        <span>Also mirror writes to local storage <em>(recommended &mdash; offline fallback &amp; always-available reads)</em></span>
+      </label>
+      <p class="settings__hint">When on, every star/note/read is written to both your cloud adapter <em>and</em> the browser&rsquo;s local storage. Reads prefer the cloud and fall back to local if it is unreachable. Network drops, rate limits, and 5xx errors trip a per-adapter circuit breaker that recovers automatically.</p>
     </section>
 
     <section class="settings__section settings__gate" id="plaintextGate" hidden>

@@ -3,12 +3,15 @@ import { WebDAVAdapter } from "./webdav.js";
 import { DropboxAdapter } from "./dropbox.js";
 import { S3Adapter } from "./s3.js";
 import { GitHubAdapter } from "./github.js";
+import { TelegramAdapter } from "./telegram.js";
+import { ChainAdapter } from "./chain.js";
 
-export const ADAPTER_KINDS = ["local", "github", "webdav", "dropbox", "s3"];
+export const ADAPTER_KINDS = ["local", "github", "telegram", "webdav", "dropbox", "s3"];
 
 export const ADAPTER_LABELS = {
   local: "Local (browser only)",
   github: "GitHub (private repo)",
+  telegram: "Telegram (bot, unlimited)",
   webdav: "WebDAV (Nextcloud, generic)",
   dropbox: "Dropbox",
   s3: "S3-compatible (R2, B2, Wasabi)",
@@ -41,7 +44,7 @@ export function clearSettings() {
   localStorage.removeItem(SETTINGS_KEY);
 }
 
-export function makeAdapter(cfg, prefix = "coda/v1") {
+function buildSingleAdapter(cfg, prefix) {
   const kind = cfg?.kind || "local";
   switch (kind) {
     case "local":
@@ -76,7 +79,28 @@ export function makeAdapter(cfg, prefix = "coda/v1") {
         branch: cfg.branch || "main",
         prefix,
       });
+    case "telegram":
+      return new TelegramAdapter({
+        token: cfg.token,
+        chatId: cfg.chatId,
+        prefix,
+      });
     default:
       throw new Error(`unknown adapter kind: ${kind}`);
   }
+}
+
+export function makeAdapter(cfg, prefix = "coda/v1") {
+  if (cfg && cfg.kind === "chain" && Array.isArray(cfg.adapters) && cfg.adapters.length) {
+    const built = cfg.adapters.map(sub => buildSingleAdapter(sub, prefix));
+    const labels = cfg.adapters.map(sub => ADAPTER_LABELS[sub.kind] || sub.kind);
+    return new ChainAdapter({ chain: built, labels });
+  }
+  const primary = buildSingleAdapter(cfg, prefix);
+  if (cfg && cfg.mirrorLocal && cfg.kind !== "local") {
+    const local = new LocalAdapter(prefix);
+    const label = ADAPTER_LABELS[cfg.kind] || cfg.kind;
+    return new ChainAdapter({ chain: [primary, local], labels: [label, "Local (mirror)"] });
+  }
+  return primary;
 }
