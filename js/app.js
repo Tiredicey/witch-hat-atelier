@@ -14,6 +14,7 @@ import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { Intelligence } from "./intelligence/index.js";
+import { GroqSummariseSurface } from "./intelligence/groq-surface.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -243,6 +244,7 @@ async function boot() {
         if (!list.getSelectedId()) return;
         notes.open();
       },
+      summarise: () => groqSurface.trigger(),
       goShelf: (id) => {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();
@@ -427,6 +429,20 @@ async function boot() {
     resetBtn:     $("#intelligenceReset"),
   });
   void intelligenceCtrl;
+
+  const groqSurface = new GroqSummariseSurface({
+    intelligence: intelligenceCtrl,
+    reader,
+    wrapEl:           $("#readerSummarise"),
+    triggerBtn:       $("#readerSummariseBtn"),
+    statusEl:         $("#readerSummariseStatus"),
+    disclosureEl:     $("#readerSummariseDisclosure"),
+    disclosureTextEl: $("#readerSummariseDisclosureText"),
+    confirmBtn:       $("#readerSummariseConfirm"),
+    cancelBtn:        $("#readerSummariseCancel"),
+    outputEl:         $("#readerSummariseOutput"),
+  });
+  void groqSurface;
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
