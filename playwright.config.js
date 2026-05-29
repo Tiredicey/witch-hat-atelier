@@ -22,6 +22,10 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Pre-seed the onboarded flag so existing specs do not trip over the
+    // first-boot welcome overlay. tests/welcome.spec.js overrides this
+    // with addInitScript(removeItem) to test the first-boot path.
+    storageState: './tests/fixtures/onboarded.json',
   },
 
   webServer: {
