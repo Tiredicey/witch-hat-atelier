@@ -783,7 +783,23 @@ body[data-page="settings"] .scrim { display: none !important; }
   border-radius: var(--radius-m);
   padding: var(--gutter-s) var(--gutter-m);
   margin: 0 0 var(--gutter-l);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
+.settings__active::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+}
+.settings__active[data-health="ok"]::before { background: var(--sigil-green); }
+.settings__active[data-health="fail"]::before { background: var(--sigil-red); }
+.settings__active[data-health="pending"]::before { background: var(--ink-muted); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 .settings__active[data-kind="local"] { color: var(--ink-soft); }
 .settings__active:not([data-kind="local"]) { color: var(--sepia); border-color: var(--sepia); }
 .settings__section { margin-bottom: var(--gutter-xl); }

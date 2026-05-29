@@ -72,6 +72,7 @@ export class Settings {
     const cur = loadSettings();
     this.activeBanner.textContent = `Active adapter: ${labelFor(cur.kind)}`;
     this.activeBanner.dataset.kind = cur.kind;
+    this.#pingActiveAdapter(cur);
     if (cur.kind === "chain" && this.chainForm) {
       this.kindSelect.value = "chain";
       this.chainForm.hydrate(cur);
@@ -193,6 +194,26 @@ export class Settings {
     return cfg;
   }
 
+  async #pingActiveAdapter(cfg) {
+    // Only ping remote adapters
+    if (cfg.kind === "local") {
+      this.activeBanner.dataset.health = "ok";
+      return;
+    }
+    this.activeBanner.dataset.health = "pending";
+    try {
+      const adapter = makeAdapter(cfg, "coda/v1");
+      const result = await adapter.test();
+      this.activeBanner.dataset.health = result.ok ? "ok" : "fail";
+      if (!result.ok && result.error) {
+        this.activeBanner.title = result.error;
+      }
+    } catch (e) {
+      this.activeBanner.dataset.health = "fail";
+      this.activeBanner.title = e.message || String(e);
+    }
+  }
+
   async #testConnection() {
     this.testBtn.disabled = true;
     this.testOutput.textContent = "Testing…";
@@ -223,8 +244,10 @@ export class Settings {
   }
 
   #reset() {
-    clearSettings();
-    location.reload();
+    if (confirm("Are you sure you want to reset the active adapter and clear all keys? This cannot be undone.")) {
+      clearSettings();
+      location.reload();
+    }
   }
 }
 

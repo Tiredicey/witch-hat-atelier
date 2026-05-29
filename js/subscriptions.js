@@ -225,6 +225,22 @@ export class Subscriptions {
     const indices = new Set(this.#selectedIndices());
     if (!indices.size) return;
     const keptFeeds = this.pendingFeeds.filter((_, i) => indices.has(i));
+    this.#setStatus(`Reading current subscriptions...`, "pending");
+    let existingCount = 0;
+    try {
+      const existing = await this.adapter.read(SUBS_KEY);
+      if (existing) existingCount = JSON.parse(existing).length;
+    } catch (e) {
+      /* ignore */
+    }
+
+    if (existingCount > 0) {
+      if (!confirm(`This will OVERWRITE your ${existingCount} existing subscriptions with the ${keptFeeds.length} you have selected. Are you sure?`)) {
+        this.#setStatus("Import cancelled.", "fail");
+        return;
+      }
+    }
+
     const parsed = { title: this.pendingTitle, feeds: keptFeeds, folders: [] };
     const subs = subscriptionsFromOpml(parsed);
     this.#setStatus(`Writing ${keptFeeds.length} feed(s) to subscriptions.json\u2026`, "pending");

@@ -147,6 +147,7 @@ async function boot() {
         notes.bind(id);
         mobile.showReader();
         syncToolbar(id);
+        localStorage.setItem("coda/resume_id", id);
       } else {
         reader.renderEmpty();
         notes.unbind();
@@ -171,6 +172,15 @@ async function boot() {
     onSwitch: (shelfId) => applyShelf(shelfId)
   });
   applyShelf("all"); // align the list-header meta with the actual sample-item count
+
+  const resumeId = localStorage.getItem("coda/resume_id");
+  if (resumeId && list.find(resumeId)) {
+    list.setSelected(resumeId);
+    const a = list.find(resumeId);
+    reader.renderArticle(a);
+    notes.bind(resumeId);
+    syncToolbar(resumeId);
+  }
 
   function syncToolbar(id) {
     const starred = store.isStarred(id);
