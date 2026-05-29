@@ -35,6 +35,7 @@ export class GitHubAdapter {
     this.logPath = `${sub}/log.ndjson`;
     this.snapPath = `${sub}/snapshot.json`;
     this.shaCache = new Map();
+    this.pathLocks = new Map();
   }
 
   #headers(extra = {}) {
@@ -67,46 +68,66 @@ export class GitHubAdapter {
     return b64decode(j.content);
   }
 
-  async #write(path, text, message) {
-    const body = {
-      message: message || `coda: update ${path}`,
-      content: b64encode(text),
-      branch: this.branch,
-    };
-    let sha = this.shaCache.get(path);
-    if (!sha) {
-      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
-      if (probe.ok) {
-        const pj = await probe.json();
-        if (pj && pj.sha) { sha = pj.sha; this.shaCache.set(path, sha); }
-      } else if (probe.status !== 404) {
-        throw new Error(`GitHub probe ${path} ${probe.status}`);
-      }
+  async #serialise(path, fn) {
+    const prev = this.pathLocks.get(path);
+    let release;
+    const gate = new Promise(r => { release = r; });
+    this.pathLocks.set(path, gate);
+    if (prev) { try { await prev; } catch {} }
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (this.pathLocks.get(path) === gate) this.pathLocks.delete(path);
     }
-    if (sha) body.sha = sha;
-    let r = await fetch(this.#writeUrl(path), {
-      method: "PUT",
-      headers: this.#headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify(body),
-    });
-    if (r.status === 409 || r.status === 422) {
-      this.shaCache.delete(path);
-      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
-      if (probe.ok) {
-        const pj = await probe.json();
-        if (pj && pj.sha) { body.sha = pj.sha; this.shaCache.set(path, pj.sha); }
-      } else if (probe.status === 404) {
-        delete body.sha;
+  }
+
+  async #putContents(path, buildBody, errLabel) {
+    const MAX_ATTEMPTS = 4;
+    const BASE_MS = 100;
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      let sha = this.shaCache.get(path);
+      if (!sha) {
+        const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+        if (probe.ok) {
+          const pj = await probe.json();
+          if (pj && pj.sha) { sha = pj.sha; this.shaCache.set(path, sha); }
+        } else if (probe.status !== 404) {
+          throw new Error(`GitHub probe ${path} ${probe.status}`);
+        }
       }
-      r = await fetch(this.#writeUrl(path), {
+      const body = buildBody(sha);
+      const r = await fetch(this.#writeUrl(path), {
         method: "PUT",
         headers: this.#headers({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
       });
+      if (r.ok) {
+        const j = await r.json();
+        if (j && j.content && j.content.sha) this.shaCache.set(path, j.content.sha);
+        return;
+      }
+      lastStatus = r.status;
+      if (r.status !== 409 && r.status !== 422) break;
+      this.shaCache.delete(path);
+      if (attempt === MAX_ATTEMPTS - 1) break;
+      const delay = BASE_MS * Math.pow(2, attempt) * (0.5 + Math.random());
+      await new Promise(res => setTimeout(res, delay));
     }
-    if (!r.ok) throw new Error(`GitHub write ${path} ${r.status}`);
-    const j = await r.json();
-    if (j && j.content && j.content.sha) this.shaCache.set(path, j.content.sha);
+    throw new Error(`GitHub ${errLabel} ${path} ${lastStatus}`);
+  }
+
+  async #write(path, text, message) {
+    return this.#serialise(path, () => this.#putContents(
+      path,
+      (sha) => {
+        const body = { message: message || `coda: update ${path}`, content: b64encode(text), branch: this.branch };
+        if (sha) body.sha = sha;
+        return body;
+      },
+      "write",
+    ));
   }
 
   async #delete(path, message) {
@@ -171,41 +192,15 @@ export class GitHubAdapter {
   }
 
   async #writeB64(path, b64Content, message) {
-    const body = { message: message || `coda: upload ${path}`, content: b64Content, branch: this.branch };
-    let sha = this.shaCache.get(path);
-    if (!sha) {
-      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
-      if (probe.ok) {
-        const pj = await probe.json();
-        if (pj && pj.sha) { sha = pj.sha; this.shaCache.set(path, sha); }
-      } else if (probe.status !== 404) {
-        throw new Error(`GitHub probe ${path} ${probe.status}`);
-      }
-    }
-    if (sha) body.sha = sha;
-    let r = await fetch(this.#writeUrl(path), {
-      method: "PUT",
-      headers: this.#headers({ "Content-Type": "application/json" }),
-      body: JSON.stringify(body),
-    });
-    if (r.status === 409 || r.status === 422) {
-      this.shaCache.delete(path);
-      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
-      if (probe.ok) {
-        const pj = await probe.json();
-        if (pj && pj.sha) { body.sha = pj.sha; this.shaCache.set(path, pj.sha); }
-      } else if (probe.status === 404) {
-        delete body.sha;
-      }
-      r = await fetch(this.#writeUrl(path), {
-        method: "PUT",
-        headers: this.#headers({ "Content-Type": "application/json" }),
-        body: JSON.stringify(body),
-      });
-    }
-    if (!r.ok) throw new Error(`GitHub putBlob ${path} ${r.status}`);
-    const j = await r.json();
-    if (j && j.content && j.content.sha) this.shaCache.set(path, j.content.sha);
+    return this.#serialise(path, () => this.#putContents(
+      path,
+      (sha) => {
+        const body = { message: message || `coda: upload ${path}`, content: b64Content, branch: this.branch };
+        if (sha) body.sha = sha;
+        return body;
+      },
+      "putBlob",
+    ));
   }
 
   async putBlob(key, blob) {
