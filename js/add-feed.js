@@ -21,6 +21,7 @@
 
 import { resolve as resolveUrl } from "./url-resolver.js";
 import { parseFeed } from "../worker/src/parse.js";
+import { parseOpml } from "./opml.js";
 
 const BRIDGE_KEY = "coda/bridge/base";
 
@@ -38,6 +39,9 @@ export class AddFeed {
     this.bridgeStatusEl = opts.bridgeStatusEl;
     this.bridgeBadgeEl = opts.bridgeBadgeEl;
     this.bridgeDetailsEl = opts.bridgeDetailsEl;
+    this.opmlInput     = opts.opmlInput;
+    this.opmlImportBtn = opts.opmlImportBtn;
+    this.opmlStatusEl  = opts.opmlStatusEl;
     this.subscriptions = opts.subscriptions;
     this.fetchBase     = opts.fetchBase || "";
 
@@ -52,6 +56,67 @@ export class AddFeed {
     });
     this.bridgeSaveBtn?.addEventListener("click", () => this.#onSaveBridge());
     this.bridgeClearBtn?.addEventListener("click", () => this.#onClearBridge());
+    this.opmlImportBtn?.addEventListener("click", () => this.#onImportOpml());
+  }
+
+  #wrapOpmlFragment(text) {
+    const trimmed = text.trim();
+    if (/^<\?xml/i.test(trimmed) || /^<opml\b/i.test(trimmed)) return trimmed;
+    if (/<outline\b/i.test(trimmed)) {
+      return `<?xml version="1.0" encoding="UTF-8"?><opml version="2.0"><head><title>Pasted</title></head><body>${trimmed}</body></opml>`;
+    }
+    return trimmed;
+  }
+
+  async #onImportOpml() {
+    if (!this.opmlInput) return;
+    const raw = (this.opmlInput.value || "").trim();
+    if (!raw) {
+      this.#setOpmlStatus("Paste an OPML snippet first.", "fail");
+      return;
+    }
+    let parsed;
+    try {
+      parsed = parseOpml(this.#wrapOpmlFragment(raw));
+    } catch (e) {
+      this.#setOpmlStatus(`Could not parse: ${e.message || e}`, "fail");
+      return;
+    }
+    if (!parsed.feeds || !parsed.feeds.length) {
+      this.#setOpmlStatus("No <outline xmlUrl=\u2026> rows found in that snippet.", "fail");
+      return;
+    }
+    const shelf = (this.shelfInput?.value || "").trim() || "all";
+    this.#setOpmlStatus(`Importing ${parsed.feeds.length} feed(s)\u2026`, "pending");
+    let added = 0;
+    let skipped = 0;
+    const failures = [];
+    for (const f of parsed.feeds) {
+      try {
+        const written = await this.subscriptions.appendFeed({
+          url:   f.url,
+          title: f.title || "",
+          shelf,
+        });
+        if (written.added) added += 1; else skipped += 1;
+      } catch (e) {
+        failures.push(`${f.url}: ${e.message || e}`);
+      }
+    }
+    const parts = [`Added ${added}`];
+    if (skipped) parts.push(`already present ${skipped}`);
+    if (failures.length) parts.push(`failed ${failures.length}`);
+    const kind = failures.length ? "fail" : "ok";
+    this.#setOpmlStatus(parts.join(", ") + ".", kind);
+    if (!failures.length && added > 0) {
+      this.opmlInput.value = "";
+    }
+  }
+
+  #setOpmlStatus(message, kind) {
+    if (!this.opmlStatusEl) return;
+    this.opmlStatusEl.textContent = message;
+    this.opmlStatusEl.dataset.status = kind || "";
   }
 
   async #onResolve() {

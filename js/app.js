@@ -13,7 +13,6 @@ import { Dmz, mountRouter } from "./dmz.js";
 import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
-import { Intelligence } from "./intelligence/index.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -300,10 +299,12 @@ async function boot() {
     vaultAdapter = new LocalAdapter("coda/vault");
   }
   const vaultStore = new VaultStore({ adapter: vaultAdapter, prefix: "coda/vault" });
+  let vaultLoadError = null;
   try {
     await vaultStore.load();
   } catch (e) {
     console.warn("vault store load failed, continuing with empty snapshot", e);
+    vaultLoadError = e?.message || String(e) || "unknown error";
   }
   const vaultCtrl = new Vault({
     pageEl:    $("#vaultPage"),
@@ -314,6 +315,7 @@ async function boot() {
     capEl:     $("#vaultCap"),
     store:     vaultStore,
     adapter:   vaultAdapter,
+    loadError: vaultLoadError,
   });
   void vaultCtrl;
   $("#enterVaultBtn").addEventListener("click", () => router.go("vault"));
@@ -322,17 +324,6 @@ async function boot() {
   document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
   $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
   void settingsCtrl;
-
-  const intelligenceCtrl = new Intelligence({
-    pageEl:       $("#intelligenceSection"),
-    enableInput:  $("#intelligenceEnable"),
-    panelEl:      $("#intelligencePanel"),
-    disclosureEl: $("#intelligenceDisclosure"),
-    statusEl:     $("#intelligenceStatus"),
-    saveBtn:      $("#intelligenceSave"),
-    resetBtn:     $("#intelligenceReset"),
-  });
-  void intelligenceCtrl;
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
@@ -373,6 +364,9 @@ async function boot() {
     bridgeInput:    document.getElementById("add-feed-bridge"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
+    opmlInput:      document.getElementById("add-feed-opml"),
+    opmlImportBtn:  document.getElementById("add-feed-opml-import"),
+    opmlStatusEl:   document.getElementById("add-feed-opml-status"),
     subscriptions:  subs,
   });
   void addFeed;
