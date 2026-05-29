@@ -6,6 +6,7 @@
 //   m          mark read / unread
 //   s          star (visual stub)
 //   n          add note (no-op stub; real impl in v1)
+//   u          summarise (only fires when an intelligence surface is enabled)
 //   a          atelier mode
 //   g g        go to All
 //   g s        go to Starred
@@ -60,6 +61,8 @@ export class Shortcuts {
       if (e.key === "o" || e.key === "Enter") { this.h.openFirstIfNone(); return; }
 
       if (e.key === "n") { e.preventDefault(); this.h.addNote(); return; }
+
+      if (e.key === "u") { e.preventDefault(); if (this.h.summarise) this.h.summarise(); return; }
 
       // `g g` and `g s` — two-key prefix
       if (this.gPending && (e.key === "g" || e.key === "s")) {

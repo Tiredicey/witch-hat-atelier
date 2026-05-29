@@ -6,7 +6,7 @@ The roadmap's own restatement of free-tier terms is the source of truth that lan
 
 ## Status
 
-PR #1 ships the Settings panel + provider registry scaffolding only. No provider is wired yet. The tables below are placeholders for the rows that subsequent §17.11 PRs will add. Each section's "Added in PR" column links to the PR that landed that row.
+PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17.11:2 wires the first provider (Groq) end-to-end as a Reader-pane Summarise button. Subsequent §17.11 PRs add the remaining rows below. Each section's "Added in PR" column links to the PR that landed that row.
 
 ## §17.3 / §17.7 — On-device and BYO-endpoint surfaces
 
@@ -18,7 +18,7 @@ PR #1 ships the Settings panel + provider registry scaffolding only. No provider
 
 | Provider | `baseUrl` | Default model | Free tier at PR-merge date | Prompt-logging note at PR-merge date | Canonical TOS link | Added in PR |
 |---|---|---|---|---|---|---|
-| _none yet_ | | | | | | |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | Free tier with daily request/token caps and ~500 tok/s throughput at the entry date; current limits are listed on the Groq pricing page. | Free-tier prompts may be retained for evaluation per Groq's TOS. Re-check before pasting a key. | <https://groq.com/terms-of-use/> (pricing: <https://groq.com/pricing/>) | PR §17.11:2 |
 
 ## §17.9 — Rotating-credit providers
 

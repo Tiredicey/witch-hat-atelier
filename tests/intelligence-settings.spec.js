@@ -42,7 +42,7 @@ test.describe('intelligence settings scaffolding (§17.11 PR #1)', () => {
     await expect(panel).toBeHidden();
     await enable.check();
     await expect(panel).toBeVisible();
-    await expect(panel).toContainText('No providers are wired');
+    await expect(panel).toContainText('Reader-pane Summarise (Groq)');
     await enable.uncheck();
     await expect(panel).toBeHidden();
   });
@@ -51,7 +51,7 @@ test.describe('intelligence settings scaffolding (§17.11 PR #1)', () => {
     await enterSettings(page);
     await page.locator('#intelligenceEnable').check();
     await page.locator('#intelligenceSave').click();
-    await expect(page.locator('#intelligenceStatus')).toHaveText(/panel on/i);
+    await expect(page.locator('#intelligenceStatus')).toContainText(/panel on/i);
 
     await page.reload();
     await page.locator('#enterSettingsBtn').click();
