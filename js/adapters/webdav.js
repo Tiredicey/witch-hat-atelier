@@ -93,6 +93,33 @@ export class WebDAVAdapter {
     }
   }
 
+  async putBlob(key, blob) {
+    const r = await fetch(`${this.base}/${key.replace(/^\/+/, "")}`, {
+      method: "PUT",
+      headers: this.#headers({ "Content-Type": blob.type || "application/octet-stream" }),
+      body: blob,
+    });
+    if (!r.ok && r.status !== 201 && r.status !== 204) {
+      throw new Error(`WebDAV putBlob ${r.status}`);
+    }
+  }
+
+  async getBlob(key) {
+    const r = await fetch(`${this.base}/${key.replace(/^\/+/, "")}`, { headers: this.#headers() });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`WebDAV getBlob ${r.status}`);
+    return await r.blob();
+  }
+
+  async deleteBlob(key) {
+    const r = await fetch(`${this.base}/${key.replace(/^\/+/, "")}`, {
+      method: "DELETE", headers: this.#headers(),
+    });
+    if (!r.ok && r.status !== 204 && r.status !== 404) {
+      throw new Error(`WebDAV deleteBlob ${r.status}`);
+    }
+  }
+
   async test() {
     const r = await fetch(this.snapUrl, { method: "HEAD", headers: this.#headers() });
     if (r.ok || r.status === 404) return { ok: true };

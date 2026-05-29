@@ -101,6 +101,26 @@ export class ChainAdapter {
   async read(key)         { return this.#tryRead("read", key); }
   async write(key, body)  { return this.#mirrorWrite("write", key, body); }
 
+  async putBlob(key, blob)    { return this.#mirrorWrite("putBlob", key, blob); }
+  async deleteBlob(key)       { return this.#mirrorWrite("deleteBlob", key); }
+  async getBlob(key) {
+    let lastErr = null;
+    for (let i = 0; i < this.chain.length; i++) {
+      if (!this.#usable(i)) continue;
+      if (typeof this.chain[i].getBlob !== "function") continue;
+      try {
+        const out = await this.chain[i].getBlob(key);
+        if (out) { this.#recordOk(i); return out; }
+        this.#recordOk(i);
+      } catch (e) {
+        this.#recordFail(i, e);
+        lastErr = e;
+      }
+    }
+    if (lastErr) throw lastErr;
+    return null;
+  }
+
   async test() {
     const results = await Promise.all(
       this.chain.map(async (a, i) => {

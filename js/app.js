@@ -10,6 +10,8 @@ import { Store } from "./store.js";
 import { LocalAdapter } from "./storage.js";
 import { Notes } from "./notes.js";
 import { Dmz, mountRouter } from "./dmz.js";
+import { VaultStore } from "./vault-store.js";
+import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
@@ -289,6 +291,33 @@ async function boot() {
     activeBanner:   $("#settingsActiveBanner"),
     mirrorLocalInput: $("#mirrorLocalToggle"),
   });
+  let vaultAdapter;
+  try {
+    vaultAdapter = makeAdapter(settings, "coda/vault");
+  } catch (e) {
+    console.warn("vault adapter init failed, falling back to local", e);
+    vaultAdapter = new LocalAdapter("coda/vault");
+  }
+  const vaultStore = new VaultStore({ adapter: vaultAdapter, prefix: "coda/vault" });
+  try {
+    await vaultStore.load();
+  } catch (e) {
+    console.warn("vault store load failed, continuing with empty snapshot", e);
+  }
+  const vaultCtrl = new Vault({
+    pageEl:    $("#vaultPage"),
+    listEl:    $("#vaultList"),
+    dropEl:    $("#vaultDrop"),
+    fileInput: $("#vaultFileInput"),
+    emptyEl:   $("#vaultEmpty"),
+    capEl:     $("#vaultCap"),
+    store:     vaultStore,
+    adapter:   vaultAdapter,
+  });
+  void vaultCtrl;
+  $("#enterVaultBtn").addEventListener("click", () => router.go("vault"));
+  $("#exitVaultBtn").addEventListener("click", () => router.go("reader"));
+
   document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
   $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
   void settingsCtrl;
@@ -331,10 +360,7 @@ async function boot() {
     refusedEl:      document.getElementById("add-feed-refused"),
     bridgeInput:    document.getElementById("add-feed-bridge"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
-    bridgeClearBtn: document.getElementById("add-feed-bridge-clear"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
-    bridgeBadgeEl:  document.getElementById("add-feed-bridge-badge"),
-    bridgeDetailsEl: document.getElementById("add-feed-bridge-details"),
     subscriptions:  subs,
   });
   void addFeed;

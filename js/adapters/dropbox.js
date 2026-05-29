@@ -97,6 +97,41 @@ export class DropboxAdapter {
     await this.#upload(`${this.base}/${key.replace(/^\/+/, "")}`, body);
   }
 
+  async putBlob(key, blob) {
+    const path = `${this.base}/${key.replace(/^\/+/, "")}`;
+    const r = await fetch(`${CONTENT}/files/upload`, {
+      method: "POST",
+      headers: {
+        ...this.#auth(),
+        "Content-Type": "application/octet-stream",
+        "Dropbox-API-Arg": JSON.stringify({ path, mode: "overwrite", autorename: false, mute: true }),
+      },
+      body: blob,
+    });
+    if (!r.ok) throw new Error(`Dropbox putBlob ${r.status}`);
+  }
+
+  async getBlob(key) {
+    const path = `${this.base}/${key.replace(/^\/+/, "")}`;
+    const r = await fetch(`${CONTENT}/files/download`, {
+      method: "POST",
+      headers: { ...this.#auth(), "Dropbox-API-Arg": JSON.stringify({ path }) },
+    });
+    if (r.status === 409) return null;
+    if (!r.ok) throw new Error(`Dropbox getBlob ${r.status}`);
+    return await r.blob();
+  }
+
+  async deleteBlob(key) {
+    const path = `${this.base}/${key.replace(/^\/+/, "")}`;
+    const r = await fetch(`${API}/files/delete_v2`, {
+      method: "POST",
+      headers: { ...this.#auth(), "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    if (!r.ok && r.status !== 409) throw new Error(`Dropbox deleteBlob ${r.status}`);
+  }
+
   async test() {
     const r = await fetch(`${API}/check/user`, {
       method: "POST",

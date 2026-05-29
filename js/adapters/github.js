@@ -170,6 +170,74 @@ export class GitHubAdapter {
     await this.#write(key, body, `coda: update ${key}`);
   }
 
+  async #writeB64(path, b64Content, message) {
+    const body = { message: message || `coda: upload ${path}`, content: b64Content, branch: this.branch };
+    let sha = this.shaCache.get(path);
+    if (!sha) {
+      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+      if (probe.ok) {
+        const pj = await probe.json();
+        if (pj && pj.sha) { sha = pj.sha; this.shaCache.set(path, sha); }
+      } else if (probe.status !== 404) {
+        throw new Error(`GitHub probe ${path} ${probe.status}`);
+      }
+    }
+    if (sha) body.sha = sha;
+    let r = await fetch(this.#writeUrl(path), {
+      method: "PUT",
+      headers: this.#headers({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+    if (r.status === 409 || r.status === 422) {
+      this.shaCache.delete(path);
+      const probe = await fetch(this.#contentsUrl(path), { headers: this.#headers() });
+      if (probe.ok) {
+        const pj = await probe.json();
+        if (pj && pj.sha) { body.sha = pj.sha; this.shaCache.set(path, pj.sha); }
+      } else if (probe.status === 404) {
+        delete body.sha;
+      }
+      r = await fetch(this.#writeUrl(path), {
+        method: "PUT",
+        headers: this.#headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+    }
+    if (!r.ok) throw new Error(`GitHub putBlob ${path} ${r.status}`);
+    const j = await r.json();
+    if (j && j.content && j.content.sha) this.shaCache.set(path, j.content.sha);
+  }
+
+  async putBlob(key, blob) {
+    const buf = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const b64 = btoa(bin);
+    await this.#writeB64(key, b64, `coda: upload ${key.split("/").pop()}`);
+  }
+
+  async getBlob(key) {
+    const r = await fetch(this.#contentsUrl(key), { headers: this.#headers() });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`GitHub getBlob ${key} ${r.status}`);
+    const j = await r.json();
+    if (j && j.sha) this.shaCache.set(key, j.sha);
+    if (!j || typeof j.content !== "string") return null;
+    const b64 = j.content.replace(/\n/g, "");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes]);
+  }
+
+  async deleteBlob(key) {
+    await this.#delete(key, `coda: delete ${key.split("/").pop()}`);
+  }
+
   async test() {
     const r = await fetch(`${API}/repos/${this.owner}/${this.repo}`, { headers: this.#headers() });
     if (r.ok) return { ok: true };
