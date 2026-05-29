@@ -20,7 +20,7 @@ import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
-import { Welcome, isOnboarded } from "./welcome.js";
+import { ImportZone } from "./import-zone.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -348,7 +348,7 @@ async function boot() {
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
-    statusEl:  document.getElementById("inoreader-stars-status"),
+    statusEl:  document.getElementById("import-zone-status"),
     store,
     onAfter: () => {
       const merged = mergeStarOrphans(baseFeedItems, store);
@@ -361,7 +361,7 @@ async function boot() {
 
   const subs = new Subscriptions({
     importInput:     document.getElementById("opml-import-file"),
-    statusEl:        document.getElementById("opml-import-status"),
+    statusEl:        document.getElementById("import-zone-status"),
     triageEl:        document.getElementById("opml-triage"),
     triageListEl:    document.getElementById("opml-triage-list"),
     triageSummaryEl: document.getElementById("opml-triage-summary"),
@@ -374,6 +374,15 @@ async function boot() {
     adapter,
   });
   void subs;
+
+  const importZone = new ImportZone({
+    zoneEl:        document.getElementById("import-zone"),
+    fileInput:     document.getElementById("import-zone-file"),
+    statusEl:      document.getElementById("import-zone-status"),
+    subscriptions: subs,
+    starsImport:   starsImport,
+  });
+  void importZone;
 
   const addFeed = new AddFeed({
     inputEl:        document.getElementById("add-feed-input"),
@@ -388,24 +397,6 @@ async function boot() {
     subscriptions:  subs,
   });
   void addFeed;
-
-  const welcomeScrim = document.getElementById("welcomeScrim");
-  if (welcomeScrim) {
-    const welcome = new Welcome({
-      scrimEl:    welcomeScrim,
-      urlInput:   document.getElementById("welcomeFeedUrl"),
-      hnBtn:      document.getElementById("welcomeHnBtn"),
-      nextBtn:    document.getElementById("welcomeStep1Next"),
-      statusEl:   document.getElementById("welcomeStatus"),
-      skipBtns:   Array.from(welcomeScrim.querySelectorAll("[data-skip]")),
-      choiceBtns: welcomeScrim.querySelectorAll(".welcome-card__choices button"),
-      doneBtn:    document.getElementById("welcomeDoneBtn"),
-      doneMsg:    document.getElementById("welcomeDoneMsg"),
-      subscriptions: subs,
-      navigate:   (page) => router.go(page),
-    });
-    if (!isOnboarded()) welcome.open();
-  }
 }
 
 if (document.readyState === "loading") {

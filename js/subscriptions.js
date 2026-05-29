@@ -97,13 +97,26 @@ export class Subscriptions {
   async #onPick() {
     const file = this.importInput.files && this.importInput.files[0];
     if (!file) return;
-    this.pendingFileName = file.name;
-    this.#setStatus(`Reading ${file.name}\u2026`, "pending");
     try {
       const text = await file.text();
+      await this.handleOpmlText(text, file.name);
+    } finally {
+      this.importInput.value = "";  // allow re-importing the same file
+    }
+  }
+
+  /**
+   * Public: ingest OPML text directly (used by the unified import zone after
+   * the format sniffer has identified the payload). Triggers the same triage
+   * flow as the file-input path.
+   */
+  async handleOpmlText(text, fileName = "pasted OPML") {
+    this.pendingFileName = fileName;
+    this.#setStatus(`Reading ${fileName}\u2026`, "pending");
+    try {
       const parsed = parseOpml(text);
       if (!parsed.feeds.length) {
-        this.#setStatus(`No feeds found in ${file.name}.`, "fail");
+        this.#setStatus(`No feeds found in ${fileName}.`, "fail");
         this.#hideTriage();
         return;
       }
@@ -111,14 +124,12 @@ export class Subscriptions {
       this.pendingTitle = parsed.title || "";
       this.#renderTriage();
       this.#setStatus(
-        `Parsed ${parsed.feeds.length} feed(s) from ${file.name}. Review the list below, then commit.`,
+        `Parsed ${parsed.feeds.length} feed(s) from ${fileName}. Review the list below, then commit.`,
         "ok"
       );
     } catch (e) {
       this.#setStatus(`Import failed: ${e.message || e}`, "fail");
       this.#hideTriage();
-    } finally {
-      this.importInput.value = "";  // allow re-importing the same file
     }
   }
 
