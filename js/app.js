@@ -18,6 +18,34 @@ import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
 
+function hostOf(url) {
+  try { return new URL(url).host.replace(/^www\./, ""); } catch { return ""; }
+}
+
+function mergeOrphanStars(feedItems, store) {
+  const known = new Set(feedItems.map(it => it.id));
+  const orphans = [];
+  for (const sItem of store.snapshot.items) {
+    if (!sItem.starred) continue;
+    if (known.has(sItem.id)) continue;
+    const link = sItem.link || sItem.id;
+    orphans.push({
+      id: sItem.id,
+      source: hostOf(link) || "imported",
+      age: "imported",
+      title: sItem.title || link,
+      excerpt: "",
+      body: [],
+      link,
+      orphan: true,
+      read: !!sItem.read,
+      shelf: "starred",
+    });
+  }
+  if (!orphans.length) return feedItems;
+  return [...feedItems, ...orphans];
+}
+
 function $(sel, root = document) {
   const el = root.querySelector(sel);
   if (!el) throw new Error(`app.js: required element not found: ${sel}`);
@@ -88,18 +116,20 @@ async function boot() {
   //   3. SAMPLE, so the shell never boots empty.
   // Never blocks boot for longer than the per-feed timeout; loadFeedSnapshot
   // and the browser engine each have their own AbortControllers.
-  let items = SAMPLE;
+  let feedItems = SAMPLE;
   try {
     const r2 = await loadFeedSnapshot(settings, adapter);
     if (r2 && r2.length > 0) {
-      items = r2;
+      feedItems = r2;
     } else {
       const browser = await loadFeedFromBrowserEngine({ adapter });
-      if (browser && browser.length > 0) items = browser;
+      if (browser && browser.length > 0) feedItems = browser;
     }
   } catch (e) {
     console.warn("app: feed load failed, using SAMPLE", e);
   }
+
+  let items = mergeOrphanStars(feedItems, store);
 
   const list = new ArticleList({
     listEl, rowsEl, items,
@@ -262,6 +292,10 @@ async function boot() {
     fileInput: document.getElementById("inoreader-stars-file"),
     statusEl:  document.getElementById("inoreader-stars-status"),
     store,
+    onAfter: () => {
+      items = mergeOrphanStars(feedItems, store);
+      list.setItems(items);
+    },
   });
   void starsImport;
 

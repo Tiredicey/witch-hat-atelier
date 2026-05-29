@@ -83,18 +83,16 @@ export class AddFeed {
       return;
     }
 
-    let candidates;
+    let discovery;
     try {
-      candidates = await this.#discover(result.pageUrl);
+      discovery = await this.#discover(result.pageUrl);
     } catch (e) {
       this.#setStatus(`Discover failed: ${e.message || e}`, "fail");
       return;
     }
+    const { candidates, gateBlocked, gateReason, upstreamError, sourceStatus, probed } = discovery;
     if (!candidates.length) {
-      this.#setStatus(
-        `No <link rel="alternate"> feeds in the page head, and no /feed, /rss, /atom.xml file responded with feed content. The site may not publish RSS.`,
-        "fail"
-      );
+      this.#setStatus(diagnoseEmpty({ gateBlocked, gateReason, upstreamError, sourceStatus, probed }), "fail");
       return;
     }
     this.#renderCandidates(candidates.map(c => ({ ...c, source: "discover" })));
@@ -109,8 +107,14 @@ export class AddFeed {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`discover responded ${res.status}`);
     const data = await res.json();
-    if (!Array.isArray(data.candidates)) return [];
-    return data.candidates;
+    return {
+      candidates: Array.isArray(data.candidates) ? data.candidates : [],
+      gateBlocked: !!data.gateBlocked,
+      gateReason: data.gateReason || "",
+      upstreamError: data.upstreamError || "",
+      sourceStatus: typeof data.sourceStatus === "number" ? data.sourceStatus : 0,
+      probed: !!data.probed,
+    };
   }
 
   #renderCandidates(candidates) {
@@ -308,6 +312,22 @@ export class AddFeed {
   }
 }
 
+function diagnoseEmpty({ gateBlocked, gateReason, upstreamError, sourceStatus, probed }) {
+  if (gateBlocked) {
+    return `The Worker /fetch allowlist refused this URL (${gateReason || "no reason given"}). Ask the deploy owner to add the host to PROXY_ALLOW, or set PROXY_ALLOW="*" to allow any public feed.`;
+  }
+  if (upstreamError) {
+    return `Worker could not reach the site (${upstreamError}). The site may be offline or blocking the Worker IP.`;
+  }
+  if (sourceStatus >= 400) {
+    return `Site returned HTTP ${sourceStatus} when the Worker fetched it. That usually means the site detected a bot fetch and blocked it. Try the feed URL directly if you know it.`;
+  }
+  if (probed) {
+    return `Page loaded, but had no <link rel="alternate"> tag, and the /feed, /rss, /atom.xml probes returned no feed content. The site may not publish RSS.`;
+  }
+  return `Page loaded, but had no <link rel="alternate"> tag in the <head>. The site may not publish RSS at this URL.`;
+}
+
 function labelFor(cand) {
   if (cand.source === "youtube-channel")  return "YouTube channel";
   if (cand.source === "youtube-playlist") return "YouTube playlist";
@@ -316,6 +336,10 @@ function labelFor(cand) {
   if (cand.source === "reddit-user")      return "Reddit user";
   if (cand.source === "mastodon-profile") return "Mastodon profile";
   if (cand.source === "github-releases")  return "GitHub releases";
+  if (cand.source === "substack")        return "Substack";
+  if (cand.source === "medium-user")     return "Medium user";
+  if (cand.source === "medium-publication") return "Medium publication";
+  if (cand.source === "tumblr")          return "Tumblr";
   if (cand.source === "discover")         return cand.type ? cand.type.toUpperCase() : "discovered";
   return cand.type ? cand.type.toUpperCase() : "feed";
 }

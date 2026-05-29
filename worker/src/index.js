@@ -268,10 +268,10 @@ async function handleDiscover(url, env) {
   const target = url.searchParams.get("url");
   if (!target) return jsonError(400, "missing url");
   const gate = allowProxy(target, env.PROXY_ALLOW);
-  if (!gate.ok) return jsonError(403, gate.reason);
+  if (!gate.ok) return jsonResp({ candidates: [], probed: false, gateBlocked: true, gateReason: gate.reason }, 200);
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
   const page = await proxyFetch(target, { ua: env.UA, maxBytes });
-  if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
+  if (page.status === 0)  return jsonResp({ candidates: [], probed: false, upstreamError: page.error || "upstream fetch failed" }, 200);
   if (page.status >= 400) return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
   const html = decodeText(page.body);
   const fromHtml = extractFeedLinks(html, target);
