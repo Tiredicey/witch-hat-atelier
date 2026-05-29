@@ -158,6 +158,22 @@
       <p class="reader__extract-status" id="readerExtractStatus" aria-live="polite"></p>
     </div>
 
+    <section class="reader__summarise" id="readerSummarise" aria-labelledby="readerSummariseTitle" hidden>
+      <div class="reader__summarise-row">
+        <h2 id="readerSummariseTitle" class="reader__summarise-title">Summarise <span class="reader__summarise-shortcut">u</span></h2>
+        <button type="button" id="readerSummariseBtn" class="reader__summarise-toggle">Summarise via Groq</button>
+        <p class="reader__summarise-status" id="readerSummariseStatus" aria-live="polite"></p>
+      </div>
+      <div class="reader__summarise-disclosure" id="readerSummariseDisclosure" role="region" aria-live="polite" hidden>
+        <p class="reader__summarise-disclosure-text" id="readerSummariseDisclosureText"></p>
+        <div class="reader__summarise-disclosure-actions">
+          <button type="button" id="readerSummariseCancel">Cancel</button>
+          <button type="button" id="readerSummariseConfirm" data-variant="primary">Continue</button>
+        </div>
+      </div>
+      <article class="reader__summarise-output" id="readerSummariseOutput" aria-live="polite" hidden></article>
+    </section>
+
     <div class="reader" id="reader"></div>
 
     <section class="notes" id="notesPanel" aria-label="Notes" data-open="false">
@@ -427,9 +443,7 @@
       <p class="settings__hint" id="intelligenceDisclosure" hidden>
         Heads up: enabling a provider in a later PR will send the open article&rsquo;s text to the destination you configure. CODA will name the hostname before the first request of each session, and every surface has its own off-by-default checkbox.
       </p>
-      <div class="settings__hint" id="intelligencePanel" hidden>
-        <p>No providers are wired in this PR. The queue (per ROADMAP &sect;17.11) is: Groq &middot; Cerebras &middot; Mistral &middot; Gemini &middot; OpenRouter &middot; HuggingFace &middot; Tesseract OCR &middot; Whisper.cpp transcription &middot; ElevenLabs/OpenAI TTS &middot; LibreTranslate translation &middot; Cloudflare Workers AI (self-hosted only) &middot; ordered fallback (self-hosted only).</p>
-      </div>
+      <div class="settings__hint" id="intelligencePanel" hidden></div>
       <div class="settings__actions">
         <output id="intelligenceStatus" class="settings__test" aria-live="polite"></output>
         <div class="settings__buttons">
@@ -475,6 +489,7 @@
         <tr><td class="k">m</td><td>mark read / unread</td></tr>
         <tr><td class="k">s</td><td>star</td></tr>
         <tr><td class="k">n</td><td>add note</td></tr>
+        <tr><td class="k">u</td><td>summarise (when enabled)</td></tr>
         <tr><td class="k">a</td><td>atelier mode</td></tr>
         <tr><td class="k">g g</td><td>go to All</td></tr>
         <tr><td class="k">g s</td><td>go to Starred</td></tr>
