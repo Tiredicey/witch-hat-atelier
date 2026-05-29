@@ -136,6 +136,35 @@ test.describe('Add a feed by URL — /discover fallback', () => {
       .toHaveText('https://www.spot.ph/feed/');
   });
 
+  test('Direct feed URL (Atom returned by server) renders as a candidate without HTML link-scan', async ({ page }) => {
+    const target = 'https://rss-bridge-sop0.onrender.com/?action=display&u=spotdotph&bridge=FacebookBridge&format=Atom';
+    await page.route('**/discover?**', (route, request) => {
+      const u = new URL(request.url());
+      if (u.searchParams.get('url') === target) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            candidates: [{ url: target, type: 'atom', title: '' }],
+            probed: false,
+            direct: true,
+          }),
+        });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"candidates":[]}' });
+    });
+
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('#add-feed-input').fill(target);
+    await page.locator('#add-feed-resolve').click();
+
+    const candidates = page.locator('#add-feed-candidates .add-feed__candidate');
+    await expect(candidates).toHaveCount(1);
+    await expect(candidates.first().locator('.add-feed__url')).toHaveText(target);
+  });
+
   test('Empty /discover response shows an honest "no feeds found" message', async ({ page }) => {
     await page.route('**/discover?**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{"candidates":[],"probed":true}' }));
