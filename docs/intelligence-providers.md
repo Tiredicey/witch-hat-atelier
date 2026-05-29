@@ -6,7 +6,7 @@ The roadmap's own restatement of free-tier terms is the source of truth that lan
 
 ## Status
 
-PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17.11:2 wires the first provider (Groq) end-to-end as a Reader-pane Summarise button. Subsequent §17.11 PRs add the remaining rows below. Each section's "Added in PR" column links to the PR that landed that row.
+PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17.11:2 wired the first provider (Groq) end-to-end. PR §17.11:3 adds Cerebras alongside Groq behind a shared OpenAI-compatible client. Subsequent §17.11 PRs add the remaining rows below. Each section's "Added in PR" column links to the PR that landed that row.
 
 ## §17.3 / §17.7 — On-device and BYO-endpoint surfaces
 
@@ -19,6 +19,7 @@ PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17
 | Provider | `baseUrl` | Default model | Free tier at PR-merge date | Prompt-logging note at PR-merge date | Canonical TOS link | Added in PR |
 |---|---|---|---|---|---|---|
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | Free tier with daily request/token caps and ~500 tok/s throughput at the entry date; current limits are listed on the Groq pricing page. | Free-tier prompts may be retained for evaluation per Groq's TOS. Re-check before pasting a key. | <https://groq.com/terms-of-use/> (pricing: <https://groq.com/pricing/>) | PR §17.11:2 |
+| Cerebras | `https://api.cerebras.ai/v1` | `llama3.1-70b` | Free Cerebras Cloud Inference tier with per-minute and daily caps at the entry date; current limits are listed in the Cerebras inference docs. | Free-tier usage is governed by the Cerebras Terms of Service which covers Cerebras Cloud Inference. Re-check before pasting a key. | <https://www.cerebras.ai/terms-of-service> (docs: <https://inference-docs.cerebras.ai/introduction>) | PR §17.11:3 |
 
 ## §17.9 — Rotating-credit providers
 
