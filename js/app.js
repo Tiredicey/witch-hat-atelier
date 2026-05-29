@@ -250,17 +250,21 @@ async function boot() {
   list.refreshFromStore(store);
 
   let dmzAdapter;
+  let dmzAdapterFallback = null;
   try {
     dmzAdapter = makeAdapter(settings, "coda/dmz");
   } catch (e) {
     console.warn("dmz adapter init failed, falling back to local", e);
     dmzAdapter = new LocalAdapter("coda/dmz");
+    dmzAdapterFallback = e?.message || String(e) || "unknown error";
   }
   const dmzStore = new Store({ adapter: dmzAdapter });
+  let dmzLoadError = null;
   try {
     await dmzStore.load();
   } catch (e) {
     console.warn("dmz store load failed, continuing with empty snapshot", e);
+    dmzLoadError = e?.message || String(e) || "unknown error";
   }
   const dmz = new Dmz({
     pageEl:     $("#dmzPage"),
@@ -268,7 +272,11 @@ async function boot() {
     formEl:     $("#dmzForm"),
     textareaEl: $("#dmzTextarea"),
     submitBtn:  $("#dmzSubmit"),
+    statusEl:   document.getElementById("dmzStatus"),
     store:      dmzStore,
+    adapter:    dmzAdapter,
+    loadError:  dmzLoadError,
+    adapterFallback: dmzAdapterFallback,
   });
   const router = mountRouter({
     enterDmzBtn: $("#enterDmzBtn"),
@@ -364,9 +372,6 @@ async function boot() {
     bridgeInput:    document.getElementById("add-feed-bridge"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
-    opmlInput:      document.getElementById("add-feed-opml"),
-    opmlImportBtn:  document.getElementById("add-feed-opml-import"),
-    opmlStatusEl:   document.getElementById("add-feed-opml-status"),
     subscriptions:  subs,
   });
   void addFeed;

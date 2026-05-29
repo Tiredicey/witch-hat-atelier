@@ -185,6 +185,7 @@
     <div class="dmz__title-wrap">
       <h1 class="dmz__title">The DMZ</h1>
       <p class="dmz__subtitle smallcaps">shared &middot; unencrypted &middot; everyone</p>
+      <p class="dmz__status smallcaps" id="dmzStatus" aria-live="polite"></p>
     </div>
   </header>
   <div class="divider-hand dmz__divider"></div>
@@ -351,21 +352,6 @@
         <div class="add-feed__row">
           <button type="button" id="add-feed-bridge-save">Save bridge</button>
           <p class="settings__test" id="add-feed-bridge-status" aria-live="polite"></p>
-        </div>
-      </details>
-
-      <details class="add-feed__opml">
-        <summary>Paste OPML snippet (last-resort import)</summary>
-        <p class="settings__hint">
-          Drop a single <code>&lt;outline xmlUrl=&quot;&hellip;&quot;/&gt;</code> row or a full OPML document. Use this when a feed refuses to resolve through the normal flow and you already have its URL (for example, from another reader&rsquo;s export). The shelf field above applies to every feed imported here.
-        </p>
-        <label class="settings__field">
-          <span>OPML or outline fragment</span>
-          <textarea id="add-feed-opml" rows="4" autocomplete="off" spellcheck="false" placeholder="&lt;outline type=&quot;rss&quot; xmlUrl=&quot;https://example.com/feed&quot; title=&quot;Example&quot;/&gt;"></textarea>
-        </label>
-        <div class="add-feed__row">
-          <button type="button" id="add-feed-opml-import">Import</button>
-          <p class="settings__test" id="add-feed-opml-status" aria-live="polite"></p>
         </div>
       </details>
     </section>
