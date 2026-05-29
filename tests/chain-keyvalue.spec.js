@@ -118,3 +118,90 @@ test.describe('ChainAdapter \u2014 generic read/write', () => {
     expect(err).toMatch(/no adapter in the chain supports write/);
   });
 });
+
+test.describe('ChainAdapter \u2014 readLog / readSnapshot poll-all (PR fix: starred orphans on chain)', () => {
+  test('readLog prefers the populated mirror over an empty primary', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const primary = { async readLog() { return []; } };
+      const mirror  = { async readLog() { return [
+        { t: 'item.star', itemId: 'https://a.example/x', on: true, at: 1 },
+        { t: 'item.star', itemId: 'https://b.example/y', on: true, at: 2 },
+      ]; } };
+      const c = new ChainAdapter({ chain: [primary, mirror], labels: ['Primary', 'Mirror'] });
+      return await c.readLog();
+    }, '/js/adapters/chain.js');
+    expect(got).toHaveLength(2);
+    expect(got.map(e => e.itemId).sort()).toEqual([
+      'https://a.example/x',
+      'https://b.example/y',
+    ]);
+  });
+
+  test('readLog returns the longer populated result when both adapters have events', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const primary = { async readLog() { return [{ t: 'item.read', itemId: 'a' }]; } };
+      const mirror  = { async readLog() { return [
+        { t: 'item.read', itemId: 'a' },
+        { t: 'item.star', itemId: 'b', on: true },
+        { t: 'item.star', itemId: 'c', on: true },
+      ]; } };
+      const c = new ChainAdapter({ chain: [primary, mirror], labels: ['Primary', 'Mirror'] });
+      return await c.readLog();
+    }, '/js/adapters/chain.js');
+    expect(got).toHaveLength(3);
+  });
+
+  test('readLog returns [] when all adapters return empty', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const a = { async readLog() { return []; } };
+      const b = { async readLog() { return []; } };
+      const c = new ChainAdapter({ chain: [a, b], labels: ['A', 'B'] });
+      return await c.readLog();
+    }, '/js/adapters/chain.js');
+    expect(got).toEqual([]);
+  });
+
+  test('readLog throws only when every adapter throws', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const a = { async readLog() { throw new Error('a down'); } };
+      const b = { async readLog() { return [{ t: 'item.read', itemId: 'x' }]; } };
+      const c = new ChainAdapter({ chain: [a, b], labels: ['A', 'B'] });
+      return await c.readLog();
+    }, '/js/adapters/chain.js');
+    expect(got).toHaveLength(1);
+    expect(got[0].itemId).toBe('x');
+  });
+
+  test('readSnapshot prefers the most recently generated snapshot across adapters', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const primary = { async readSnapshot() { return { version: 1, items: [], generated: 1000 }; } };
+      const mirror  = { async readSnapshot() { return { version: 1, items: [{ id: 'x', starred: true }], generated: 9000 }; } };
+      const c = new ChainAdapter({ chain: [primary, mirror], labels: ['Primary', 'Mirror'] });
+      return await c.readSnapshot();
+    }, '/js/adapters/chain.js');
+    expect(got.generated).toBe(9000);
+    expect(got.items).toHaveLength(1);
+  });
+
+  test('readSnapshot returns null when every adapter returns null', async ({ page }) => {
+    await page.goto('/');
+    const got = await page.evaluate(async (moduleUrl) => {
+      const { ChainAdapter } = await import(moduleUrl);
+      const a = { async readSnapshot() { return null; } };
+      const b = { async readSnapshot() { return null; } };
+      const c = new ChainAdapter({ chain: [a, b], labels: ['A', 'B'] });
+      return await c.readSnapshot();
+    }, '/js/adapters/chain.js');
+    expect(got).toBeNull();
+  });
+});
