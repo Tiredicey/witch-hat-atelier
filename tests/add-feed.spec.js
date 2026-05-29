@@ -370,3 +370,101 @@ test.describe('Add a feed by URL — input validation', () => {
     await expect(status).toHaveAttribute('data-status', 'fail');
   });
 });
+
+test.describe('Add a feed by URL \u2014 OPML paste import', () => {
+  test('Bare <outline xmlUrl="..."/> fragment imports as one feed', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('details.add-feed__opml > summary').click();
+    await page.locator('#add-feed-shelf').fill('Imports');
+    await page.locator('#add-feed-opml').fill(
+      '<outline type="rss" xmlUrl="https://example.com/atom.xml" title="Example"/>'
+    );
+    await page.locator('#add-feed-opml-import').click();
+
+    const status = page.locator('#add-feed-opml-status');
+    await expect(status).toHaveAttribute('data-status', 'ok');
+    await expect(status).toContainText('Added 1');
+
+    const subs = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), SUBS_KEY);
+    expect(subs.feeds).toHaveLength(1);
+    expect(subs.feeds[0]).toMatchObject({
+      url: 'https://example.com/atom.xml',
+      shelf: 'Imports',
+    });
+
+    await expect(page.locator('#add-feed-opml')).toHaveValue('');
+  });
+
+  test('Full OPML document with folder imports every feed', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    const opml = `<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Pasted</title></head>
+  <body>
+    <outline text="News" title="News">
+      <outline type="rss" xmlUrl="https://a.example/feed" title="A"/>
+      <outline type="rss" xmlUrl="https://b.example/feed" title="B"/>
+    </outline>
+  </body>
+</opml>`;
+    await page.locator('details.add-feed__opml > summary').click();
+    await page.locator('#add-feed-opml').fill(opml);
+    await page.locator('#add-feed-opml-import').click();
+
+    await expect(page.locator('#add-feed-opml-status')).toContainText('Added 2');
+
+    const subs = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), SUBS_KEY);
+    expect(subs.feeds).toHaveLength(2);
+    expect(subs.feeds.map(f => f.url).sort()).toEqual([
+      'https://a.example/feed',
+      'https://b.example/feed',
+    ]);
+  });
+
+  test('Empty textarea reports the truthful error', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('details.add-feed__opml > summary').click();
+    await page.locator('#add-feed-opml-import').click();
+
+    const status = page.locator('#add-feed-opml-status');
+    await expect(status).toHaveAttribute('data-status', 'fail');
+    await expect(status).toContainText('Paste an OPML snippet first');
+  });
+
+  test('Malformed XML reports the parser error, not a silent skip', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('details.add-feed__opml > summary').click();
+    await page.locator('#add-feed-opml').fill('<outline xmlUrl="not closed');
+    await page.locator('#add-feed-opml-import').click();
+
+    const status = page.locator('#add-feed-opml-status');
+    await expect(status).toHaveAttribute('data-status', 'fail');
+    await expect(status).toContainText('Could not parse');
+  });
+
+  test('Re-importing the same outline reports it as already present', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    const fragment = '<outline type="rss" xmlUrl="https://dup.example/feed" title="Dup"/>';
+    await page.locator('details.add-feed__opml > summary').click();
+    await page.locator('#add-feed-opml').fill(fragment);
+    await page.locator('#add-feed-opml-import').click();
+    await expect(page.locator('#add-feed-opml-status')).toContainText('Added 1');
+
+    await page.locator('#add-feed-opml').fill(fragment);
+    await page.locator('#add-feed-opml-import').click();
+    await expect(page.locator('#add-feed-opml-status')).toContainText('already present 1');
+
+    const subs = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), SUBS_KEY);
+    expect(subs.feeds).toHaveLength(1);
+  });
+});

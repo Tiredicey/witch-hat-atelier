@@ -1406,12 +1406,14 @@ body[data-page="settings"] .scrim { display: none !important; }
   font-size: 0.85em;
 }
 
-.add-feed__bridge {
+.add-feed__bridge,
+.add-feed__opml {
   margin-top: var(--gutter-m);
   padding-top: var(--gutter-s);
   border-top: var(--stroke-1) dashed var(--line);
 }
-.add-feed__bridge summary {
+.add-feed__bridge summary,
+.add-feed__opml summary {
   font-family: var(--font-ui);
   font-size: var(--size-ui-s);
   letter-spacing: var(--tracking-smallcaps);
@@ -1420,7 +1422,25 @@ body[data-page="settings"] .scrim { display: none !important; }
   cursor: pointer;
   padding: 6px 0;
 }
-.add-feed__bridge summary:hover { color: var(--ink); }
+.add-feed__bridge summary:hover,
+.add-feed__opml summary:hover { color: var(--ink); }
+.add-feed__opml textarea {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--size-body-s);
+  line-height: 1.45;
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  border: var(--stroke-1) solid var(--line);
+  box-sizing: border-box;
+}
+.add-feed__opml textarea:focus {
+  outline: none;
+  border-color: var(--ink-soft);
+}
 
 @media (max-width: 768px) {
   .add-feed__candidate {
