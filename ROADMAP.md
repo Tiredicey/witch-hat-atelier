@@ -475,10 +475,10 @@ The translation surface is the only §17 feature that ships without a key paste 
 
 These were proposed and refused for principled reasons; revisiting requires a new §17.4 entry overriding the prior reason, not a casual feature-flag add.
 
-- **Product-managed rotation across hosted-LLM free tiers** (the "use Groq, fall back to Cerebras, fall back to Gemini, fall back to Mistral, fall back to OpenRouter, fall back to DeepInfra, fall back to Together" pattern). Rejected because: CODA becomes the API consumer (§11.4); reading history becomes the request body; each provider's TOS for free-tier usage typically reserves the right to log prompts for evaluation; users have no way to know which provider answered their query; the rotation logic itself is a maintenance burden that grows every time a provider changes its free-tier policy.
-- **In-browser iframe LLM chat shells** (e.g. embedding HuggingFace Spaces). Rejected because: provider-controlled iframe content can be silently substituted; §17.1.5 prohibits surfaces that depend on a third-party page render.
-- **Cloudflare Workers AI integration through CODA's own Worker.** Rejected because the §4 Worker is shared infrastructure — billing for inference flows back to the project, not the user; this either forces a free-tier cap that quietly degrades user experience or forces a per-user account, both of which contradict §1's "no account required" thesis.
-- **Server-side article summarisation as a default-on shelf badge.** Rejected per §11.4.
+- **Product-managed rotation across hosted-LLM free tiers** (the "use Groq, fall back to Cerebras, fall back to Gemini, fall back to Mistral, fall back to OpenRouter, fall back to DeepInfra, fall back to Together" pattern). Rejected because: CODA becomes the API consumer (§11.4); reading history becomes the request body; each provider's TOS for free-tier usage typically reserves the right to log prompts for evaluation; users have no way to know which provider answered their query; the rotation logic itself is a maintenance burden that grows every time a provider changes its free-tier policy. **Overridden in part by §17.10 for self-hosted single-deployment installs** where the deployer is also the API consumer.
+- **In-browser iframe LLM chat shells** (e.g. embedding HuggingFace Spaces). Rejected because: provider-controlled iframe content can be silently substituted; §17.1.5 prohibits surfaces that depend on a third-party page render. **Not overridden.**
+- **Cloudflare Workers AI integration through CODA's own Worker.** Rejected because the §4 Worker is shared infrastructure — billing for inference flows back to the project, not the user; this either forces a free-tier cap that quietly degrades user experience or forces a per-user account, both of which contradict §1's "no account required" thesis. **Overridden by §17.10 for self-hosted single-deployment installs**; the canonical hosted CODA Worker still refuses the route.
+- **Server-side article summarisation as a default-on shelf badge.** Rejected per §11.4. **Not overridden** — every §17.10 candidate is off by default and gated by an explicit user gesture.
 
 ### 17.5 · Acceptance criteria for promoting any §17.2 / §17.3 surface to merged status
 
@@ -490,58 +490,66 @@ These were proposed and refused for principled reasons; revisiting requires a ne
 
 ### 17.6 · What this section does NOT promise
 
-- No commitment to any specific provider, model, or quota tier. The §17.3 table names provider shapes (TTS endpoint, translation server), not vendor lock-in.
-- No commitment that any §17.2 / §17.3 feature ships in 1.0. They are a v1.1 candidates pool, gated by §17.5's acceptance criteria.
+- No commitment to any specific provider, model, or quota tier. The §17.3 / §17.10 tables name provider shapes (TTS endpoint, translation server, OpenAI-compatible inference URL), not vendor lock-in.
+- No commitment that any §17.2 / §17.3 / §17.10 feature ships in 1.0. They are a v1.1 candidates pool, gated by §17.5's acceptance criteria.
 - No competitive-feature-parity goal. If a reader competitor ships "AI ranks your feed", CODA does not chase it; that violates §1's calm-feed thesis regardless of how it is implemented.
 
+### 17.7 · Adjacent on-device / BYO services (non-LLM)
 
----
+These are the same shape as §17.2 / §17.3 but cover transcription, OCR, TTS, and translation — surfaces that travel with intelligence but are not intelligence themselves. They obey §17.1 in full.
 
-## 18 · Vault — generic file storage (v1.1 extension)
+| Feature | Mode | Surface | Notes |
+|---|---|---|---|
+| In-browser speech-to-text | §17.2 (on-device) | `whisper.cpp` WASM build (MIT). Reader-pane "Transcribe locally" button on audio entries. | First-run downloads `tiny.en` (~50 MB) into IndexedDB; per-language packs are explicit user picks. Already enumerated in §17.2 — restated here for completeness. |
+| In-browser OCR | §17.2 (on-device) | `tesseract.js` (Apache-2.0). Reader-pane "Extract text from image" button on image-only entries. | English baseline ~3 MB; CJK / Arabic packs add 5–10 MB each. Already enumerated in §17.2 — restated here for completeness. |
+| TTS / "read this article aloud" | §17.3 (BYO key) | User pastes an ElevenLabs / OpenAI / compatible `/audio/speech` key. Reader-pane play button renders the response blob into an `<audio>` element. | ElevenLabs free tier is 10 k chars/month at the time of this entry; quota and TOS link recorded in `docs/intelligence-providers.md` per §17.5.3. |
+| Translation | §17.3 (BYO endpoint) | User pastes a self-hosted LibreTranslate URL (the project's official Docker image runs on any free VPS — Oracle Cloud Free Tier, Fly.io, Render, etc.). Reader-pane "Translate to …" dropdown; per-feed default language. | LibreTranslate (AGPL) is the only mainstream open-source MT server with no per-request quota and no telemetry. CODA never ships a default endpoint; the field is empty by default. |
 
-A third page (peer to the reader and the DMZ) for uploading arbitrary files to the same adapter the user has already configured in Settings. Asked for on 2026-05-29; the brief was explicit: "real cloud storage, any file type, no mocks."
+### 17.8 · OpenAI-compatible BYO LLM providers (v1.1 candidates)
 
-**Why it sits where it does.** The reader stores RSS metadata in `coda/v1`. The DMZ stores shared text notes in `coda/dmz`. Both ride the §5 event-log + snapshot pattern. The Vault reuses that pattern for file *metadata* (`coda/vault/log.ndjson` + `coda/vault/snapshot.json`) and stores the file *bytes* at `coda/vault/blobs/<id>` via three new adapter methods. Same prefix-isolation rule as DMZ: never co-mingled with `coda/v1` or `coda/dmz`.
+Every provider in this table exposes a `/v1/chat/completions` endpoint that accepts the OpenAI request shape (`model`, `messages`, `temperature`, etc.). A single client module talks to all of them; the only per-provider state is `{baseUrl, defaultModel, free-tier-notes}`. Each provider has a free tier at the time of this entry (2026-05-29); CODA links to each provider's canonical pricing page in `docs/intelligence-providers.md` and refuses to bundle keys.
 
-**Adapter contract extension (additive only).**
-- `putBlob(key, blob)` — upload bytes
-- `getBlob(key)` — return Blob or null
-- `deleteBlob(key)` — idempotent delete
+| Provider | `baseUrl` | Default model | Free tier as of entry date | TOS prompt-logging note |
+|---|---|---|---|---|
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | Generous free tier; ~500 tok/s throughput | Free-tier prompts may be retained for evaluation per Groq TOS; check current TOS before pasting a key |
+| Cerebras Cloud | `https://api.cerebras.ai/v1` | `llama3.1-70b` | Separate free quota (acts as natural failover alongside Groq) | Same caveat as Groq — check current TOS |
+| Mistral La Plateforme | `https://api.mistral.ai/v1` | `mistral-small-latest` | Codestral + Mistral-Small free tier | Mistral TOS distinguishes free vs paid plans on prompt retention; check the plan tier in use |
+| Google AI Studio (Gemini) | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.0-flash-exp` or current free-tier model | 15 req/min, 1M tokens/day, no card | Google TOS uses free-tier inputs to improve models unless explicitly opted out via Workspace tier |
+| OpenRouter `:free` models | `https://openrouter.ai/api/v1` | Any model with the `:free` suffix (verify availability at request time) | No card; model availability churns | Free models on OpenRouter are typically forwarded to provider-defined logging defaults |
+| HuggingFace Inference API | `https://api-inference.huggingface.co/v1` | Pick a model from the user's HF account's Pro / serverless allowance | HF Inference free tier is rate-limited per model | HF logs requests per their published policy |
 
-LocalAdapter uses IndexedDB because localStorage cannot hold binary content. Cloud adapters use their native upload endpoints. ChainAdapter mirrors writes to every member that supports the method and returns the first non-null read.
+The §17.5 acceptance criteria apply per-provider. Adding a provider is a single isolated PR: it adds a row to `js/intelligence/providers.js` and the corresponding `docs/intelligence-providers.md` entry, and a Playwright spec that mocks that provider's endpoint and asserts the surface works end-to-end. Removing a provider is the same shape — one PR, one row, one doc entry, one spec.
 
-**Per-adapter honest caps.**
-- LocalAdapter: bounded only by the browser's IndexedDB origin quota.
-- S3-compatible: gated by your provider's PUT object cap (R2 single-PUT 4.995 GB; B2 5 GB).
-- WebDAV: gated by server config.
-- Dropbox: 150 MB per file via single-shot `files/upload`. Larger files need upload sessions, out of scope for v1.
-- GitHub Contents API: 100 MB hard cap; uploads over 1 MB are slow and consume ~33 % base64 overhead.
-- Telegram bot: 50 MB upload via `sendDocument`; round-trip downloads cap at 20 MB because `getFile` returns a 20 MB ceiling for bot consumers (Bot API limitation; MTProto is not browser-accessible).
+### 17.9 · Rotating-credit providers (user-acknowledged risk)
 
-CODA enforces a client-side 100 MB ceiling above any per-adapter limit and surfaces it in the drop-zone hint, replaced with the configured adapter's specific caveat at boot.
+DeepInfra and Together AI rotate sign-up credits ($5–$25 promotional) rather than offering a permanent free tier. These are accepted as §17.3 providers with two extra rules:
 
-**Storage model for Telegram specifically.** The blob index `{ key → { fileId, messageId } }` is stored as a separate Telegram document. Its pointer (`fileId`) lives in the existing pinned-manifest JSON alongside `log` and `snapshot`. This sidesteps the 4096-char text limit on pinned messages and keeps the manifest small.
+1. The Settings field that accepts the key is labelled with "Promotional credits expire — re-paste after they reset" inline, not in a tooltip.
+2. The provider is **not** listed in the default Settings dropdown until the user explicitly enables "Show rotating-credit providers" in §17.1.4's per-feature panel. Reason: the default candidate list should be providers with predictable free-tier semantics, so a new user does not paste a key and silently consume promotional credit they did not realise was time-bound.
 
-**UX rules.**
-- Vault reachable in exactly one click from the reader rail; exit reachable in exactly one click.
-- Drop zone + `<input type="file" multiple>`; both surfaces accept the same file list.
-- Files sort newest-first. Each row shows name, size, content-type, timestamp.
-- Click the filename to download. The Blob is re-fetched from the configured adapter on every click; no browser-side caching layer.
-- Per-row delete is allowed; per-vault clear is not. Same reasoning as DMZ: a single click should never destroy a family's shared archive.
+### 17.10 · Self-hosted single-deployment override (owner-authorised, 2026-05-29)
 
-**Explicitly out of scope for v1.1.**
-- No end-to-end encryption. Blobs are stored verbatim. The §5 encryption work, when it lands, will apply to vault blobs the same way it applies to the event log.
-- No public sharing URLs.
-- No preview surface (image thumbnails, audio scrubbing, PDF inline). Click-to-download only.
-- No chunked or resumable uploads. Single-shot per file, capped at 100 MB.
-- No attachment linking from reader items or DMZ notes. The Vault is a peer page; cross-linking is a future §18.1 task.
+The repo owner authorised this carve-out on 2026-05-29 in chat (interaction id `qbr4VE4jFsRim6VfzYhVnC`). Applies **only when CODA is a self-hosted single-deployment install** — i.e. the same person who deploys the static shell and the §4 Worker is also the only end user. In that mode, "BYO key" and "self-host the inference" collapse into the same actor, so two §17.4 rejections relax:
 
-**Risks.**
-- IndexedDB quotas are origin-wide and not user-visible. Mitigation: surface a calm size summary in the empty state next iteration.
-- A GitHub adapter writing many large files inflates the repo. Mitigation: documented cap; the user owns the repo.
-- A Telegram chat can accumulate orphan documents if blob-index updates fail mid-flight. Mitigation: per-blob delete only removes the index entry; the document remains in the chat history but is unreachable, matching Telegram's own retention semantics.
-- A misconfigured cloud adapter could leak file URLs if the bucket is misconfigured public. Mitigation: same as §5 — adapter Settings makes the trust model explicit at configuration time.
+- **Cloudflare Workers AI** (10 k neurons/day free at the entry date) **may** run inside the deployment's own Worker. The route is `POST /ai/summarise` and is **disabled by default**. Enabling it requires both an environment flag on the Worker (`ENABLE_WORKERS_AI=1`) and the Settings checkbox in §17.1.4 to be on. The shared / canonical hosted CODA Worker does not enable this route — the canonical Worker stays a pure RSS proxy per §4.
+- **Optional rotation across the §17.8 providers** is allowed for self-hosted deployments where the deployer holds the keys, on the explicit understanding that the deployer is choosing to broadcast their own reading history across multiple providers' TOS-distinct logging postures. Rotation is implemented as a deterministic ordered fallback (Groq → Cerebras → Mistral → Gemini), not weighted load-balancing, and each successful response carries a "answered by <provider>" attribution line shown in the UI per §17.1.2.
 
----
+The hosted-CODA deployment shape (if it ever exists) does **not** receive this carve-out. §17.4's rotation rejection still binds the hosted shape because the API consumer would no longer be the user.
 
-*Last revised: 2026-05-29.*
+### 17.11 · Implementation ordering (PRs queued after this amendment)
+
+Each row below is one defensible PR. Ordered by dependency, not by user excitement.
+
+1. `feat(intel): Settings panel + provider registry scaffolding` — adds `js/intelligence/index.js` (registry, key storage with §17.1.4 checkbox gate), Settings UI section. No provider wired yet. Playwright spec asserts the panel exists, the §17.1.2 disclosure renders, the checkbox toggles the visibility of the rest of the panel.
+2. `feat(intel): Groq summarisation in reader pane` — first §17.8 provider end-to-end. Adds `js/intelligence/groq.js`, Reader-pane Summarise button, Playwright spec with mocked Groq endpoint.
+3. `feat(intel): Cerebras + Mistral + Gemini + OpenRouter providers` — four more §17.8 rows; one PR per row to keep diffs reviewable.
+4. `feat(intel): HuggingFace Inference provider` — needs token-style auth header but otherwise the same shape.
+5. `feat(intel): DeepInfra + Together (rotating-credit)` — gated behind the §17.9 "show rotating-credit providers" checkbox.
+6. `feat(intel): in-browser Tesseract.js OCR button` — first §17.2 / §17.7 surface. No key paste; gated by the OCR-only checkbox.
+7. `feat(intel): in-browser Whisper.cpp WASM transcription` — second §17.2 / §17.7 surface; large download disclosed before first run.
+8. `feat(intel): ElevenLabs / OpenAI TTS for read-aloud` — §17.7 BYO key surface.
+9. `feat(intel): LibreTranslate translation` — §17.7 BYO endpoint surface.
+10. `feat(intel): Cloudflare Workers AI route (self-hosted only)` — §17.10 carve-out; ships behind `ENABLE_WORKERS_AI` env flag.
+11. `feat(intel): self-hosted ordered fallback across §17.8 providers` — §17.10 rotation, deterministic, attribution required.
+
+Each PR ships its own row in `docs/intelligence-providers.md` (created in PR 1) recording free-tier terms and prompt-logging policy as of the commit date, per §17.5.3.
