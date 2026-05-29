@@ -62,7 +62,13 @@ async function boot() {
     console.warn("primary store load failed, continuing with empty snapshot", e);
   }
 
-  const reader  = new Reader({ wrapEl, readerEl });
+  const reader  = new Reader({
+    wrapEl,
+    readerEl,
+    extractWrapEl:   document.getElementById("readerExtract"),
+    extractBtn:      document.getElementById("readCleanBtn"),
+    extractStatusEl: document.getElementById("readerExtractStatus"),
+  });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
   const mobile  = new Mobile({ appEl, backBtn });
   const help    = new Help({ scrimEl, openEl: helpBtn });

@@ -11,11 +11,97 @@ export class Reader {
    * @param {object} opts
    * @param {HTMLElement} opts.wrapEl   — .reader-wrap
    * @param {HTMLElement} opts.readerEl — .reader (inside the wrap)
+   * @param {HTMLElement=} opts.extractWrapEl    — .reader__extract host (hidden until link)
+   * @param {HTMLButtonElement=} opts.extractBtn — Read-clean toggle
+   * @param {HTMLElement=} opts.extractStatusEl  — aria-live status line
+   * @param {string=} opts.extractBase           — origin for /extract (default same-origin "")
+   * @param {(url:string)=>Promise<Response>=} opts.fetchImpl — injectable for tests
    */
-  constructor({ wrapEl, readerEl }) {
+  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, fetchImpl }) {
     this.wrapEl = wrapEl;
     this.readerEl = readerEl;
+    this.extractWrapEl   = extractWrapEl   || null;
+    this.extractBtn      = extractBtn      || null;
+    this.extractStatusEl = extractStatusEl || null;
+    this.extractBase     = (extractBase != null ? extractBase : "").replace(/\/+$/, "");
+    this.extractFetch    = fetchImpl || ((u) => fetch(u));
+    this.currentArticle = null;
+    this.extractActive  = false;
+    this.savedBody      = null;
+    if (this.extractBtn) {
+      this.extractBtn.addEventListener("click", () => this.toggleExtract());
+    }
     this.renderEmpty();
+  }
+
+  setExtractStatus(msg, status) {
+    if (!this.extractStatusEl) return;
+    this.extractStatusEl.textContent = msg || "";
+    if (status) this.extractStatusEl.dataset.status = status;
+    else this.extractStatusEl.removeAttribute("data-status");
+  }
+
+  resetExtract() {
+    this.extractActive = false;
+    this.savedBody = null;
+    if (this.extractBtn) {
+      this.extractBtn.setAttribute("aria-pressed", "false");
+      this.extractBtn.textContent = "Read clean";
+      this.extractBtn.disabled = false;
+    }
+    this.setExtractStatus("");
+    const frame = this.readerEl.querySelector(".reader__extract-frame");
+    if (frame) frame.remove();
+  }
+
+  syncExtractVisibility() {
+    if (!this.extractWrapEl) return;
+    const link = this.currentArticle && typeof this.currentArticle.link === "string" ? this.currentArticle.link.trim() : "";
+    const ok = /^https?:\/\//i.test(link);
+    this.extractWrapEl.hidden = !ok;
+  }
+
+  async toggleExtract() {
+    if (!this.currentArticle || !this.extractBtn) return;
+    const link = (this.currentArticle.link || "").trim();
+    if (!/^https?:\/\//i.test(link)) return;
+    if (this.extractActive) {
+      const frame = this.readerEl.querySelector(".reader__extract-frame");
+      if (frame) frame.remove();
+      if (this.savedBody) this.readerEl.replaceChildren(this.savedBody);
+      this.extractActive = false;
+      this.extractBtn.setAttribute("aria-pressed", "false");
+      this.extractBtn.textContent = "Read clean";
+      this.setExtractStatus("");
+      return;
+    }
+    this.extractBtn.disabled = true;
+    this.setExtractStatus("Fetching clean copy…", "pending");
+    const endpoint = `${this.extractBase}/extract?url=${encodeURIComponent(link)}`;
+    try {
+      const res = await this.extractFetch(endpoint);
+      if (!res.ok) {
+        this.setExtractStatus(`Extract failed (HTTP ${res.status}).`, "fail");
+        return;
+      }
+      const html = await res.text();
+      this.savedBody = this.readerEl.firstElementChild;
+      const frame = document.createElement("iframe");
+      frame.className = "reader__extract-frame";
+      frame.setAttribute("title", `Clean copy of ${this.currentArticle.title || link}`);
+      frame.setAttribute("sandbox", "allow-same-origin");
+      frame.setAttribute("referrerpolicy", "no-referrer");
+      frame.srcdoc = html;
+      this.readerEl.replaceChildren(frame);
+      this.extractActive = true;
+      this.extractBtn.setAttribute("aria-pressed", "true");
+      this.extractBtn.textContent = "Read original";
+      this.setExtractStatus("Clean copy shown. Scripts stripped, print CSS promoted.", "ok");
+    } catch (e) {
+      this.setExtractStatus(`Extract error: ${e.message || e}`, "fail");
+    } finally {
+      this.extractBtn.disabled = false;
+    }
   }
 
   renderEmpty() {
@@ -35,9 +121,15 @@ export class Reader {
       </div>`;
     this.readerEl.appendChild(wrap);
     this.wrapEl.classList.remove("has-selection");
+    this.currentArticle = null;
+    this.resetExtract();
+    this.syncExtractVisibility();
   }
 
   renderArticle(a) {
+    this.currentArticle = a;
+    this.resetExtract();
+    this.syncExtractVisibility();
     this.readerEl.replaceChildren();
     const article = document.createElement("article");
 
@@ -68,26 +160,12 @@ export class Reader {
       article.appendChild(p);
     }
 
-    if (a.orphan && a.link) {
-      const intro = document.createElement("p");
-      intro.textContent = "Imported star — the original article lives at the source.";
-      article.appendChild(intro);
-      const linkPara = document.createElement("p");
-      const anchor = document.createElement("a");
-      anchor.href = a.link;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.textContent = a.link;
-      linkPara.appendChild(anchor);
-      article.appendChild(linkPara);
-    } else {
-      const note = document.createElement("p");
-      note.className = "smallcaps";
-      note.style.marginTop = "var(--gutter-xl)";
-      note.style.color = "var(--ink-faint)";
-      note.textContent = "sample content · the real reader fetches via the §4 worker";
-      article.appendChild(note);
-    }
+    const note = document.createElement("p");
+    note.className = "smallcaps";
+    note.style.marginTop = "var(--gutter-xl)";
+    note.style.color = "var(--ink-faint)";
+    note.textContent = "sample content · the real reader fetches via the §4 worker";
+    article.appendChild(note);
 
     this.readerEl.appendChild(article);
     this.wrapEl.classList.add("has-selection");
