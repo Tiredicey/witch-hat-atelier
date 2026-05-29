@@ -142,21 +142,28 @@ export class StarsImport {
   async #onPick() {
     const file = this.fileInput.files && this.fileInput.files[0];
     if (!file) return;
-    this.#setStatus(`Reading ${file.name}\u2026`, "pending");
     try {
       const text = await file.text();
-      const { stars, skipped } = parseInoreaderStars(text);
+      await this.handleInoreaderText(text, file.name);
+    } finally {
+      this.fileInput.value = "";
+    }
+  }
 
+  /**
+   * Public: ingest Inoreader-export text directly. Used by the unified
+   * import zone after the format sniffer identifies the payload.
+   */
+  async handleInoreaderText(text, fileName = "pasted JSON") {
+    this.#setStatus(`Reading ${fileName}\u2026`, "pending");
+    try {
+      const { stars, skipped } = parseInoreaderStars(text);
       if (!stars.length) {
-        this.#setStatus(`No starred items found in ${file.name}.`, "fail");
+        this.#setStatus(`No starred items found in ${fileName}.`, "fail");
         return;
       }
-
-      // Re-importing the same file must be a no-op. Filter against the
-      // current snapshot before writing.
       const fresh = stars.filter(s => !this.store.isStarred(s.itemId));
       const dupes = stars.length - fresh.length;
-
       if (!fresh.length) {
         this.#setStatus(
           `All ${stars.length} item(s) already starred \u2014 nothing to import.`,
@@ -164,7 +171,6 @@ export class StarsImport {
         );
         return;
       }
-
       const events = fresh.map(s => ({
         t: "item.star",
         itemId: s.itemId,
@@ -178,15 +184,12 @@ export class StarsImport {
         try { this.onAfter({ added: fresh.length }); }
         catch (e) { console.warn("StarsImport.onAfter threw", e); }
       }
-
-      const parts = [`Imported ${fresh.length} star(s) from ${file.name}.`];
+      const parts = [`Imported ${fresh.length} star(s) from ${fileName}.`];
       if (dupes)   parts.push(`${dupes} already starred \u2014 skipped.`);
       if (skipped) parts.push(`${skipped} entr${skipped === 1 ? "y" : "ies"} skipped (no URL or wrong state).`);
       this.#setStatus(parts.join(" "), "ok");
     } catch (e) {
       this.#setStatus(`Import failed: ${e.message || e}`, "fail");
-    } finally {
-      this.fileInput.value = "";
     }
   }
 
