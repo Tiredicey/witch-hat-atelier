@@ -422,6 +422,30 @@
       <p class="settings__hint">When on, every star/note/read is written to both your cloud adapter <em>and</em> the browser&rsquo;s local storage. Reads prefer the cloud and fall back to local if it is unreachable. Network drops, rate limits, and 5xx errors trip a per-adapter circuit breaker that recovers automatically.</p>
     </section>
 
+    <section class="settings__section settings__intelligence" id="intelligenceSection" aria-labelledby="intelligenceTitle">
+      <h2 class="settings__section-title" id="intelligenceTitle">Optional intelligence surfaces</h2>
+      <p class="settings__note">
+        Off by default. CODA ships no credentials for any AI, OCR, TTS, or translation provider. When you turn this on, future PRs will surface buttons for summarisation (BYO LLM key), on-device OCR and transcription, read-aloud TTS, and translation against a self-hosted LibreTranslate endpoint. Article text only leaves your device when you press a button, and the first remote request per session shows a one-line confirmation naming the destination.
+      </p>
+      <label class="settings__field settings__field--inline">
+        <input id="intelligenceEnable" type="checkbox">
+        <span>Enable the intelligence panel <em>(no providers are wired yet &mdash; this PR ships the gate only)</em></span>
+      </label>
+      <p class="settings__hint" id="intelligenceDisclosure" hidden>
+        Heads up: enabling a provider in a later PR will send the open article&rsquo;s text to the destination you configure. CODA will name the hostname before the first request of each session, and every surface has its own off-by-default checkbox.
+      </p>
+      <div class="settings__hint" id="intelligencePanel" hidden>
+        <p>No providers are wired in this PR. The queue (per ROADMAP &sect;17.11) is: Groq &middot; Cerebras &middot; Mistral &middot; Gemini &middot; OpenRouter &middot; HuggingFace &middot; Tesseract OCR &middot; Whisper.cpp transcription &middot; ElevenLabs/OpenAI TTS &middot; LibreTranslate translation &middot; Cloudflare Workers AI (self-hosted only) &middot; ordered fallback (self-hosted only).</p>
+      </div>
+      <div class="settings__actions">
+        <output id="intelligenceStatus" class="settings__test" aria-live="polite"></output>
+        <div class="settings__buttons">
+          <button type="button" id="intelligenceReset">Reset intelligence</button>
+          <button type="button" id="intelligenceSave" data-variant="primary">Save intelligence</button>
+        </div>
+      </div>
+    </section>
+
     <section class="settings__section settings__gate" id="plaintextGate" hidden>
       <h2 class="settings__section-title settings__warning">Plaintext acknowledgement</h2>
       <p class="settings__note">
