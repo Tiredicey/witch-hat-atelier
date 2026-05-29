@@ -242,7 +242,7 @@ These map to the Google-Reader-era shortcut conventions deliberately — that's 
 **Does NOT ship in v1 (named so scope creep doesn't slip them in):**
 
 - Native iOS / Android apps. PWA only. (Native shells come in v2 if PWA hits clear UX ceiling.)
-- AI summarisation. Punted — see §11 risks.
+- AI summarisation. Punted — see §11.4 for the trust contract and §17 for the v1.1 / BYO path.
 - Public profile sharing or social features.
 - Multi-user / team shelves.
 - Newsletter ingestion via email-to-feed.
@@ -291,7 +291,7 @@ After beta, six weeks of bugfix / quality bar before public 1.0.
 
 3. **Quality filter is a UX cliff.** A user imports their 200-feed OPML and we hide 140 of them; user feels patronised. **Mitigation:** quality triage screen on import surfaces *which* feeds and *why* (last-published date, entries-per-year, autodiscovery quality), with a one-click "keep all anyway." Never silently drop.
 
-4. **AI summarisation pressure.** Every reader competitor in 2025 added AI summaries; users will ask for it. **Mitigation:** punt to v2 explicitly. When we do add it, it runs *on-device* (WebGPU + small distilled model) or via the user's own API key — the BYOS principle extends to BYO inference. Server-side summarisation breaks the trust model.
+4. **AI summarisation pressure.** Every reader competitor in 2025 added AI summaries; users will ask for it. **Mitigation:** punt to v2 explicitly. When we do add it, it runs *on-device* (WebGPU + small distilled model) or via the user's own API key — the BYOS principle extends to BYO inference. Server-side summarisation, or product-managed free-tier rotation across hosted LLM providers, breaks the trust model. The v1.1 path that respects this contract is laid out in §17.
 
 5. **Witch Hat aesthetic is polarising.** Some users will want neutral. **Mitigation:** ship one alt theme at 1.0 called "Plain" — same tokens, but `--bg: #FFFFFF`, `--ink: #111`, system serif. Same product, less atmosphere. The default stays Witch Hat.
 
@@ -431,3 +431,64 @@ Items marked **shipped** already have an adapter at `js/adapters/*.js`. Everythi
 4. A test exists at `tests/<provider>-adapter.spec.js` mocking the provider's HTTP surface.
 
 Items that fail any of (1)-(3) stay in this shortlist and never reach `js/adapters/*.js`.
+
+---
+
+## 17 · Optional client-side intelligence (opt-in, v1.1 extension)
+
+This section exists because users will ask for AI features. §11.4 already states the contract: **CODA-the-product never funnels reading history through a third-party LLM on the user's behalf.** Every intelligence surface here either runs entirely in the user's browser or against credentials the user pasted into Settings themselves. There is no "the app has a Groq key for you" path. That path would make CODA the API consumer and the user's reading history the request body, which is exactly the trust posture §11.4 refuses.
+
+This is the v1.1 amendment that lets us answer "where's the AI?" honestly without breaking §11.4.
+
+### 17.1 · The trust contract (binding, applies to every subsection below)
+
+1. **No product-owned API key.** CODA ships with zero credentials for any inference, TTS, OCR, or translation provider. Every feature in §17.2 / §17.3 is dark until the user supplies an endpoint or a key.
+2. **No silent feed-content transmission.** A surface that sends article text to a remote endpoint must show a one-line "this will send <feed title> · <article title> to <hostname>" affordance before the first request per session, and must respect a global "never send to a remote endpoint" toggle in Settings.
+3. **No background calls.** Every AI surface fires only on an explicit user gesture (button, keystroke). No autoscan, no "summary appears as you scroll", no "let me read ahead and rank these for you."
+4. **Per-feature kill switch.** Each §17 surface has a single Settings checkbox. Off by default. Removing the checkbox in code, not just the UI, must be a one-PR change.
+5. **No tracking pixel surfaces shipped under "AI".** Free-tier providers that log prompts for training are documented as such in `docs/intelligence-providers.md`; the UI tells the user before they paste a key.
+
+### 17.2 · v1.1 candidates — runs entirely in the browser (no third-party HTTP)
+
+These respect §17.1 by construction: nothing leaves the device.
+
+| Feature | Library | Surface | Estimated weight | Trade-off |
+|---|---|---|---|---|
+| OCR for image-only entries | `tesseract.js` (Apache-2.0) | Reader-pane button "Extract text from image" on entries whose body is just `<img>` | ~3 MB WASM, loaded on first use | English baseline is fast; CJK/Arabic language packs each add 5–10 MB |
+| Podcast transcription | `whisper.cpp` WASM build (MIT) | Inline-preview audio rows gain "Transcribe locally" button | ~50 MB tiny.en model on first use, cached | tiny.en is the only model size that fits a free-tier-friendly download; quality is acceptable for English speech but rough for music/poor audio |
+
+Both load on demand, both cache in IndexedDB after the first run, both honor §17.1.4.
+
+### 17.3 · v1.1 candidates — user-controlled endpoint / key (BYO)
+
+These transit data off-device but only to a destination the user chose.
+
+| Feature | What the user supplies | Surface | Why this provider shape |
+|---|---|---|---|
+| Translation | Endpoint URL of a self-hosted LibreTranslate instance (the project's official Docker image runs on any free VPS, including Oracle's always-free tier) | Reader-pane "Translate to …" dropdown; per-feed default language | LibreTranslate (AGPL) is the only mainstream open-source MT server with no per-request quota and no telemetry; pointing at a self-hosted instance is the only configuration that respects §17.1.2 with no caveats |
+| TTS / "read this article aloud" | User's own API key (ElevenLabs, OpenAI, or any provider with an `/audio/speech` endpoint) | Reader-pane play button; renders an `<audio>` element from the response blob | Accessibility-first. Free tiers (e.g. ElevenLabs 10 k chars/month) work; the key paste lives in Settings with a one-line "this sends article text to <hostname>" disclosure per §17.1.2 |
+
+The translation surface is the only §17 feature that ships without a key paste — the user supplies a URL instead. The default placeholder is empty; we **do not** ship a default LibreTranslate endpoint, because doing so would make CODA the de-facto operator of a reading-history funnel.
+
+### 17.4 · Explicitly rejected for v1.x
+
+These were proposed and refused for principled reasons; revisiting requires a new §17.4 entry overriding the prior reason, not a casual feature-flag add.
+
+- **Product-managed rotation across hosted-LLM free tiers** (the "use Groq, fall back to Cerebras, fall back to Gemini, fall back to Mistral, fall back to OpenRouter, fall back to DeepInfra, fall back to Together" pattern). Rejected because: CODA becomes the API consumer (§11.4); reading history becomes the request body; each provider's TOS for free-tier usage typically reserves the right to log prompts for evaluation; users have no way to know which provider answered their query; the rotation logic itself is a maintenance burden that grows every time a provider changes its free-tier policy.
+- **In-browser iframe LLM chat shells** (e.g. embedding HuggingFace Spaces). Rejected because: provider-controlled iframe content can be silently substituted; §17.1.5 prohibits surfaces that depend on a third-party page render.
+- **Cloudflare Workers AI integration through CODA's own Worker.** Rejected because the §4 Worker is shared infrastructure — billing for inference flows back to the project, not the user; this either forces a free-tier cap that quietly degrades user experience or forces a per-user account, both of which contradict §1's "no account required" thesis.
+- **Server-side article summarisation as a default-on shelf badge.** Rejected per §11.4.
+
+### 17.5 · Acceptance criteria for promoting any §17.2 / §17.3 surface to merged status
+
+1. The Settings checkbox lands first (off by default) in a standalone PR — no behaviour change yet.
+2. The surface is gated behind that checkbox with a Playwright test that confirms the surface is invisible when the checkbox is off, and present when on.
+3. For §17.3 surfaces: a `docs/intelligence-providers.md` page enumerates each provider's free-tier terms, prompt-logging policy, and link to their canonical TOS as of the PR's commit date.
+4. The first network request to a non-local endpoint shows the §17.1.2 disclosure.
+5. The surface is reachable from a single keystroke once enabled (alignment with §7's keyboard-first principle).
+
+### 17.6 · What this section does NOT promise
+
+- No commitment to any specific provider, model, or quota tier. The §17.3 table names provider shapes (TTS endpoint, translation server), not vendor lock-in.
+- No commitment that any §17.2 / §17.3 feature ships in 1.0. They are a v1.1 candidates pool, gated by §17.5's acceptance criteria.
+- No competitive-feature-parity goal. If a reader competitor ships "AI ranks your feed", CODA does not chase it; that violates §1's calm-feed thesis regardless of how it is implemented.
