@@ -273,6 +273,13 @@ async function handleDiscover(url, env) {
   const page = await proxyFetch(target, { ua: env.UA, maxBytes });
   if (page.status === 0)  return jsonResp({ candidates: [], probed: false, upstreamError: page.error || "upstream fetch failed" }, 200);
   if (page.status >= 400) return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
+  if (looksLikeFeed(page.body, page.contentType)) {
+    return jsonResp({
+      candidates: [{ url: target, type: classifyByBody(page.body, page.contentType), title: "" }],
+      probed: false,
+      direct: true,
+    });
+  }
   const html = decodeText(page.body);
   const fromHtml = extractFeedLinks(html, target);
   if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false });
