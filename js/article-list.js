@@ -210,6 +210,18 @@ export class ArticleList {
       });
       holder.appendChild(btn);
       panel.appendChild(holder);
+
+      const watchOn = document.createElement("a");
+      watchOn.className = "article-row__videoFallback";
+      watchOn.href = it.video.provider === "vimeo"
+        ? `https://vimeo.com/${it.video.id}`
+        : `https://www.youtube.com/watch?v=${it.video.id}`;
+      watchOn.target = "_blank";
+      watchOn.rel = "noopener noreferrer";
+      watchOn.textContent = it.video.provider === "vimeo"
+        ? "Watch on Vimeo ↗"
+        : "Watch on YouTube ↗";
+      panel.appendChild(watchOn);
     }
 
     if (it.link) {
