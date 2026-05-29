@@ -14,14 +14,14 @@ import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { Intelligence } from "./intelligence/index.js";
-import { GroqSummariseSurface } from "./intelligence/groq-surface.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
-import { ImportZone } from "./import-zone.js";
+import { attachSwipe, attachLongPress } from "./touch-gestures.js";
+import { Welcome, isOnboarded } from "./welcome.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -243,7 +243,6 @@ async function boot() {
         if (!list.getSelectedId()) return;
         notes.open();
       },
-      summarise: () => groqSurface.trigger(),
       goShelf: (id) => {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();
@@ -252,6 +251,87 @@ async function boot() {
   });
 
   list.refreshFromStore(store);
+
+  // Mobile swipe gestures on article rows: right = star, left = mark read.
+  // Inoreader pattern. Delegated at the rowsEl level so dynamic rows pick
+  // up handlers without a re-attachment hook in ArticleList.
+  let _swipeActive = null;
+  rowsEl.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    const row = e.target.closest(".article-row");
+    if (!row) return;
+    const t = e.touches[0];
+    _swipeActive = { row, startX: t.clientX, startY: t.clientY, locked: false, moved: false };
+  }, { passive: true });
+  rowsEl.addEventListener("touchmove", (e) => {
+    if (!_swipeActive) return;
+    const t = e.touches[0];
+    const dx = t.clientX - _swipeActive.startX;
+    const dy = t.clientY - _swipeActive.startY;
+    if (!_swipeActive.locked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      _swipeActive.locked = Math.abs(dx) > Math.abs(dy) * 1.5 ? "x" : "y";
+    }
+    if (_swipeActive.locked === "x") {
+      _swipeActive.moved = true;
+      _swipeActive.row.style.transform = `translateX(${dx}px)`;
+      _swipeActive.row.dataset.swipeDir = dx > 0 ? "right" : "left";
+      e.preventDefault();
+    }
+  }, { passive: false });
+  rowsEl.addEventListener("touchend", (e) => {
+    if (!_swipeActive) return;
+    const last = _swipeActive;
+    _swipeActive = null;
+    last.row.style.transform = "";
+    delete last.row.dataset.swipeDir;
+    if (last.locked !== "x" || !last.moved) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dx = t.clientX - last.startX;
+    const id = last.row.dataset.id;
+    if (!id) return;
+    if (dx >= 80) store.toggleStarred(id);
+    else if (dx <= -80) store.toggleRead(id);
+  });
+  rowsEl.addEventListener("touchcancel", () => {
+    if (_swipeActive) {
+      _swipeActive.row.style.transform = "";
+      delete _swipeActive.row.dataset.swipeDir;
+      _swipeActive = null;
+    }
+  });
+
+  // Long-press on subscription rows: opens the same action menu the "..." button uses.
+  const subsListElForLp = document.getElementById("subs-list");
+  if (subsListElForLp) {
+    let _lpTimer = null;
+    let _lpStart = null;
+    subsListElForLp.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      const row = e.target.closest(".subs-list__row");
+      if (!row) return;
+      const t = e.touches[0];
+      _lpStart = { row, x: t.clientX, y: t.clientY };
+      if (_lpTimer) clearTimeout(_lpTimer);
+      _lpTimer = setTimeout(() => {
+        _lpTimer = null;
+        if (row.dataset.url) subs.openFeedMenu(row.dataset.url);
+      }, 500);
+    }, { passive: true });
+    subsListElForLp.addEventListener("touchmove", (e) => {
+      if (!_lpStart || !_lpTimer) return;
+      const t = e.touches[0];
+      if (Math.abs(t.clientX - _lpStart.x) > 10 || Math.abs(t.clientY - _lpStart.y) > 10) {
+        clearTimeout(_lpTimer);
+        _lpTimer = null;
+      }
+    }, { passive: true });
+    const lpCancel = () => { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } };
+    subsListElForLp.addEventListener("touchend", lpCancel);
+    subsListElForLp.addEventListener("touchcancel", lpCancel);
+  }
+
+  void attachSwipe; void attachLongPress;
 
   let dmzAdapter;
   let dmzAdapterFallback = null;
@@ -348,23 +428,9 @@ async function boot() {
   });
   void intelligenceCtrl;
 
-  const groqSurface = new GroqSummariseSurface({
-    intelligence: intelligenceCtrl,
-    reader,
-    wrapEl:           $("#readerSummarise"),
-    triggerBtn:       $("#readerSummariseBtn"),
-    statusEl:         $("#readerSummariseStatus"),
-    disclosureEl:     $("#readerSummariseDisclosure"),
-    disclosureTextEl: $("#readerSummariseDisclosureText"),
-    confirmBtn:       $("#readerSummariseConfirm"),
-    cancelBtn:        $("#readerSummariseCancel"),
-    outputEl:         $("#readerSummariseOutput"),
-  });
-  void groqSurface;
-
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
-    statusEl:  document.getElementById("import-zone-status"),
+    statusEl:  document.getElementById("inoreader-stars-status"),
     store,
     onAfter: () => {
       const merged = mergeStarOrphans(baseFeedItems, store);
@@ -377,7 +443,7 @@ async function boot() {
 
   const subs = new Subscriptions({
     importInput:     document.getElementById("opml-import-file"),
-    statusEl:        document.getElementById("import-zone-status"),
+    statusEl:        document.getElementById("opml-import-status"),
     triageEl:        document.getElementById("opml-triage"),
     triageListEl:    document.getElementById("opml-triage-list"),
     triageSummaryEl: document.getElementById("opml-triage-summary"),
@@ -387,18 +453,13 @@ async function boot() {
     cancelBtn:       document.getElementById("opml-cancel-import"),
     exportBtn:       document.getElementById("opml-export-btn"),
     exportStatusEl:  document.getElementById("opml-export-status"),
+    subsListEl:      document.getElementById("subs-list"),
+    subsEmptyEl:     document.getElementById("subs-list-empty"),
     adapter,
   });
   void subs;
-
-  const importZone = new ImportZone({
-    zoneEl:        document.getElementById("import-zone"),
-    fileInput:     document.getElementById("import-zone-file"),
-    statusEl:      document.getElementById("import-zone-status"),
-    subscriptions: subs,
-    starsImport:   starsImport,
-  });
-  void importZone;
+  window.codaSubs = subs;
+  subs.renderSubsList().catch(err => console.warn("subs render failed", err));
 
   const addFeed = new AddFeed({
     inputEl:        document.getElementById("add-feed-input"),
@@ -413,6 +474,24 @@ async function boot() {
     subscriptions:  subs,
   });
   void addFeed;
+
+  const welcomeScrim = document.getElementById("welcomeScrim");
+  if (welcomeScrim) {
+    const welcome = new Welcome({
+      scrimEl:    welcomeScrim,
+      urlInput:   document.getElementById("welcomeFeedUrl"),
+      hnBtn:      document.getElementById("welcomeHnBtn"),
+      nextBtn:    document.getElementById("welcomeStep1Next"),
+      statusEl:   document.getElementById("welcomeStatus"),
+      skipBtns:   Array.from(welcomeScrim.querySelectorAll("[data-skip]")),
+      choiceBtns: welcomeScrim.querySelectorAll(".welcome-card__choices button"),
+      doneBtn:    document.getElementById("welcomeDoneBtn"),
+      doneMsg:    document.getElementById("welcomeDoneMsg"),
+      subscriptions: subs,
+      navigate:   (page) => router.go(page),
+    });
+    if (!isOnboarded()) welcome.open();
+  }
 }
 
 if (document.readyState === "loading") {
