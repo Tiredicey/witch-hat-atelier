@@ -34,19 +34,24 @@ export class AddFeed {
     this.refusedEl     = opts.refusedEl;
     this.bridgeInput   = opts.bridgeInput;
     this.bridgeSaveBtn = opts.bridgeSaveBtn;
+    this.bridgeClearBtn = opts.bridgeClearBtn;
     this.bridgeStatusEl = opts.bridgeStatusEl;
+    this.bridgeBadgeEl = opts.bridgeBadgeEl;
+    this.bridgeDetailsEl = opts.bridgeDetailsEl;
     this.subscriptions = opts.subscriptions;
     this.fetchBase     = opts.fetchBase || "";
 
     if (this.bridgeInput) {
       this.bridgeInput.value = this.#loadBridge();
     }
+    this.#updateBridgeBadge();
 
     this.resolveBtn?.addEventListener("click", () => this.#onResolve());
     this.inputEl?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); this.#onResolve(); }
     });
     this.bridgeSaveBtn?.addEventListener("click", () => this.#onSaveBridge());
+    this.bridgeClearBtn?.addEventListener("click", () => this.#onClearBridge());
   }
 
   async #onResolve() {
@@ -259,6 +264,13 @@ export class AddFeed {
           this.#onResolve();
         });
         this.refusedEl.appendChild(useBtn);
+      } else if (!result.bridgeHint.configured && this.bridgeInput) {
+        const configBtn = document.createElement("button");
+        configBtn.type = "button";
+        configBtn.className = "add-feed__configure-bridge";
+        configBtn.textContent = "Configure RSSHub bridge";
+        configBtn.addEventListener("click", () => this.#focusBridgeConfig());
+        this.refusedEl.appendChild(configBtn);
       }
     }
   }
@@ -266,18 +278,51 @@ export class AddFeed {
   #onSaveBridge() {
     const value = (this.bridgeInput?.value || "").trim();
     if (!value) {
-      localStorage.removeItem(BRIDGE_KEY);
-      this.#setBridgeStatus("Bridge URL cleared. Refused platforms will no longer suggest a bridge URL.", "ok");
+      this.#onClearBridge();
       return;
     }
     try {
       const u = new URL(value);
       if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("must be http(s)");
-      localStorage.setItem(BRIDGE_KEY, u.toString().replace(/\/+$/, ""));
-      this.#setBridgeStatus(`Saved. Refused platforms will now suggest ${u.toString().replace(/\/+$/, "")} as the bridge base.`, "ok");
+      const normalised = u.toString().replace(/\/+$/, "");
+      localStorage.setItem(BRIDGE_KEY, normalised);
+      if (this.bridgeInput) this.bridgeInput.value = normalised;
+      this.#setBridgeStatus(`Saved. Refused platforms will now suggest ${normalised} as the bridge base.`, "ok");
+      this.#updateBridgeBadge();
     } catch (e) {
       this.#setBridgeStatus(`Not a valid URL: ${e.message || e}`, "fail");
     }
+  }
+
+  #onClearBridge() {
+    localStorage.removeItem(BRIDGE_KEY);
+    if (this.bridgeInput) this.bridgeInput.value = "";
+    this.#setBridgeStatus("Bridge URL cleared. Refused platforms will no longer suggest a bridge URL.", "ok");
+    this.#updateBridgeBadge();
+  }
+
+  #updateBridgeBadge() {
+    if (!this.bridgeBadgeEl) return;
+    const saved = this.#loadBridge();
+    if (saved) {
+      this.bridgeBadgeEl.hidden = false;
+      this.bridgeBadgeEl.textContent = "configured";
+      this.bridgeBadgeEl.dataset.configured = "true";
+    } else {
+      this.bridgeBadgeEl.hidden = true;
+      this.bridgeBadgeEl.textContent = "";
+      this.bridgeBadgeEl.dataset.configured = "false";
+    }
+  }
+
+  #focusBridgeConfig() {
+    if (this.bridgeDetailsEl && !this.bridgeDetailsEl.open) {
+      this.bridgeDetailsEl.open = true;
+    }
+    const input = this.bridgeInput;
+    if (!input) return;
+    input.scrollIntoView({ behavior: "smooth", block: "center" });
+    input.focus({ preventScroll: true });
   }
 
   #loadBridge() {

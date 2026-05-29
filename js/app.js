@@ -331,7 +331,10 @@ async function boot() {
     refusedEl:      document.getElementById("add-feed-refused"),
     bridgeInput:    document.getElementById("add-feed-bridge"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
+    bridgeClearBtn: document.getElementById("add-feed-bridge-clear"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
+    bridgeBadgeEl:  document.getElementById("add-feed-bridge-badge"),
+    bridgeDetailsEl: document.getElementById("add-feed-bridge-details"),
     subscriptions:  subs,
   });
   void addFeed;
