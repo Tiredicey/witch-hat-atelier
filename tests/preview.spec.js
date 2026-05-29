@@ -112,7 +112,11 @@ test.describe('article preview pane (density=preview)', () => {
     await expect(playBtn).toBeVisible();
     await expect(playBtn).toContainText('YouTube');
 
-    // No iframe before click
+    const fallback = row.locator('a.article-row__videoFallback');
+    await expect(fallback).toBeVisible();
+    await expect(fallback).toHaveAttribute('href', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await expect(fallback).toHaveAttribute('target', '_blank');
+
     await expect(row.locator('iframe')).toHaveCount(0);
 
     await playBtn.click();
@@ -121,6 +125,8 @@ test.describe('article preview pane (density=preview)', () => {
     await expect(iframe).toBeAttached();
     const src = await iframe.getAttribute('src');
     expect(src).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ');
+
+    await expect(fallback).toBeVisible();
   });
 
   test('text-only entry renders the body excerpt', async ({ page }) => {
