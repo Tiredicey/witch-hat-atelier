@@ -113,12 +113,13 @@ export class ArticleList {
         </div>
         <h3 class="article-row__title"></h3>
         <p class="article-row__excerpt"></p>
+        <div class="article-row__preview" hidden></div>
       `;
-      // textContent assignments — never innerHTML on user-ish fields
       div.querySelector(".article-row__source").textContent  = it.source;
       div.querySelector(".article-row__age").textContent     = it.age;
       div.querySelector(".article-row__title").textContent   = it.title;
       div.querySelector(".article-row__excerpt").textContent = it.excerpt;
+      this.#renderPreview(div.querySelector(".article-row__preview"), it);
 
       const activate = () => {
         this.setSelected(it.id);
@@ -139,7 +140,88 @@ export class ArticleList {
         const d = b.dataset.density;
         this.listEl.dataset.density = d;
         buttons.forEach(x => x.setAttribute("aria-pressed", String(x.dataset.density === d)));
+        this.rowsEl.querySelectorAll(".article-row__preview").forEach(p => {
+          p.hidden = d !== "preview";
+        });
       });
     });
+  }
+
+  #renderPreview(panel, it) {
+    panel.replaceChildren();
+
+    if (it.image) {
+      const img = document.createElement("img");
+      img.className = "article-row__image";
+      img.src = it.image;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      panel.appendChild(img);
+    }
+
+    const body = Array.isArray(it.body) ? it.body : [];
+    const text = body.slice(0, 2).join(" ").slice(0, 480);
+    if (text) {
+      const p = document.createElement("p");
+      p.className = "article-row__previewText";
+      p.textContent = text;
+      panel.appendChild(p);
+    } else if (it.excerpt && !it.image) {
+      const p = document.createElement("p");
+      p.className = "article-row__previewText";
+      p.textContent = it.excerpt;
+      panel.appendChild(p);
+    }
+
+    const enc = it.enclosure;
+    if (enc && enc.url && /^audio\//i.test(enc.type || "")) {
+      const a = document.createElement("audio");
+      a.controls = true;
+      a.preload = "none";
+      a.src = enc.url;
+      a.className = "article-row__audio";
+      panel.appendChild(a);
+    }
+
+    if (it.video && it.video.id) {
+      const holder = document.createElement("div");
+      holder.className = "article-row__video";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "article-row__videoPlay";
+      btn.textContent = it.video.provider === "vimeo"
+        ? "▶ Play Vimeo video"
+        : "▶ Play YouTube video";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const iframe = document.createElement("iframe");
+        iframe.className = "article-row__videoFrame";
+        iframe.src = it.video.provider === "vimeo"
+          ? `https://player.vimeo.com/video/${it.video.id}?dnt=1&autoplay=1`
+          : `https://www.youtube-nocookie.com/embed/${it.video.id}?autoplay=1&rel=0&modestbranding=1`;
+        iframe.allow = "encrypted-media; picture-in-picture";
+        iframe.referrerPolicy = "no-referrer";
+        iframe.loading = "lazy";
+        iframe.title = "Embedded video";
+        iframe.allowFullscreen = true;
+        holder.replaceChildren(iframe);
+      });
+      holder.appendChild(btn);
+      panel.appendChild(holder);
+    }
+
+    if (it.link) {
+      const open = document.createElement("a");
+      open.href = it.link;
+      open.target = "_blank";
+      open.rel = "noopener noreferrer";
+      open.className = "article-row__open";
+      open.textContent = "Open original ↗";
+      panel.appendChild(open);
+    }
+
+    panel.hidden = (this.listEl.dataset.density || "comfortable") !== "preview";
   }
 }
