@@ -273,6 +273,46 @@
       </div>
     </section>
 
+    <section class="settings__section settings__add-feed">
+      <h2 class="settings__section-title">Add a feed by URL</h2>
+      <p class="settings__note">
+        Paste any site URL. CODA resolves documented patterns (YouTube channel / playlist, Reddit subreddit, Mastodon profile, GitHub releases) directly; for everything else it asks the &sect;4 Worker&rsquo;s <code>/discover</code> endpoint to scan the page for <code>&lt;link rel=&quot;alternate&quot;&gt;</code> tags and probe common feed paths.
+      </p>
+      <p class="settings__hint">
+        Facebook, Instagram, X (Twitter), and TikTok do not publish public RSS feeds in 2026. CODA refuses those URLs with an explanation; if you run an RSSHub bridge of your own, configure its base URL below and CODA will suggest candidate bridge routes. CODA will never silently route your URLs through a public bridge instance.
+      </p>
+      <label class="settings__field">
+        <span>URL</span>
+        <input id="add-feed-input" type="url" placeholder="https://www.spot.ph/ or https://www.youtube.com/channel/UC&hellip;" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="settings__field">
+        <span>Shelf (optional)</span>
+        <input id="add-feed-shelf" type="text" placeholder="all" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="add-feed__row">
+        <button type="button" id="add-feed-resolve" data-variant="primary">Resolve</button>
+        <p class="settings__test" id="add-feed-status" aria-live="polite"></p>
+      </div>
+
+      <ul class="add-feed__candidates" id="add-feed-candidates" hidden></ul>
+      <div class="add-feed__refused" id="add-feed-refused" hidden></div>
+
+      <details class="add-feed__bridge">
+        <summary>RSSHub bridge URL (optional)</summary>
+        <p class="settings__hint">
+          If you operate an RSSHub instance (self-hosted or rented), enter its base URL here. CODA will use it to suggest candidate routes when you paste a Facebook, Instagram, X, or TikTok URL. Leave blank to disable bridge suggestions entirely.
+        </p>
+        <label class="settings__field">
+          <span>Bridge base URL</span>
+          <input id="add-feed-bridge" type="url" placeholder="https://rsshub.example.com" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="add-feed__row">
+          <button type="button" id="add-feed-bridge-save">Save bridge</button>
+          <p class="settings__test" id="add-feed-bridge-status" aria-live="polite"></p>
+        </div>
+      </details>
+    </section>
+
     <section class="settings__section settings__subs">
       <h2 class="settings__section-title">Import subscriptions (OPML)</h2>
       <p class="settings__note">

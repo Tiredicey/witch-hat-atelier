@@ -16,6 +16,7 @@ import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
+import { AddFeed } from "./add-feed.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -98,35 +99,6 @@ async function boot() {
     }
   } catch (e) {
     console.warn("app: feed load failed, using SAMPLE", e);
-  }
-
-  const baseFeedItems = items;
-  items = mergeStarOrphans(baseFeedItems, store);
-
-  function mergeStarOrphans(base, st) {
-    const haveId = new Set(base.map(x => x.id));
-    const orphans = [];
-    for (const it of st.snapshot.items) {
-      if (!it.starred) continue;
-      if (haveId.has(it.id)) continue;
-      const link = it.link || it.id;
-      let host = "";
-      try { host = new URL(link).hostname.replace(/^www\./, ""); } catch { host = "imported"; }
-      orphans.push({
-        id: it.id,
-        source: host,
-        shelf: "starred-import",
-        title: it.title || link,
-        age: "imported",
-        read: !!it.read,
-        excerpt: link,
-        body: [],
-        link,
-        orphan: true,
-      });
-    }
-    if (!orphans.length) return base;
-    return [...base, ...orphans];
   }
 
   const list = new ArticleList({
@@ -290,12 +262,6 @@ async function boot() {
     fileInput: document.getElementById("inoreader-stars-file"),
     statusEl:  document.getElementById("inoreader-stars-status"),
     store,
-    onAfter: () => {
-      const merged = mergeStarOrphans(baseFeedItems, store);
-      list.setItems(merged);
-      const shelfId = (railEl.querySelector(".shelf[aria-current=\"true\"]")?.dataset?.shelf) || "all";
-      applyShelf(shelfId);
-    },
   });
   void starsImport;
 
@@ -314,6 +280,20 @@ async function boot() {
     adapter,
   });
   void subs;
+
+  const addFeed = new AddFeed({
+    inputEl:        document.getElementById("add-feed-input"),
+    resolveBtn:     document.getElementById("add-feed-resolve"),
+    shelfInput:     document.getElementById("add-feed-shelf"),
+    statusEl:       document.getElementById("add-feed-status"),
+    candidatesEl:   document.getElementById("add-feed-candidates"),
+    refusedEl:      document.getElementById("add-feed-refused"),
+    bridgeInput:    document.getElementById("add-feed-bridge"),
+    bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
+    bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
+    subscriptions:  subs,
+  });
+  void addFeed;
 }
 
 if (document.readyState === "loading") {

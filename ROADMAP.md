@@ -227,6 +227,7 @@ These map to the Google-Reader-era shortcut conventions deliberately — that's 
 **Ships in v1 (week 12 beta):**
 
 1. Add feed by URL · autodiscovery via `rel=alternate` and `feed-menu` [S6] · OPML 2.0 import [S8] with quality triage screen ("17 of your 89 feeds haven't published in 2+ years — keep, archive, or unsubscribe?")
+   - **Status (2026-05-29):** Add-by-URL UI shipped in PR landing this date. Documented direct patterns resolve client-side (YouTube channel-by-ID, YouTube playlist, YouTube legacy user, Reddit subreddit, Reddit user, Mastodon profile on any instance, GitHub releases). Everything else falls through to the §4 Worker `/discover` endpoint (alternate-link scan + common-path probe, shipped in PR #21). Facebook, Instagram, X (Twitter), and TikTok are refused with an honest in-panel explanation; an optional RSSHub bridge URL can be configured per-installation to surface candidate bridge routes (CODA never defaults to a public bridge). `feed-menu` [S6] is still draft-only and is not yet implemented; revisit when the IETF draft advances. Quality triage on OPML import shipped in PR #16; per-feed dormancy detection still depends on the §4 Worker `dormantFeeds[]` field landing.
 2. Three storage backends: Dropbox, S3-compatible (R2 / B2 / Wasabi), WebDAV (covers Nextcloud / generic).
 3. Client-side AES-256-GCM encryption with Argon2id KDF; passphrase only stored in OS keychain on opt-in.
 4. Event log + materialised snapshot sync as per §5.

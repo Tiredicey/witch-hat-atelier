@@ -26,6 +26,22 @@ import { parseOpml, serializeOpml, subscriptionsFromOpml } from "./opml.js";
 
 const SUBS_KEY = "coda/subs/subscriptions.json";
 
+function makeSlugId(title, url, suffix) {
+  const t = (title || "").toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 30);
+  if (t) return suffix ? `${t}-${suffix}` : t;
+  try {
+    const u = new URL(url);
+    const host = u.host.replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
+    return suffix ? `${host}-${suffix}` : (host || `feed-${suffix || 1}`);
+  } catch {
+    return `feed-${suffix || 1}`;
+  }
+}
+
 export class Subscriptions {
   /**
    * @param {object} opts
@@ -239,6 +255,45 @@ export class Subscriptions {
     if (this.commitBtn) this.commitBtn.disabled = true;
   }
 
+  // ─── Append a single feed (used by the Add-by-URL flow) ─────────
+
+  /**
+   * Append one feed to subscriptions.json, persisting through the active
+   * adapter. Deduplicates on exact URL match. Returns { added, totalFeeds }.
+   *
+   * @param {{ url: string, title?: string, shelf?: string, id?: string }} feed
+   */
+  async appendFeed(feed) {
+    if (!feed || typeof feed.url !== "string" || !feed.url) {
+      throw new Error("appendFeed: url is required");
+    }
+    const raw = await this.adapter.read(SUBS_KEY);
+    const cur = raw ? safeParseJson(raw) : null;
+    const existing = (cur && Array.isArray(cur.feeds)) ? cur.feeds.slice() : [];
+    const dupe = existing.find(f => f && f.url === feed.url);
+    if (dupe) {
+      return { added: false, totalFeeds: existing.length };
+    }
+    const shelf = feed.shelf || "all";
+    const title = feed.title || "";
+    const usedIds = new Set(existing.map(f => f && f.id).filter(Boolean));
+    let id = feed.id || makeSlugId(title, feed.url, "");
+    let suffix = 2;
+    while (usedIds.has(id)) {
+      id = makeSlugId(title, feed.url, suffix);
+      suffix += 1;
+    }
+    existing.push({ id, url: feed.url, shelf, title });
+    const next = {
+      version: cur?.version || 1,
+      updated: Date.now(),
+      title: cur?.title || "",
+      feeds: existing,
+    };
+    await this.adapter.write(SUBS_KEY, JSON.stringify(next));
+    return { added: true, totalFeeds: existing.length };
+  }
+
   // ─── Export ─────────────────────────────────────────────────────────────
 
   async #export() {
@@ -277,6 +332,10 @@ export class Subscriptions {
     this.exportStatusEl.textContent = msg;
     this.exportStatusEl.dataset.status = status;
   }
+}
+
+function safeParseJson(s) {
+  try { return JSON.parse(s); } catch { return null; }
 }
 
 function downloadText(text, filename, contentType) {
