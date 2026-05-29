@@ -117,6 +117,45 @@ export function resolve(rawInput, opts = {}) {
     }
   }
 
+  if (/\.substack\.com$/.test(host) && host !== "substack.com" && host !== "www.substack.com") {
+    return {
+      kind: "feed",
+      feedUrl: `${url.protocol}//${host}/feed`,
+      source: "substack",
+      title: `Substack ${host.replace(/\.substack\.com$/, "")}`,
+    };
+  }
+
+  if (host === "medium.com") {
+    const at = path.match(/^\/@([A-Za-z0-9_.-]+)\/?$/);
+    if (at) {
+      return {
+        kind: "feed",
+        feedUrl: `https://medium.com/feed/@${at[1]}`,
+        source: "medium-user",
+        title: `Medium @${at[1]}`,
+      };
+    }
+    const pub = path.match(/^\/([A-Za-z0-9_-]+)\/?$/);
+    if (pub && pub[1] !== "feed") {
+      return {
+        kind: "feed",
+        feedUrl: `https://medium.com/feed/${pub[1]}`,
+        source: "medium-publication",
+        title: `Medium ${pub[1]}`,
+      };
+    }
+  }
+
+  if (/\.tumblr\.com$/.test(host) && host !== "tumblr.com" && host !== "www.tumblr.com") {
+    return {
+      kind: "feed",
+      feedUrl: `${url.protocol}//${host}/rss`,
+      source: "tumblr",
+      title: `Tumblr ${host.replace(/\.tumblr\.com$/, "")}`,
+    };
+  }
+
   if (host === "github.com" || host === "www.github.com") {
     const m = path.match(/^\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+?)(?:\/(?:releases|commits|tags)?)?\/?$/);
     if (m && m[1] !== "orgs" && m[1] !== "search" && m[1] !== "settings") {

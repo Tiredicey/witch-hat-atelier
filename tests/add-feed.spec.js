@@ -138,7 +138,7 @@ test.describe('Add a feed by URL — /discover fallback', () => {
 
   test('Empty /discover response shows an honest "no feeds found" message', async ({ page }) => {
     await page.route('**/discover?**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '{"candidates":[]}' }));
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{"candidates":[],"probed":true}' }));
 
     await openSettings(page);
     await clearStorage(page);
@@ -148,8 +148,48 @@ test.describe('Add a feed by URL — /discover fallback', () => {
 
     const status = page.locator('#add-feed-status');
     await expect(status).toHaveAttribute('data-status', 'fail');
-    await expect(status).toContainText('No <link rel="alternate">');
+    await expect(status).toContainText('no feed content');
     await expect(page.locator('#add-feed-candidates')).toBeHidden();
+  });
+
+  test('Upstream 4xx surfaces a bot-block diagnostic, not a generic empty message', async ({ page }) => {
+    await page.route('**/discover?**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ candidates: [], probed: false, sourceStatus: 403 }),
+      }));
+
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('#add-feed-input').fill('https://www.spot.ph/');
+    await page.locator('#add-feed-resolve').click();
+
+    const status = page.locator('#add-feed-status');
+    await expect(status).toHaveAttribute('data-status', 'fail');
+    await expect(status).toContainText('HTTP 403');
+    await expect(status).toContainText('blocked');
+  });
+
+  test('Gate-blocked /discover surfaces a PROXY_ALLOW diagnostic', async ({ page }) => {
+    await page.route('**/discover?**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ candidates: [], probed: false, gateBlocked: true, gateReason: 'origin not in allowlist' }),
+      }));
+
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('#add-feed-input').fill('https://example.com/');
+    await page.locator('#add-feed-resolve').click();
+
+    const status = page.locator('#add-feed-status');
+    await expect(status).toHaveAttribute('data-status', 'fail');
+    await expect(status).toContainText('PROXY_ALLOW');
+    await expect(status).toContainText('origin not in allowlist');
   });
 
   test('Verify button fetches the feed and reports parsed entry count', async ({ page }) => {

@@ -88,6 +88,39 @@ The resolver skips this pattern for `youtube.com`, `reddit.com`,
 `github.com`, `medium.com`, and `substack.com` because those sites use
 `@username` URLs that are NOT Mastodon.
 
+### Substack publication
+
+| Input pattern | Output URL |
+| --- | --- |
+| `https://{name}.substack.com/...` | `https://{name}.substack.com/feed` |
+
+Every Substack publication exposes an Atom feed at the publication
+subdomain `/feed` path. The pattern only matches subdomains; the bare
+`substack.com` / `www.substack.com` host is the directory homepage and
+falls through to `/discover`.
+
+### Medium @user and publication
+
+| Input pattern | Output URL |
+| --- | --- |
+| `https://medium.com/@{user}` | `https://medium.com/feed/@{user}` |
+| `https://medium.com/{slug}` | `https://medium.com/feed/{slug}` |
+
+Medium ships `/feed/@{user}` for personal feeds and `/feed/{slug}` for
+publication feeds at the canonical `medium.com` host. Custom-domain
+Medium publications fall through to `/discover`; the publication page
+ships an `<link rel="alternate">` that resolves on the round trip.
+
+### Tumblr blog
+
+| Input pattern | Output URL |
+| --- | --- |
+| `https://{name}.tumblr.com/...` | `https://{name}.tumblr.com/rss` |
+
+Every Tumblr blog exposes RSS at the blog subdomain `/rss` path. The
+pattern only matches subdomains; bare `tumblr.com` / `www.tumblr.com`
+falls through.
+
 ### GitHub releases
 
 | Input pattern | Output URL |
@@ -98,6 +131,23 @@ Every public GitHub repository exposes an Atom feed of its releases at
 `/releases.atom`, plus parallel `/commits.atom` and `/tags.atom` feeds.
 The resolver picks releases because it is the most useful default for a
 reader; if you want commits, paste the explicit `/commits.atom` URL.
+
+## When `/discover` returns no candidates
+
+The Worker `/discover` route reports back one of four states in its JSON
+body so the UI can show a specific diagnostic instead of a generic
+"no feeds found" sentence:
+
+| Worker response shape | UI message |
+| --- | --- |
+| `gateBlocked: true, gateReason: "..."` | The Worker `PROXY_ALLOW` env var refused the URL; tell the deploy owner to widen it. |
+| `upstreamError: "..."` | Worker could not connect to the site (timeout, DNS, network). |
+| `sourceStatus: >=400` | Site responded with HTTP 4xx/5xx when the Worker fetched it; usually a bot block. |
+| `probed: true, candidates: []` | Page loaded, no `<link rel="alternate">`, common paths also empty. Site likely has no RSS. |
+| `probed: false, candidates: []` | Page loaded, no `<link rel="alternate">`. Try a known feed URL. |
+
+This shape is asserted by `tests/add-feed.spec.js`. If you change the
+worker response, update both the worker and the UI together.
 
 ## Refused platforms
 

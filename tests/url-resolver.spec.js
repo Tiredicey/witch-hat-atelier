@@ -61,6 +61,44 @@ test.describe('url-resolver — direct feed patterns', () => {
     expect(r.feedUrl).toBe('https://github.com/Tiredicey/witch-hat-atelier/releases.atom');
     expect(r.source).toBe('github-releases');
   });
+
+  test('substack publication → {subdomain}.substack.com/feed', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://noahpinion.substack.com/');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://noahpinion.substack.com/feed');
+    expect(r.source).toBe('substack');
+  });
+
+  test('substack.com root falls through to /discover (no publication subdomain)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://substack.com/');
+    expect(r.kind).toBe('discover');
+  });
+
+  test('medium @user → medium.com/feed/@user', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://medium.com/@daveberndtson');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://medium.com/feed/@daveberndtson');
+    expect(r.source).toBe('medium-user');
+  });
+
+  test('medium publication → medium.com/feed/{slug}', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://medium.com/better-programming');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://medium.com/feed/better-programming');
+    expect(r.source).toBe('medium-publication');
+  });
+
+  test('tumblr blog → {subdomain}.tumblr.com/rss', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://staff.tumblr.com/');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://staff.tumblr.com/rss');
+    expect(r.source).toBe('tumblr');
+  });
 });
 
 test.describe('url-resolver — refused platforms', () => {
