@@ -473,6 +473,73 @@
 </main>
 
 <!-- ═══════════════════════ SHORTCUTS CHEAT-SHEET ═══════════════════ -->
+<div class="welcome-scrim scrim" id="welcomeScrim" role="dialog" aria-modal="true" aria-labelledby="welcomeHeading" hidden>
+  <div class="welcome-card">
+    <header class="welcome-card__header">
+      <svg class="welcome-card__sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20 Q 8 8, 12 14 Q 16 18, 20 10" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+        <path d="M4 4 L 4 20 M 20 4 L 20 20" fill="none" stroke="currentColor" stroke-width="0.75" stroke-opacity="0.5"/>
+      </svg>
+      <h1 class="welcome-card__title" id="welcomeHeading">Welcome to CODA</h1>
+      <p class="welcome-card__subtitle smallcaps">three steps, then you read</p>
+      <ol class="welcome-card__steps" aria-label="Setup progress">
+        <li data-step-label="1" aria-current="step" data-state="current"><span>1</span> First feed</li>
+        <li data-step-label="2" data-state="upcoming"><span>2</span> Where to save</li>
+        <li data-step-label="3" data-state="upcoming"><span>3</span> Ready</li>
+      </ol>
+    </header>
+    <div class="divider-hand"></div>
+
+    <section class="welcome-card__pane" data-step-pane="1">
+      <h2>Paste your first feed</h2>
+      <p class="welcome-card__note">
+        Any URL works — a blog, a YouTube channel, a publication. CODA finds the feed inside it.
+      </p>
+      <label class="welcome-card__field">
+        <span class="smallcaps">Feed or page URL</span>
+        <input id="welcomeFeedUrl" type="url" placeholder="https://" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="welcome-card__row">
+        <button type="button" id="welcomeHnBtn">Try Hacker News</button>
+        <button type="button" id="welcomeStep1Next" data-variant="primary">Save and continue</button>
+      </div>
+      <p class="welcome-card__status" id="welcomeStatus" aria-live="polite"></p>
+      <p class="welcome-card__skip-row">
+        <button type="button" class="welcome-card__skip" data-skip="1">Skip — I&rsquo;ll add feeds later</button>
+      </p>
+    </section>
+
+    <section class="welcome-card__pane" data-step-pane="2" hidden>
+      <h2>Where should CODA save your reading?</h2>
+      <p class="welcome-card__note">
+        Stars, notes, and read state. You can change this any time in Settings.
+      </p>
+      <ul class="welcome-card__choices">
+        <li>
+          <button type="button" data-kind="local">
+            <strong>This browser only</strong>
+            <span>Fastest. Nothing leaves your device. Works offline.</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" data-kind="cloud">
+            <strong>Cloud sync (set up in Settings)</strong>
+            <span>GitHub, Dropbox, S3, WebDAV, or Telegram. Syncs across devices.</span>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <section class="welcome-card__pane" data-step-pane="3" hidden>
+      <h2>Ready.</h2>
+      <p class="welcome-card__note" id="welcomeDoneMsg">Your shelf is yours now.</p>
+      <div class="welcome-card__row welcome-card__row--end">
+        <button type="button" id="welcomeDoneBtn" data-variant="primary">Open my reader</button>
+      </div>
+    </section>
+  </div>
+</div>
+
 <div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
   <div class="cheat">
     <h2>Keyboard</h2>

@@ -20,6 +20,7 @@ import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
+import { Welcome, isOnboarded } from "./welcome.js";
 
 function $(sel, root = document) {
   const el = root.querySelector(sel);
@@ -387,6 +388,24 @@ async function boot() {
     subscriptions:  subs,
   });
   void addFeed;
+
+  const welcomeScrim = document.getElementById("welcomeScrim");
+  if (welcomeScrim) {
+    const welcome = new Welcome({
+      scrimEl:    welcomeScrim,
+      urlInput:   document.getElementById("welcomeFeedUrl"),
+      hnBtn:      document.getElementById("welcomeHnBtn"),
+      nextBtn:    document.getElementById("welcomeStep1Next"),
+      statusEl:   document.getElementById("welcomeStatus"),
+      skipBtns:   Array.from(welcomeScrim.querySelectorAll("[data-skip]")),
+      choiceBtns: welcomeScrim.querySelectorAll(".welcome-card__choices button"),
+      doneBtn:    document.getElementById("welcomeDoneBtn"),
+      doneMsg:    document.getElementById("welcomeDoneMsg"),
+      subscriptions: subs,
+      navigate:   (page) => router.go(page),
+    });
+    if (!isOnboarded()) welcome.open();
+  }
 }
 
 if (document.readyState === "loading") {
