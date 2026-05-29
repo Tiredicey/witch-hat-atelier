@@ -86,8 +86,58 @@ export class ChainAdapter {
     if (!oneOk) throw lastErr || new Error("ChainAdapter: all writes failed");
   }
 
-  async readLog()         { return this.#tryRead("readLog"); }
-  async readSnapshot()    { return this.#tryRead("readSnapshot"); }
+  async readLog() {
+    const polled = await this.#pollRead("readLog");
+    if (!polled.ok.length) { if (polled.lastErr) throw polled.lastErr; return []; }
+    polled.ok.sort((a, b) => (b.value?.length || 0) - (a.value?.length || 0));
+    const best = polled.ok[0];
+    const primary = polled.ok.find(r => r.i === 0);
+    if (primary && best.i !== 0 && (best.value?.length || 0) > (primary.value?.length || 0)) {
+      console.warn(
+        `ChainAdapter.readLog: ${this.labels[0]} returned ${primary.value?.length || 0} events but ${this.labels[best.i]} has ${best.value?.length || 0}. Primary appears out of sync.`,
+      );
+    }
+    return best.value || [];
+  }
+
+  async readSnapshot() {
+    const polled = await this.#pollRead("readSnapshot");
+    if (!polled.ok.length) { if (polled.lastErr) throw polled.lastErr; return null; }
+    const nonNull = polled.ok.filter(r => r.value && typeof r.value.generated === "number");
+    if (!nonNull.length) {
+      const any = polled.ok.find(r => r.value != null);
+      return any ? any.value : null;
+    }
+    nonNull.sort((a, b) => (b.value.generated || 0) - (a.value.generated || 0));
+    const best = nonNull[0];
+    const primary = nonNull.find(r => r.i === 0);
+    if (primary && best.i !== 0 && (best.value.generated || 0) > (primary.value.generated || 0)) {
+      console.warn(
+        `ChainAdapter.readSnapshot: ${this.labels[0]} snapshot is older than ${this.labels[best.i]}. Primary appears out of sync.`,
+      );
+    }
+    return best.value;
+  }
+
+  async #pollRead(method, ...args) {
+    const usable = [];
+    for (let i = 0; i < this.chain.length; i++) {
+      if (!this.#usable(i)) continue;
+      if (typeof this.chain[i][method] !== "function") continue;
+      usable.push(i);
+    }
+    const settled = await Promise.allSettled(
+      usable.map(i => this.chain[i][method](...args)),
+    );
+    const ok = [];
+    let lastErr = null;
+    settled.forEach((r, idx) => {
+      const i = usable[idx];
+      if (r.status === "fulfilled") { this.#recordOk(i); ok.push({ i, value: r.value }); }
+      else { this.#recordFail(i, r.reason); lastErr = r.reason; }
+    });
+    return { ok, lastErr };
+  }
   async appendLog(events) { return this.#mirrorWrite("appendLog", events); }
   async writeSnapshot(s)  { return this.#mirrorWrite("writeSnapshot", s); }
   async clear()           { return this.#mirrorWrite("clear"); }
