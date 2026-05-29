@@ -44,7 +44,7 @@ function genId() {
 }
 
 export class Vault {
-  constructor({ pageEl, listEl, dropEl, fileInput, emptyEl, capEl, store, adapter }) {
+  constructor({ pageEl, listEl, dropEl, fileInput, emptyEl, capEl, store, adapter, loadError }) {
     this.pageEl = pageEl;
     this.listEl = listEl;
     this.dropEl = dropEl;
@@ -54,8 +54,9 @@ export class Vault {
     this.store = store;
     this.adapter = adapter;
     this.kind = adapter?.constructor?.name || "LocalAdapter";
+    this.loadErrorText = loadError ? `Could not load saved files: ${loadError}` : "";
 
-    this.#setCap(CAP_LABELS[this.kind] || "Stored in the configured adapter.");
+    this.#resetCap();
 
     this.fileInput.addEventListener("change", () => {
       const files = [...this.fileInput.files];
@@ -87,12 +88,18 @@ export class Vault {
     this.capEl.textContent = text;
   }
 
+  #resetCap() {
+    if (this.loadErrorText) {
+      this.#setCap(this.loadErrorText, true);
+    } else {
+      this.#setCap(CAP_LABELS[this.kind] || "Stored in the configured adapter.");
+    }
+  }
+
   #flashError(text) {
     this.#setCap(text, true);
     clearTimeout(this._capTimer);
-    this._capTimer = setTimeout(() => {
-      this.#setCap(CAP_LABELS[this.kind] || "Stored in the configured adapter.");
-    }, 5000);
+    this._capTimer = setTimeout(() => this.#resetCap(), 5000);
   }
 
   async #upload(files) {
