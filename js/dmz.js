@@ -11,14 +11,30 @@ function fmtTime(at) {
 
 const BOARD_ID = "__board__";
 
+const STATUS_LABELS = {
+  LocalAdapter: "Stored on this device only. Configure a cloud adapter in Settings to sync across devices.",
+  GitHubAdapter: "Synced to your GitHub repository.",
+  WebDAVAdapter: "Synced to your WebDAV server.",
+  S3Adapter: "Synced to your S3-compatible bucket.",
+  DropboxAdapter: "Synced to your Dropbox.",
+  TelegramAdapter: "Synced via your Telegram bot.",
+  ChainAdapter: "Synced via your mirrored adapter chain.",
+};
+
 export class Dmz {
-  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store }) {
+  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback }) {
     this.pageEl = pageEl;
     this.listEl = listEl;
     this.formEl = formEl;
     this.textareaEl = textareaEl;
     this.submitBtn = submitBtn;
     this.store = store;
+    this.statusEl = statusEl;
+    this.kind = adapter?.constructor?.name || "LocalAdapter";
+    this.loadErrorText = loadError ? `Could not load shared notes: ${loadError}` : "";
+    this.adapterFallbackText = adapterFallback ? `Cloud adapter failed to start (${adapterFallback}). Falling back to local storage on this device only.` : "";
+
+    this.#renderStatus();
 
     this.formEl.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -38,6 +54,24 @@ export class Dmz {
 
   focusInput() {
     this.textareaEl.focus();
+  }
+
+  #renderStatus() {
+    if (!this.statusEl) return;
+    let text = "";
+    let isError = false;
+    if (this.loadErrorText) {
+      text = this.loadErrorText;
+      isError = true;
+    } else if (this.adapterFallbackText) {
+      text = this.adapterFallbackText;
+      isError = true;
+    } else {
+      text = STATUS_LABELS[this.kind] || "Synced via the configured adapter.";
+    }
+    if (isError) this.statusEl.dataset.error = "true";
+    else delete this.statusEl.dataset.error;
+    this.statusEl.textContent = text;
   }
 
   async #save() {
