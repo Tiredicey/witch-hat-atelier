@@ -52,6 +52,26 @@ const NO_RSS_REASONS = {
   "TikTok":        "TikTok does not publish RSS feeds.",
 };
 
+const NO_RSS_ALTERNATIVES = {
+  "Facebook": [
+    "If they also post on Bluesky, paste their bsky.app/profile/<handle> URL. First-party RSS at /rss.",
+    "If they run a newsletter or blog, paste that. Substack, Ghost, WordPress, and most CMSes expose /feed or /rss.",
+    "If they post videos on YouTube, paste the channel URL.",
+    "RSS-Bridge FacebookBridge has no upstream maintainer in 2026 and only succeeds on a small subset of public pages.",
+  ],
+  "Instagram": [
+    "If they cross-post to Bluesky or run a personal site, paste those instead.",
+    "RSS-Bridge InstagramBridge needs a self-hosted instance with logged-in cookies; better odds than the Facebook bridge.",
+  ],
+  "X (Twitter)": [
+    "If they cross-post to Bluesky, paste their bsky.app/profile/<handle> URL.",
+    "Mastodon profiles expose /<user>.rss natively on any instance.",
+  ],
+  "TikTok": [
+    "If they post the same videos on YouTube, paste the channel URL. YouTube's feed is first-party.",
+  ],
+};
+
 export function resolve(rawInput, opts = {}) {
   const trimmed = String(rawInput || "").trim();
   if (!trimmed) return { kind: "invalid", reason: "URL is empty." };
@@ -81,6 +101,7 @@ export function resolve(rawInput, opts = {}) {
       platform,
       reason: NO_RSS_REASONS[platform],
       bridgeHint,
+      alternatives: NO_RSS_ALTERNATIVES[platform] || [],
     };
   }
 
@@ -124,6 +145,18 @@ export function resolve(rawInput, opts = {}) {
       source: "substack",
       title: `Substack ${host.replace(/\.substack\.com$/, "")}`,
     };
+  }
+
+  if (host === "bsky.app" || host === "www.bsky.app") {
+    const m = path.match(/^\/profile\/([A-Za-z0-9._:-]+)\/?$/);
+    if (m) {
+      return {
+        kind: "feed",
+        feedUrl: `https://bsky.app/profile/${m[1]}/rss`,
+        source: "bluesky",
+        title: `Bluesky @${m[1]}`,
+      };
+    }
   }
 
   if (host === "medium.com") {

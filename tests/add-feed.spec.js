@@ -264,6 +264,12 @@ test.describe('Add a feed by URL — refused platforms', () => {
     await expect(refused).toBeVisible();
     await expect(refused.locator('.add-feed__refused-head')).toContainText('Facebook');
     await expect(refused.locator('.add-feed__refused-reason')).toContainText('2018');
+    const alts = refused.locator('.add-feed__refused-alts li');
+    await expect(alts).toHaveCount(4);
+    await expect(alts.nth(0)).toContainText('Bluesky');
+    await expect(alts.nth(1)).toContainText('/feed');
+    await expect(alts.nth(2)).toContainText('YouTube');
+    await expect(alts.nth(3)).toContainText('FacebookBridge');
     expect(discoverHits).toBe(0);
   });
 

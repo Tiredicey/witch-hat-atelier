@@ -76,6 +76,34 @@ test.describe('url-resolver — direct feed patterns', () => {
     expect(r.kind).toBe('discover');
   });
 
+  test('bluesky DNS-style handle resolves to bsky.app/profile/<handle>/rss', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://bsky.app/profile/jay.bsky.team');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://bsky.app/profile/jay.bsky.team/rss');
+    expect(r.source).toBe('bluesky');
+  });
+
+  test('bluesky custom-domain handle (no .bsky.social) resolves directly', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://bsky.app/profile/bsky.app');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://bsky.app/profile/bsky.app/rss');
+  });
+
+  test('bluesky DID handle resolves to /rss', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://bsky.app/profile/did:plc:abcdef1234');
+    expect(r.kind).toBe('feed');
+    expect(r.feedUrl).toBe('https://bsky.app/profile/did:plc:abcdef1234/rss');
+  });
+
+  test('bluesky root falls through to /discover (no profile path)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://bsky.app/');
+    expect(r.kind).toBe('discover');
+  });
+
   test('medium @user → medium.com/feed/@user', async ({ page }) => {
     await page.goto('/');
     const r = await resolveIn(page, 'https://medium.com/@daveberndtson');

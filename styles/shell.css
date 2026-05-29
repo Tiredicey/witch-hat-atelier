@@ -1374,6 +1374,38 @@ body[data-page="settings"] .scrim { display: none !important; }
 }
 .add-feed__use-bridge:hover { color: var(--ink); border-color: var(--ink-soft); }
 
+.add-feed__refused-alts-head {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: var(--gutter-s) 0 4px 0;
+}
+.add-feed__refused-alts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.add-feed__refused-alts li {
+  font-family: var(--font-body);
+  font-size: var(--size-body-s);
+  line-height: 1.45;
+  color: var(--ink);
+  padding-left: 14px;
+  position: relative;
+}
+.add-feed__refused-alts li::before {
+  content: "\u2727";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--sepia);
+  font-size: 0.85em;
+}
+
 .add-feed__bridge {
   margin-top: var(--gutter-m);
   padding-top: var(--gutter-s);

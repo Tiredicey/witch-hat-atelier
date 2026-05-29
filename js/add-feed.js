@@ -273,6 +273,22 @@ export class AddFeed {
         this.refusedEl.appendChild(configBtn);
       }
     }
+
+    if (Array.isArray(result.alternatives) && result.alternatives.length) {
+      const altHead = document.createElement("p");
+      altHead.className = "add-feed__refused-alts-head";
+      altHead.textContent = "Try one of these instead:";
+      this.refusedEl.appendChild(altHead);
+
+      const altList = document.createElement("ul");
+      altList.className = "add-feed__refused-alts";
+      for (const text of result.alternatives) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        altList.appendChild(li);
+      }
+      this.refusedEl.appendChild(altList);
+    }
   }
 
   #onSaveBridge() {
