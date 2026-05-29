@@ -149,3 +149,92 @@ test.describe('worker parse.js', () => {
     expect(empty.reason).toBe('no entries');
   });
 });
+
+test.describe('parse.js — media extraction', () => {
+  test('Atom entry exposes media:thumbnail as image and enclosure link', async ({ page }) => {
+    await page.goto('/');
+    const FEED = `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+  <title>Media Feed</title>
+  <entry>
+    <title>With media</title>
+    <link href="https://example.test/post-1"/>
+    <link rel="enclosure" href="https://cdn.example.test/audio.mp3" type="audio/mpeg" length="12345"/>
+    <id>https://example.test/post-1</id>
+    <published>2026-05-01T00:00:00Z</published>
+    <summary>An audio post.</summary>
+    <media:thumbnail url="https://cdn.example.test/thumb.jpg" />
+  </entry>
+</feed>`;
+    const parsed = await page.evaluate(async ({ text }) => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      return parseFeed(text, 'application/atom+xml');
+    }, { text: FEED });
+    expect(parsed.entries).toHaveLength(1);
+    const e = parsed.entries[0];
+    expect(e.image).toBe('https://cdn.example.test/thumb.jpg');
+    expect(e.enclosure).toEqual({ url: 'https://cdn.example.test/audio.mp3', type: 'audio/mpeg', length: '12345' });
+  });
+
+  test('RSS2 content:encoded image is picked up when no media:thumbnail', async ({ page }) => {
+    await page.goto('/');
+    const FEED = `<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Img Feed</title>
+  <item>
+    <title>Pic post</title>
+    <link>https://example.test/p</link>
+    <guid>p1</guid>
+    <pubDate>Wed, 01 May 2026 09:00:00 GMT</pubDate>
+    <content:encoded><![CDATA[<p>Hello.</p><img src="https://cdn.example.test/inline.png" alt="x"/>]]></content:encoded>
+    <enclosure url="https://cdn.example.test/audio2.mp3" type="audio/mpeg" />
+  </item>
+</channel></rss>`;
+    const e = (await page.evaluate(async ({ text }) => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      return parseFeed(text, 'application/rss+xml');
+    }, { text: FEED })).entries[0];
+    expect(e.image).toBe('https://cdn.example.test/inline.png');
+    expect(e.enclosure).toEqual({ url: 'https://cdn.example.test/audio2.mp3', type: 'audio/mpeg', length: '' });
+  });
+
+  test('YouTube link is detected as a video', async ({ page }) => {
+    await page.goto('/');
+    const FEED = `<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>YT</title>
+  <entry>
+    <title>Video</title>
+    <link href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/>
+    <id>yt1</id>
+    <published>2026-05-01T00:00:00Z</published>
+    <summary>Watch.</summary>
+  </entry>
+</feed>`;
+    const e = (await page.evaluate(async ({ text }) => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      return parseFeed(text, 'application/atom+xml');
+    }, { text: FEED })).entries[0];
+    expect(e.video).toEqual({ provider: 'youtube', id: 'dQw4w9WgXcQ' });
+  });
+
+  test('JSON Feed attachments map to enclosure; banner_image maps to image', async ({ page }) => {
+    await page.goto('/');
+    const FEED = JSON.stringify({
+      version: 'https://jsonfeed.org/version/1.1',
+      title: 'JF',
+      items: [{
+        id: 'a', url: 'https://example.test/a', title: 'A',
+        date_published: '2026-05-01T00:00:00Z',
+        content_html: '<p>x</p>',
+        banner_image: 'https://example.test/banner.png',
+        attachments: [{ url: 'https://example.test/a.mp3', mime_type: 'audio/mpeg', size_in_bytes: 9999 }],
+      }],
+    });
+    const e = (await page.evaluate(async ({ text }) => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      return parseFeed(text, 'application/json');
+    }, { text: FEED })).entries[0];
+    expect(e.image).toBe('https://example.test/banner.png');
+    expect(e.enclosure).toEqual({ url: 'https://example.test/a.mp3', type: 'audio/mpeg', length: '9999' });
+  });
+});

@@ -32,17 +32,67 @@ export function parseFeed(text, contentType = "") {
 }
 
 export function normaliseEntry(raw, feedTitle) {
+  const rawHtml = raw.content || raw.summary || "";
+  const image     = raw.image     || firstImage(rawHtml);
+  const enclosure = raw.enclosure || null;
+  const link      = raw.link      || "";
+  const videoId   = detectVideo(link) || detectVideo(rawHtml);
   return {
-    id:        raw.id        || raw.link || cryptoIshHash(raw.title + (raw.published || "")),
+    id:        raw.id        || link || cryptoIshHash(raw.title + (raw.published || "")),
     source:    raw.source    || feedTitle || "unknown",
     title:     stripTags(raw.title || "(untitled)").trim() || "(untitled)",
-    link:      raw.link      || "",
+    link,
     published: raw.published || 0,
     age:       formatAge(raw.published),
     excerpt:   stripTags(raw.summary || raw.content || "").slice(0, 240).trim(),
-    body:      paragraphs(raw.content || raw.summary || ""),
+    body:      paragraphs(rawHtml),
+    image:     image || "",
+    enclosure: enclosure,
+    video:     videoId || null,
     read:      false,
   };
+}
+
+function firstImage(html) {
+  if (!html) return "";
+  const stripped = unwrapCdata(decodeEntities(html));
+  const m = stripped.match(/<img\b[^>]*?\bsrc=["']([^"']+)["']/i);
+  return m ? m[1] : "";
+}
+
+function rssEnclosure(block) {
+  const m = block.match(/<enclosure\b([^>]*?)\/?>/i);
+  if (!m) return null;
+  const a = parseAttrs(m[1]);
+  if (!a.url) return null;
+  return { url: a.url, type: a.type || "", length: a.length || "" };
+}
+
+function atomEnclosure(block) {
+  const all = [...block.matchAll(/<link\b([^>]*?)\/?>/gi)];
+  for (const m of all) {
+    const a = parseAttrs(m[1]);
+    if (a.rel === "enclosure" && a.href) {
+      return { url: a.href, type: a.type || "", length: a.length || "" };
+    }
+  }
+  return null;
+}
+
+function mediaThumb(block) {
+  const m = block.match(/<media:(?:content|thumbnail)\b([^>]*?)\/?>/i);
+  if (!m) return "";
+  const a = parseAttrs(m[1]);
+  return a.url || "";
+}
+
+function detectVideo(s) {
+  if (!s) return null;
+  const yt = s.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (yt) return { provider: "youtube", id: yt[1] };
+  const vm = s.match(/(?:vimeo\.com\/(?:video\/)?)(\d{6,})/);
+  if (vm) return { provider: "vimeo", id: vm[1] };
+  return null;
 }
 
 function parseJsonFeed(text) {
@@ -50,15 +100,20 @@ function parseJsonFeed(text) {
   if (!j || typeof j !== "object") throw new Error("parseFeed: JSON Feed not an object");
   if (!Array.isArray(j.items)) throw new Error("parseFeed: JSON Feed missing items[]");
   const feedTitle = j.title || "";
-  const entries = j.items.map(it => normaliseEntry({
-    id:        it.id || it.url,
-    source:    feedTitle,
-    title:     it.title || "",
-    link:      it.url || it.external_url || "",
-    published: tsOrZero(it.date_published),
-    summary:   it.summary || "",
-    content:   it.content_html || it.content_text || "",
-  }, feedTitle));
+  const entries = j.items.map(it => {
+    const att = Array.isArray(it.attachments) && it.attachments[0];
+    return normaliseEntry({
+      id:        it.id || it.url,
+      source:    feedTitle,
+      title:     it.title || "",
+      link:      it.url || it.external_url || "",
+      published: tsOrZero(it.date_published),
+      summary:   it.summary || "",
+      content:   it.content_html || it.content_text || "",
+      image:     it.image || it.banner_image || "",
+      enclosure: att ? { url: att.url || "", type: att.mime_type || "", length: att.size_in_bytes ? String(att.size_in_bytes) : "" } : null,
+    }, feedTitle);
+  });
   return { format: "jsonfeed", feedTitle, entries };
 }
 
@@ -77,6 +132,8 @@ function parseAtom(text) {
       published: tsOrZero(textOf(block, "published") || textOf(block, "updated")),
       summary:   textOf(block, "summary") || "",
       content:   textOf(block, "content") || "",
+      image:     mediaThumb(block),
+      enclosure: atomEnclosure(block),
     }, feedTitle));
   }
   return { format: "atom", feedTitle, entries };
@@ -106,6 +163,8 @@ function parseRss2(text) {
       published: tsOrZero(textOf(block, "pubDate") || textOf(block, "dc:date")),
       summary:   textOf(block, "description") || "",
       content:   textOf(block, "content:encoded") || textOf(block, "description") || "",
+      image:     mediaThumb(block),
+      enclosure: rssEnclosure(block),
     }, feedTitle));
   }
   return { format: "rss2", feedTitle, entries };
