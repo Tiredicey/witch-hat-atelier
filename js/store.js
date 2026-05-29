@@ -3,7 +3,7 @@ import { LocalAdapter } from "./storage.js";
 const COMPACT_THRESHOLD = 256;
 
 function blankItem(id) {
-  return { id, read: false, starred: false, notes: [] };
+  return { id, read: false, starred: false, notes: [], title: "", link: "" };
 }
 
 function blankSnapshot() {
@@ -13,7 +13,7 @@ function blankSnapshot() {
 export function materialise(base, events) {
   const items = new Map();
   for (const it of base?.items || []) {
-    items.set(it.id, { id: it.id, read: !!it.read, starred: !!it.starred, notes: (it.notes || []).map(n => ({ ...n })) });
+    items.set(it.id, { id: it.id, read: !!it.read, starred: !!it.starred, notes: (it.notes || []).map(n => ({ ...n })), title: it.title || "", link: it.link || "" });
   }
   const ensure = (id) => {
     if (!items.has(id)) items.set(id, blankItem(id));
@@ -26,6 +26,10 @@ export function materialise(base, events) {
       case "item.star": {
         const it = ensure(ev.itemId);
         it.starred = !!ev.on;
+        if (ev.on) {
+          if (typeof ev.title === "string" && ev.title && !it.title) it.title = ev.title;
+          if (typeof ev.link  === "string" && ev.link  && !it.link)  it.link  = ev.link;
+        }
         break;
       }
       case "note.add": {

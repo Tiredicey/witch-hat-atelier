@@ -68,12 +68,26 @@ export class Reader {
       article.appendChild(p);
     }
 
-    const note = document.createElement("p");
-    note.className = "smallcaps";
-    note.style.marginTop = "var(--gutter-xl)";
-    note.style.color = "var(--ink-faint)";
-    note.textContent = "sample content · the real reader fetches via the §4 worker";
-    article.appendChild(note);
+    if (a.orphan && a.link) {
+      const intro = document.createElement("p");
+      intro.textContent = "Imported star — the original article lives at the source.";
+      article.appendChild(intro);
+      const linkPara = document.createElement("p");
+      const anchor = document.createElement("a");
+      anchor.href = a.link;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.textContent = a.link;
+      linkPara.appendChild(anchor);
+      article.appendChild(linkPara);
+    } else {
+      const note = document.createElement("p");
+      note.className = "smallcaps";
+      note.style.marginTop = "var(--gutter-xl)";
+      note.style.color = "var(--ink-faint)";
+      note.textContent = "sample content · the real reader fetches via the §4 worker";
+      article.appendChild(note);
+    }
 
     this.readerEl.appendChild(article);
     this.wrapEl.classList.add("has-selection");

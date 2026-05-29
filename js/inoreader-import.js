@@ -18,9 +18,9 @@
 //   worker/src/parse.js keys snapshot entries by `raw.id || raw.link` and the
 //   majority of modern Atom / RSS feeds use the article URL as their <id>.
 //   Items whose feed uses an opaque GUID (tag:blogger.com,1999:post-...) will
-//   land as orphan stars until the feed catches up — materialise() still
-//   records them; they just don't bind to a snapshot entry yet. Future PR
-//   can re-match against entries[].id by URL.
+//   still bind on URL match. For URLs the user has no feed for, we attach
+//   the parsed title and link to the `item.star` event so app.js can
+//   surface an orphan row in the Starred shelf without a snapshot entry.
 //
 // Exports:
 //   parseInoreaderStars(text)  -> { stars: [{itemId, title, at}], skipped }
@@ -131,10 +131,11 @@ export class StarsImport {
    * @param {HTMLElement}      opts.statusEl
    * @param {object}           opts.store  — must expose isStarred(id) + bulkAppend(events)
    */
-  constructor({ fileInput, statusEl, store }) {
+  constructor({ fileInput, statusEl, store, onAfter }) {
     this.fileInput = fileInput;
     this.statusEl  = statusEl;
     this.store     = store;
+    this.onAfter   = typeof onAfter === "function" ? onAfter : null;
     if (fileInput) fileInput.addEventListener("change", () => this.#onPick());
   }
 
@@ -169,8 +170,14 @@ export class StarsImport {
         itemId: s.itemId,
         on: true,
         at: s.at,
+        title: s.title || "",
+        link: s.itemId,
       }));
       await this.store.bulkAppend(events);
+      if (this.onAfter) {
+        try { this.onAfter({ added: fresh.length }); }
+        catch (e) { console.warn("StarsImport.onAfter threw", e); }
+      }
 
       const parts = [`Imported ${fresh.length} star(s) from ${file.name}.`];
       if (dupes)   parts.push(`${dupes} already starred \u2014 skipped.`);
