@@ -70,6 +70,8 @@ export class Subscriptions {
     this.cancelBtn        = opts.cancelBtn;
     this.exportBtn        = opts.exportBtn;
     this.exportStatusEl   = opts.exportStatusEl;
+    this.subsListEl       = opts.subsListEl   || null;
+    this.subsEmptyEl      = opts.subsEmptyEl  || null;
     this.adapter          = opts.adapter;
 
     this.pendingFeeds = [];
@@ -82,6 +84,16 @@ export class Subscriptions {
     if (this.commitBtn)    this.commitBtn.addEventListener("click", () => this.#commit());
     if (this.cancelBtn)    this.cancelBtn.addEventListener("click", () => this.#cancel());
     if (this.exportBtn)    this.exportBtn.addEventListener("click", () => this.#export());
+
+    if (this.subsListEl) {
+      this.subsListEl.addEventListener("click", (e) => {
+        const btn = e.target?.closest("[data-action='open-menu']");
+        if (!btn) return;
+        const row = btn.closest(".subs-list__row");
+        if (!row?.dataset?.url) return;
+        this.openFeedMenu(row.dataset.url);
+      });
+    }
 
     if (this.triageListEl) {
       this.triageListEl.addEventListener("change", (e) => {
@@ -97,26 +109,13 @@ export class Subscriptions {
   async #onPick() {
     const file = this.importInput.files && this.importInput.files[0];
     if (!file) return;
+    this.pendingFileName = file.name;
+    this.#setStatus(`Reading ${file.name}\u2026`, "pending");
     try {
       const text = await file.text();
-      await this.handleOpmlText(text, file.name);
-    } finally {
-      this.importInput.value = "";  // allow re-importing the same file
-    }
-  }
-
-  /**
-   * Public: ingest OPML text directly (used by the unified import zone after
-   * the format sniffer has identified the payload). Triggers the same triage
-   * flow as the file-input path.
-   */
-  async handleOpmlText(text, fileName = "pasted OPML") {
-    this.pendingFileName = fileName;
-    this.#setStatus(`Reading ${fileName}\u2026`, "pending");
-    try {
       const parsed = parseOpml(text);
       if (!parsed.feeds.length) {
-        this.#setStatus(`No feeds found in ${fileName}.`, "fail");
+        this.#setStatus(`No feeds found in ${file.name}.`, "fail");
         this.#hideTriage();
         return;
       }
@@ -124,12 +123,14 @@ export class Subscriptions {
       this.pendingTitle = parsed.title || "";
       this.#renderTriage();
       this.#setStatus(
-        `Parsed ${parsed.feeds.length} feed(s) from ${fileName}. Review the list below, then commit.`,
+        `Parsed ${parsed.feeds.length} feed(s) from ${file.name}. Review the list below, then commit.`,
         "ok"
       );
     } catch (e) {
       this.#setStatus(`Import failed: ${e.message || e}`, "fail");
       this.#hideTriage();
+    } finally {
+      this.importInput.value = "";  // allow re-importing the same file
     }
   }
 
@@ -263,6 +264,7 @@ export class Subscriptions {
       parts.push(`Reload the page to load the new entries.`);
       this.#setStatus(parts.join(" "), "ok");
       this.#hideTriage();
+      await this.renderSubsList();
     } catch (e) {
       this.#setStatus(`Commit failed: ${e.message || e}`, "fail");
     }
@@ -318,7 +320,163 @@ export class Subscriptions {
       feeds: existing,
     };
     await this.adapter.write(SUBS_KEY, JSON.stringify(next));
+    if (this.subsListEl) await this.renderSubsList();
     return { added: true, totalFeeds: existing.length };
+  }
+
+  // ─── Manage existing feeds (rename / move / unsubscribe) ───────────
+
+  /**
+   * Public: enumerate the current subscriptions. Returns a fresh array.
+   * Returns [] when the file does not exist yet.
+   */
+  async listFeeds() {
+    const raw = await this.adapter.read(SUBS_KEY);
+    if (!raw) return [];
+    const cur = safeParseJson(raw);
+    if (!cur || !Array.isArray(cur.feeds)) return [];
+    return cur.feeds.map(f => ({
+      id: f.id || "",
+      url: f.url || "",
+      title: f.title || "",
+      shelf: f.shelf || "all",
+    }));
+  }
+
+  /**
+   * Public: remove a feed by URL. Returns { removed, totalFeeds }.
+   */
+  async removeFeed(url) {
+    if (typeof url !== "string" || !url) throw new Error("removeFeed: url required");
+    const raw = await this.adapter.read(SUBS_KEY);
+    if (!raw) return { removed: false, totalFeeds: 0 };
+    const cur = safeParseJson(raw);
+    if (!cur || !Array.isArray(cur.feeds)) return { removed: false, totalFeeds: 0 };
+    const before = cur.feeds.length;
+    const next = cur.feeds.filter(f => !(f && f.url === url));
+    if (next.length === before) return { removed: false, totalFeeds: before };
+    await this.adapter.write(SUBS_KEY, JSON.stringify({
+      version: cur.version || 1,
+      updated: Date.now(),
+      title:   cur.title || "",
+      feeds:   next,
+    }));
+    return { removed: true, totalFeeds: next.length };
+  }
+
+  /**
+   * Public: rename a feed by URL.
+   */
+  async renameFeed(url, newTitle) {
+    if (typeof url !== "string" || !url) throw new Error("renameFeed: url required");
+    if (typeof newTitle !== "string") throw new Error("renameFeed: newTitle required");
+    const raw = await this.adapter.read(SUBS_KEY);
+    if (!raw) return { renamed: false };
+    const cur = safeParseJson(raw);
+    if (!cur || !Array.isArray(cur.feeds)) return { renamed: false };
+    let renamed = false;
+    const next = cur.feeds.map(f => {
+      if (f && f.url === url) { renamed = true; return { ...f, title: newTitle }; }
+      return f;
+    });
+    if (!renamed) return { renamed: false };
+    await this.adapter.write(SUBS_KEY, JSON.stringify({
+      version: cur.version || 1,
+      updated: Date.now(),
+      title:   cur.title || "",
+      feeds:   next,
+    }));
+    return { renamed: true };
+  }
+
+  /**
+   * Public: move a feed to a different shelf.
+   */
+  async moveFeed(url, newShelf) {
+    if (typeof url !== "string" || !url) throw new Error("moveFeed: url required");
+    if (typeof newShelf !== "string" || !newShelf) throw new Error("moveFeed: newShelf required");
+    const raw = await this.adapter.read(SUBS_KEY);
+    if (!raw) return { moved: false };
+    const cur = safeParseJson(raw);
+    if (!cur || !Array.isArray(cur.feeds)) return { moved: false };
+    let moved = false;
+    const next = cur.feeds.map(f => {
+      if (f && f.url === url) { moved = true; return { ...f, shelf: newShelf }; }
+      return f;
+    });
+    if (!moved) return { moved: false };
+    await this.adapter.write(SUBS_KEY, JSON.stringify({
+      version: cur.version || 1,
+      updated: Date.now(),
+      title:   cur.title || "",
+      feeds:   next,
+    }));
+    return { moved: true };
+  }
+
+  // ─── Subscription list UI ──────────────────────────────────────────
+
+  /**
+   * Public: render the current subscriptions into a UL element. Each row
+   * carries data-url and has a button[data-action] for menu open.
+   */
+  async renderSubsList() {
+    if (!this.subsListEl) return;
+    const feeds = await this.listFeeds();
+    this.subsListEl.innerHTML = "";
+    if (this.subsEmptyEl) this.subsEmptyEl.hidden = feeds.length > 0;
+    for (const f of feeds) {
+      const li = document.createElement("li");
+      li.className = "subs-list__row";
+      li.dataset.url = f.url;
+      li.dataset.shelf = f.shelf;
+      let host = f.url;
+      try { host = new URL(f.url).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
+      li.innerHTML = `
+        <div class="subs-list__main">
+          <p class="subs-list__title"></p>
+          <p class="subs-list__meta smallcaps"></p>
+        </div>
+        <button type="button" class="subs-list__menu-btn" data-action="open-menu" aria-label="Actions"></button>
+      `;
+      li.querySelector(".subs-list__title").textContent = f.title || host;
+      li.querySelector(".subs-list__meta").textContent = `${f.shelf} · ${host}`;
+      li.querySelector(".subs-list__menu-btn").textContent = "⋯";
+      this.subsListEl.appendChild(li);
+    }
+  }
+
+  /**
+   * Public: open the action menu for a given feed URL. Wires Rename, Move,
+   * and Unsubscribe via window.prompt / window.confirm so the flow works
+   * the same on desktop click and mobile long-press.
+   */
+  async openFeedMenu(url) {
+    const feeds = await this.listFeeds();
+    const feed = feeds.find(f => f.url === url);
+    if (!feed) return;
+    const action = (await prompt(
+      `Feed: ${feed.title || feed.url}\n\nType one: rename, move, unsubscribe`,
+      ""
+    ) || "").trim().toLowerCase();
+    if (action === "rename") {
+      const next = prompt("New title:", feed.title || "");
+      if (next && next.trim()) {
+        await this.renameFeed(url, next.trim());
+        await this.renderSubsList();
+      }
+    } else if (action === "move") {
+      const next = prompt("Move to shelf:", feed.shelf || "all");
+      if (next && next.trim()) {
+        await this.moveFeed(url, next.trim());
+        await this.renderSubsList();
+      }
+    } else if (action === "unsubscribe") {
+      if (confirm(`Unsubscribe from ${feed.title || feed.url}? This removes the feed from your subscriptions.`)) {
+        await this.removeFeed(url);
+        await this.renderSubsList();
+      }
+    }
   }
 
   // ─── Export ─────────────────────────────────────────────────────────────
