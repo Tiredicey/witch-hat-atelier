@@ -69,13 +69,32 @@ function installTelegramMock(page) {
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"result":true}' });
   });
-  page.route(/api\.telegram\.org\/file\/bot/, async (route) => {
-    const last = state.sentDocs[state.sentDocs.length - 1];
-    const body = last ? (last.body || '') : '';
+  page.route(/api\.telegram\.org\/file\/bot/, async (route, request) => {
+    const url = new URL(request.url());
+    const fileId = url.pathname.split('/').pop().split('.')[0];
+    const doc = state.sentDocs.find(d => d.fileId.startsWith(fileId) || fileId.includes(d.fileId));
+    const target = doc || state.sentDocs[state.sentDocs.length - 1];
+    const body = target ? extractDocumentBody(target.body || '') : '';
     return route.fulfill({ status: 200, contentType: 'application/octet-stream', body });
   });
   return state;
 }
+
+function extractDocumentBody(multipart) {
+  if (!multipart) return '';
+  const m = multipart.match(/name="document"[^]*?\r\n\r\n([^]*?)\r\n--/);
+  return m ? m[1] : '';
+}
+
+const STARS_FIXTURE = JSON.stringify({
+  items: [{
+    id: 'tag:example.com,2026:imported-from-telegram-cache',
+    title: 'Cached star survives reload',
+    canonical: [{ href: 'https://example.com/imported-keep-me' }],
+    categories: ['user/-/state/com.google/starred'],
+    timestampUsec: '1730000000000000',
+  }],
+});
 
 test.describe('telegram bot storage adapter (§5 + 2026 unlimited-file path)', () => {
   test.beforeEach(async ({ page }) => {
@@ -161,5 +180,81 @@ test.describe('telegram bot storage adapter (§5 + 2026 unlimited-file path)', (
     await page.locator('#testSettingsBtn').click();
     await expect(page.locator('#settingsTestOutput')).toHaveAttribute('data-status', 'fail');
     await expect(page.locator('#settingsTestOutput')).toContainText('chat not found');
+  });
+
+  test('imported stars survive reload when getChat returns 400 (manifest cache fallback)', async ({ page }) => {
+    const state = installTelegramMock(page);
+    await gotoSettings(page);
+    await saveTelegram(page, { token: BOT_TOKEN, chatId: CHAT_ID });
+    await expect(page.locator('.article-row').first()).toBeVisible();
+    await gotoSettings(page);
+
+    await page.setInputFiles('#inoreader-stars-file', {
+      name: 'stars.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(STARS_FIXTURE),
+    });
+    await expect(page.locator('#inoreader-stars-status')).toHaveAttribute('data-status', 'ok');
+    await expect.poll(() => state.requests.filter(r => r.method === 'sendDocument').length).toBeGreaterThan(0);
+    await expect.poll(() => state.requests.filter(r => r.method === 'pinChatMessage').length).toBe(1);
+
+    const cacheKey = `coda/telegram-manifest/coda/v1/${CHAT_ID}`;
+    const cached = await page.evaluate(k => localStorage.getItem(k), cacheKey);
+    expect(cached).toBeTruthy();
+    const parsed = JSON.parse(cached);
+    expect(parsed.manifestMsgId).toBe(999);
+    expect(parsed.log && parsed.log.fileId).toMatch(/^BAACAgQAAxk-DOC/);
+
+    await page.unroute(/api\.telegram\.org\/bot[^/]+\/(\w+)/);
+    await page.unroute(/api\.telegram\.org\/file\/bot/);
+    await page.route(/api\.telegram\.org\/bot[^/]+\/getChat/, route => route.fulfill({
+      status: 400, contentType: 'application/json',
+      body: JSON.stringify({ ok: false, error_code: 400, description: 'chat not found' }),
+    }));
+    await page.route(/api\.telegram\.org\/bot[^/]+\/getMe/, route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ ok: true, result: { id: 1, is_bot: true, username: 'b' } }),
+    }));
+    await page.route(/api\.telegram\.org\/bot[^/]+\/getFile/, async (route, request) => {
+      const body = JSON.parse(request.postData() || '{}');
+      return route.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, result: { file_id: body.file_id, file_path: `documents/${body.file_id}.dat` } }) });
+    });
+    await page.route(/api\.telegram\.org\/file\/bot[^/]+\/documents\/(.+)\.dat/, async (route, request) => {
+      const url = new URL(request.url());
+      const fileId = url.pathname.split('/').pop().split('.')[0];
+      const doc = state.sentDocs.find(d => d.fileId.startsWith(fileId) || fileId.includes(d.fileId)) || state.sentDocs[state.sentDocs.length - 1];
+      const body = doc ? extractDocumentBody(doc.body || '') : '';
+      return route.fulfill({ status: 200, contentType: 'application/octet-stream', body });
+    });
+
+    await page.reload();
+    await expect(page.locator('.article-row').first()).toBeVisible();
+    await page.locator('.shelf[data-shelf="starred"]').click();
+    await expect(page.locator('.article-row[data-orphan="true"]').first()).toBeVisible();
+    await expect(page.locator('.article-row[data-orphan="true"]').first()).toContainText('Cached star survives reload');
+  });
+
+  test('first-time star import surfaces chat-misconfig error when getChat 400 and no cache exists', async ({ page }) => {
+    await page.route(/api\.telegram\.org\/bot[^/]+\/getMe/, route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ ok: true, result: { id: 1, is_bot: true, username: 'b' } }),
+    }));
+    await page.route(/api\.telegram\.org\/bot[^/]+\/getChat/, route => route.fulfill({
+      status: 400, contentType: 'application/json',
+      body: JSON.stringify({ ok: false, error_code: 400, description: 'chat not found' }),
+    }));
+    await gotoSettings(page);
+    await saveTelegram(page, { token: BOT_TOKEN, chatId: '99999' });
+    await expect(page.locator('.article-row').first()).toBeVisible();
+    await gotoSettings(page);
+
+    await page.setInputFiles('#inoreader-stars-file', {
+      name: 'stars.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(STARS_FIXTURE),
+    });
+    await expect(page.locator('#inoreader-stars-status')).toHaveAttribute('data-status', 'fail', { timeout: 10000 });
+    await expect(page.locator('#inoreader-stars-status')).toContainText(/-100/);
   });
 });
