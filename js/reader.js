@@ -137,9 +137,13 @@ export class Reader {
     h1.textContent = a.title;
     article.appendChild(h1);
 
+    let words = 0;
+    for (const para of a.body) words += para.split(/\s+/).length;
+    const mins = Math.max(1, Math.round(words / 200));
+
     const byline = document.createElement("p");
     byline.className = "byline";
-    byline.textContent = `${a.source} · ${a.age} ago${a.read ? " · read" : ""}`;
+    byline.textContent = `${a.source} · ${a.age} ago · ${mins} min read${a.read ? " · read" : ""}`;
     article.appendChild(byline);
 
     const flourish = document.createElementNS("http://www.w3.org/2000/svg", "svg");

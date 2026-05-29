@@ -54,6 +54,13 @@ export class AddFeed {
     this.inputEl?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); this.#onResolve(); }
     });
+    this.inputEl?.addEventListener("paste", (e) => {
+      // Allow the paste to land in the input, then resolve on next tick
+      setTimeout(() => {
+        const val = (this.inputEl.value || "").trim();
+        if (/^https?:\/\//i.test(val)) this.#onResolve();
+      }, 0);
+    });
     this.bridgeSaveBtn?.addEventListener("click", () => this.#onSaveBridge());
     this.bridgeClearBtn?.addEventListener("click", () => this.#onClearBridge());
     this.opmlImportBtn?.addEventListener("click", () => this.#onImportOpml());
