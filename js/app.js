@@ -10,13 +10,12 @@ import { Store } from "./store.js";
 import { LocalAdapter } from "./storage.js";
 import { Notes } from "./notes.js";
 import { Dmz, mountRouter } from "./dmz.js";
+import { loadDmzConfig, saveDmzConfig, isDmzWorkerActive, markLocalMigrated, localMigratedAt } from "./dmz-config.js";
+import { DmzWorkerAdapter, RemoteDmzStore, loadOwnerToken, saveOwnerToken } from "./adapters/dmz-worker.js";
 import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { Intelligence } from "./intelligence/index.js";
-import { SummariseSurface } from "./intelligence/summarise-surface.js";
-import { GROQ_PROVIDER } from "./intelligence/groq.js";
-import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -246,7 +245,6 @@ async function boot() {
         if (!list.getSelectedId()) return;
         notes.open();
       },
-      summarise: () => groqSurface.trigger(),
       goShelf: (id) => {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();
@@ -337,23 +335,53 @@ async function boot() {
 
   void attachSwipe; void attachLongPress;
 
+  const dmzConfig = loadDmzConfig();
+  const dmzWorkerActive = isDmzWorkerActive(dmzConfig);
+
   let dmzAdapter;
   let dmzAdapterFallback = null;
-  try {
-    dmzAdapter = makeAdapter(settings, "coda/dmz");
-  } catch (e) {
-    console.warn("dmz adapter init failed, falling back to local", e);
-    dmzAdapter = new LocalAdapter("coda/dmz");
-    dmzAdapterFallback = e?.message || String(e) || "unknown error";
-  }
-  const dmzStore = new Store({ adapter: dmzAdapter });
+  let dmzStore;
   let dmzLoadError = null;
-  try {
-    await dmzStore.load();
-  } catch (e) {
-    console.warn("dmz store load failed, continuing with empty snapshot", e);
-    dmzLoadError = e?.message || String(e) || "unknown error";
+  let dmzCanManage = () => true;
+  let dmzModeLabel = "";
+  let dmzWorkerAdapter = null;
+
+  if (dmzWorkerActive) {
+    try {
+      dmzWorkerAdapter = new DmzWorkerAdapter({ baseUrl: dmzConfig.workerUrl });
+      const remoteStore = new RemoteDmzStore({ adapter: dmzWorkerAdapter, pollMs: 5000, boardId: "__board__" });
+      await remoteStore.load();
+      dmzStore = remoteStore;
+      dmzAdapter = dmzWorkerAdapter;
+      dmzCanManage = (noteId) => dmzWorkerAdapter.canManage(noteId);
+      dmzModeLabel = loadOwnerToken()
+        ? "Shared board synced via your Worker (owner-mode)."
+        : "Shared board synced via your Worker. You can only remove notes you posted from this device.";
+      remoteStore.start();
+      tryMigrateLocalDmz(dmzWorkerAdapter).catch((e) => console.warn("dmz migration skipped:", e?.message || e));
+    } catch (e) {
+      console.warn("dmz worker init failed, falling back to local adapter", e);
+      dmzAdapterFallback = e?.message || String(e) || "unknown error";
+    }
   }
+
+  if (!dmzStore) {
+    try {
+      dmzAdapter = makeAdapter(settings, "coda/dmz");
+    } catch (e) {
+      console.warn("dmz adapter init failed, falling back to local", e);
+      dmzAdapter = new LocalAdapter("coda/dmz");
+      dmzAdapterFallback = e?.message || String(e) || "unknown error";
+    }
+    dmzStore = new Store({ adapter: dmzAdapter });
+    try {
+      await dmzStore.load();
+    } catch (e) {
+      console.warn("dmz store load failed, continuing with empty snapshot", e);
+      dmzLoadError = e?.message || String(e) || "unknown error";
+    }
+  }
+
   const dmz = new Dmz({
     pageEl:     $("#dmzPage"),
     listEl:     $("#dmzList"),
@@ -365,12 +393,17 @@ async function boot() {
     adapter:    dmzAdapter,
     loadError:  dmzLoadError,
     adapterFallback: dmzAdapterFallback,
+    canManage:  dmzCanManage,
+    modeLabel:  dmzModeLabel,
+    onPostError: (e) => surfaceDmzError(e),
   });
   const router = mountRouter({
     enterDmzBtn: $("#enterDmzBtn"),
     exitDmzBtn:  $("#exitDmzBtn"),
     dmz,
   });
+
+  wireDmzSettings();
 
   const settingsPage = $("#settingsPage");
   const settingsCtrl = new Settings({
@@ -431,21 +464,6 @@ async function boot() {
     resetBtn:     $("#intelligenceReset"),
   });
   void intelligenceCtrl;
-
-  const groqSurface = new SummariseSurface({
-    intelligence: intelligenceCtrl,
-    reader,
-    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER],
-    wrapEl:           $("#readerSummarise"),
-    triggerBtn:       $("#readerSummariseBtn"),
-    statusEl:         $("#readerSummariseStatus"),
-    disclosureEl:     $("#readerSummariseDisclosure"),
-    disclosureTextEl: $("#readerSummariseDisclosureText"),
-    confirmBtn:       $("#readerSummariseConfirm"),
-    cancelBtn:        $("#readerSummariseCancel"),
-    outputEl:         $("#readerSummariseOutput"),
-  });
-  void groqSurface;
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
@@ -511,6 +529,96 @@ async function boot() {
     });
     if (!isOnboarded()) welcome.open();
   }
+}
+
+function wireDmzSettings() {
+  const urlEl = document.getElementById("dmz-workerUrl");
+  const tokenEl = document.getElementById("dmz-ownerToken");
+  const enabledEl = document.getElementById("dmz-enabled");
+  const saveBtn = document.getElementById("dmz-save");
+  const statusEl = document.getElementById("dmz-status");
+  if (!urlEl || !tokenEl || !enabledEl || !saveBtn || !statusEl) return;
+
+  const cfg = loadDmzConfig();
+  urlEl.value = cfg.workerUrl || "";
+  enabledEl.checked = !!cfg.enabled;
+  tokenEl.value = loadOwnerToken() || "";
+
+  saveBtn.addEventListener("click", () => {
+    const url = urlEl.value.trim();
+    const looksLikeUrl = url.startsWith("http://") || url.startsWith("https://");
+    if (enabledEl.checked && url && !looksLikeUrl) {
+      statusEl.textContent = "Worker URL must start with https:// or http://";
+      statusEl.dataset.state = "error";
+      return;
+    }
+    saveDmzConfig({ workerUrl: url, enabled: !!enabledEl.checked });
+    saveOwnerToken(tokenEl.value.trim());
+    statusEl.textContent = "Saved. Reload the page for the change to take effect.";
+    statusEl.dataset.state = "ok";
+  });
+}
+
+function surfaceDmzError(e) {
+  const status = document.getElementById("dmzStatus");
+  if (!status) { console.warn("dmz error", e); return; }
+  const reason = e?.code === "moderation_blocked"
+    ? (e?.detail?.severity === "hard"
+        ? "Blocked: this content cannot be posted."
+        : "Blocked: this content was flagged. Revise and try again.")
+    : e?.code === "forbidden"
+      ? "Only the original sender or the owner can remove this note."
+      : e?.code === "not_configured"
+        ? "The DMZ Worker is not fully configured yet."
+        : e?.message || "Could not reach the DMZ Worker.";
+  status.dataset.error = "true";
+  status.textContent = reason;
+  setTimeout(() => {
+    if (status.dataset.error === "true" && status.textContent === reason) {
+      delete status.dataset.error;
+      status.textContent = "";
+    }
+  }, 6000);
+}
+
+async function tryMigrateLocalDmz(adapter) {
+  if (localMigratedAt()) return;
+  if (!loadOwnerToken()) return;
+  const local = readLocalDmzEvents();
+  if (!local.length) { markLocalMigrated(); return; }
+  try {
+    await adapter.migrate(local);
+    markLocalMigrated();
+  } catch (e) {
+    if (e?.code === "already_migrated" || e?.code === "log_not_empty") {
+      markLocalMigrated();
+      return;
+    }
+    throw e;
+  }
+}
+
+function readLocalDmzEvents() {
+  try {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith("coda/dmz/")) continue;
+      if (key === "coda/dmz/migrated-at" || key === "coda/dmz/worker-config" || key === "coda/dmz/client-id" || key === "coda/dmz/delete-tokens" || key === "coda/dmz/owner-token") continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        const notes = parsed?.items?.["__board__"]?.notes || parsed?.notes || [];
+        for (const n of notes) {
+          if (n && typeof n.body === "string" && n.body.trim()) {
+            out.push({ id: n.id, body: n.body, at: n.at || Date.now() });
+          }
+        }
+      } catch {}
+    }
+    return out;
+  } catch { return []; }
 }
 
 if (document.readyState === "loading") {
