@@ -1,0 +1,225 @@
+import { chatComplete } from "./openai-compatible.js";
+import { isDisclosureAcked, ackDisclosure } from "./index.js";
+
+function pascal(id) {
+  return id.split(/[-_]/).map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join("");
+}
+
+export class SummariseSurface {
+  /**
+   * Mounts a fieldset per provider into the Intelligence settings panel,
+   * owns the shared reader-pane Summarise button, and routes calls to the
+   * first ready provider in the supplied registration order.
+   *
+   * @param {object} opts
+   * @param {import("./index.js").Intelligence} opts.intelligence
+   * @param {object} opts.reader              Reader instance (exposes .currentArticle)
+   * @param {ReadonlyArray<object>} opts.providers   Each: { id, surfaceId, label, hostname, baseUrl, defaultModel, keyPlaceholder, hintHtml }
+   * @param {HTMLElement} opts.wrapEl
+   * @param {HTMLButtonElement} opts.triggerBtn
+   * @param {HTMLElement} opts.statusEl
+   * @param {HTMLElement} opts.disclosureEl
+   * @param {HTMLElement} opts.disclosureTextEl
+   * @param {HTMLButtonElement} opts.confirmBtn
+   * @param {HTMLButtonElement} opts.cancelBtn
+   * @param {HTMLElement} opts.outputEl
+   * @param {(u:string,init?:object)=>Promise<Response>=} opts.fetchImpl
+   */
+  constructor(opts) {
+    if (!Array.isArray(opts.providers) || !opts.providers.length) {
+      throw new Error("SummariseSurface: providers must be a non-empty array.");
+    }
+    this.intel = opts.intelligence;
+    this.reader = opts.reader;
+    this.providers = opts.providers;
+    this.wrapEl = opts.wrapEl;
+    this.triggerBtn = opts.triggerBtn;
+    this.statusEl = opts.statusEl;
+    this.disclosureEl = opts.disclosureEl;
+    this.disclosureTextEl = opts.disclosureTextEl;
+    this.confirmBtn = opts.confirmBtn;
+    this.cancelBtn = opts.cancelBtn;
+    this.outputEl = opts.outputEl;
+    this.fetchImpl = opts.fetchImpl || null;
+    this.inflight = null;
+
+    for (const provider of this.providers) {
+      this.#mountFieldset(provider);
+    }
+    this.#bind();
+    this.intel.subscribe(() => this.#syncVisibility());
+  }
+
+  activeProvider() {
+    for (const p of this.providers) {
+      if (this.intel.isSurfaceEnabled(p.surfaceId) && this.intel.getProviderKey(p.id)) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  isReady() {
+    return !!this.activeProvider();
+  }
+
+  trigger() {
+    if (!this.isReady()) return false;
+    const article = this.reader && this.reader.currentArticle;
+    if (!article) {
+      this.#setStatus("Open an article first.", "info");
+      return false;
+    }
+    this.triggerBtn.focus();
+    this.triggerBtn.click();
+    return true;
+  }
+
+  #mountFieldset(provider) {
+    const target = this.intel.mountTarget();
+    if (!target) return;
+    const name = pascal(provider.id);
+    const enableId = `intel${name}SurfaceEnable`;
+    const keyId = `intel${name}ApiKey`;
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "settings__group intel-surface";
+    fieldset.dataset.surface = provider.surfaceId;
+    fieldset.innerHTML = `
+      <legend>Reader-pane Summarise (${provider.label}) <span class="intel-surface__tag">§17.8</span></legend>
+      <label class="settings__field settings__field--inline">
+        <input id="${enableId}" type="checkbox">
+        <span>Enable ${provider.label} for the Summarise button in the reader pane</span>
+      </label>
+      <label class="settings__field">
+        <span>${provider.label} API key (kept in this browser only)</span>
+        <input id="${keyId}" type="password" autocomplete="off" spellcheck="false" placeholder="${provider.keyPlaceholder}">
+      </label>
+      <p class="settings__hint">
+        Default model <code>${provider.defaultModel}</code> against <code>${provider.hostname}</code>.
+        ${provider.hintHtml}
+      </p>
+    `;
+    target.appendChild(fieldset);
+    const enableInput = fieldset.querySelector(`#${enableId}`);
+    const keyInput = fieldset.querySelector(`#${keyId}`);
+    enableInput.checked = !!this.intel.snapshot().surfaces[provider.surfaceId];
+    keyInput.value = this.intel.getProviderKey(provider.id);
+    enableInput.addEventListener("change", () => {
+      this.intel.setSurfaceEnabled(provider.surfaceId, enableInput.checked);
+    });
+    keyInput.addEventListener("input", () => {
+      this.intel.setProviderKey(provider.id, keyInput.value.trim());
+    });
+  }
+
+  #bind() {
+    this.triggerBtn.addEventListener("click", () => this.#onTrigger());
+    this.confirmBtn.addEventListener("click", () => this.#onConfirm());
+    this.cancelBtn.addEventListener("click", () => this.#dismissDisclosure());
+    this.#syncVisibility();
+  }
+
+  #syncVisibility() {
+    const active = this.activeProvider();
+    const on = !!active;
+    this.wrapEl.hidden = !on;
+    if (on) {
+      this.triggerBtn.textContent = `Summarise via ${active.label}`;
+    } else {
+      this.#dismissDisclosure();
+      this.outputEl.hidden = true;
+      this.outputEl.textContent = "";
+      this.#setStatus("", null);
+    }
+  }
+
+  #setStatus(msg, status) {
+    this.statusEl.textContent = msg || "";
+    if (status) this.statusEl.dataset.status = status;
+    else this.statusEl.removeAttribute("data-status");
+  }
+
+  #articleSnapshot() {
+    const a = this.reader && this.reader.currentArticle;
+    if (!a) return null;
+    return {
+      id: a.id,
+      title: a.title || "(untitled)",
+      source: a.source || a.feed || "(unknown source)",
+      body: a.body || a.summary || "",
+    };
+  }
+
+  #onTrigger() {
+    const active = this.activeProvider();
+    if (!active) return;
+    if (this.inflight) return;
+    const article = this.#articleSnapshot();
+    if (!article) {
+      this.#setStatus("Open an article first.", "info");
+      return;
+    }
+    if (isDisclosureAcked(active.hostname)) {
+      this.#run(active, article);
+      return;
+    }
+    this.disclosureTextEl.textContent =
+      `This will send "${article.source} · ${article.title}" to ${active.hostname}.`;
+    this.disclosureEl.hidden = false;
+    this.confirmBtn.focus();
+  }
+
+  #onConfirm() {
+    const active = this.activeProvider();
+    if (!active) {
+      this.#dismissDisclosure();
+      return;
+    }
+    const article = this.#articleSnapshot();
+    if (!article) {
+      this.#dismissDisclosure();
+      this.#setStatus("Open an article first.", "info");
+      return;
+    }
+    ackDisclosure(active.hostname);
+    this.#dismissDisclosure();
+    this.#run(active, article);
+  }
+
+  #dismissDisclosure() {
+    this.disclosureEl.hidden = true;
+    this.disclosureTextEl.textContent = "";
+  }
+
+  async #run(provider, article) {
+    const apiKey = this.intel.getProviderKey(provider.id);
+    if (!apiKey) {
+      this.#setStatus(`Paste a ${provider.label} API key in Settings.`, "fail");
+      return;
+    }
+    this.outputEl.hidden = true;
+    this.outputEl.textContent = "";
+    this.triggerBtn.disabled = true;
+    this.#setStatus(`Summarising via ${provider.hostname}…`, "pending");
+    const controller = new AbortController();
+    this.inflight = controller;
+    try {
+      const { summary, model } = await chatComplete({
+        provider,
+        apiKey,
+        article,
+        signal: controller.signal,
+        fetchImpl: this.fetchImpl,
+      });
+      this.outputEl.textContent = summary;
+      this.outputEl.hidden = false;
+      this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
+    } catch (e) {
+      const msg = e && e.message ? e.message : "Summary failed.";
+      this.#setStatus(msg, "fail");
+    } finally {
+      this.triggerBtn.disabled = false;
+      this.inflight = null;
+    }
+  }
+}

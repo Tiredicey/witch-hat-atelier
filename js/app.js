@@ -14,7 +14,9 @@ import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { Intelligence } from "./intelligence/index.js";
-import { GroqSummariseSurface } from "./intelligence/groq-surface.js";
+import { SummariseSurface } from "./intelligence/summarise-surface.js";
+import { GROQ_PROVIDER } from "./intelligence/groq.js";
+import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -430,9 +432,10 @@ async function boot() {
   });
   void intelligenceCtrl;
 
-  const groqSurface = new GroqSummariseSurface({
+  const groqSurface = new SummariseSurface({
     intelligence: intelligenceCtrl,
     reader,
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER],
     wrapEl:           $("#readerSummarise"),
     triggerBtn:       $("#readerSummariseBtn"),
     statusEl:         $("#readerSummariseStatus"),
