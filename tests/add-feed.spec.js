@@ -255,6 +255,67 @@ test.describe('Add a feed by URL — refused platforms', () => {
       .toContainText('rsshub.example.com/facebook/page/cosmopolitanphilippines');
     await expect(refused.locator('.add-feed__use-bridge')).toBeVisible();
   });
+
+  test('refused with no bridge configured surfaces an inline Configure CTA that opens and focuses the bridge input', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.locator('#add-feed-input').fill('https://www.facebook.com/cosmopolitanphilippines');
+    await page.locator('#add-feed-resolve').click();
+
+    const refused = page.locator('#add-feed-refused');
+    const configureBtn = refused.locator('.add-feed__configure-bridge');
+    await expect(configureBtn).toBeVisible();
+    await expect(refused.locator('.add-feed__use-bridge')).toHaveCount(0);
+
+    await expect(page.locator('#add-feed-bridge-details')).not.toHaveAttribute('open', /.*/);
+    await configureBtn.click();
+    await expect(page.locator('#add-feed-bridge-details')).toHaveAttribute('open', /.*/);
+    await expect(page.locator('#add-feed-bridge')).toBeFocused();
+  });
+});
+
+test.describe('Add a feed by URL \u2014 bridge config UX', () => {
+  test('saving a bridge URL shows a configured badge in the summary; clearing hides it', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    const badge = page.locator('#add-feed-bridge-badge');
+    await expect(badge).toBeHidden();
+
+    await page.locator('.add-feed__bridge > summary').click();
+    await page.locator('#add-feed-bridge').fill('https://rsshub.example.com');
+    await page.locator('#add-feed-bridge-save').click();
+    await expect(page.locator('#add-feed-bridge-status')).toHaveAttribute('data-status', 'ok');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveAttribute('data-configured', 'true');
+    await expect(badge).toContainText('configured');
+
+    await page.locator('#add-feed-bridge-clear').click();
+    await expect(page.locator('#add-feed-bridge-status')).toContainText('Bridge URL cleared');
+    await expect(badge).toBeHidden();
+    await expect(page.locator('#add-feed-bridge')).toHaveValue('');
+    const stored = await page.evaluate((k) => localStorage.getItem(k), BRIDGE_KEY);
+    expect(stored).toBeNull();
+  });
+
+  test('configured badge survives reload (hydrated from localStorage on next visit)', async ({ page }) => {
+    await openSettings(page);
+    await clearStorage(page);
+
+    await page.evaluate((args) => {
+      localStorage.setItem(args.key, args.value);
+    }, { key: BRIDGE_KEY, value: 'https://rsshub.example.com' });
+
+    await page.reload();
+    await page.locator('#enterSettingsBtn').click();
+    await expect(page.locator('#settingsPage')).toBeVisible();
+
+    const badge = page.locator('#add-feed-bridge-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveAttribute('data-configured', 'true');
+    await expect(page.locator('#add-feed-bridge')).toHaveValue('https://rsshub.example.com');
+  });
 });
 
 test.describe('Add a feed by URL — input validation', () => {

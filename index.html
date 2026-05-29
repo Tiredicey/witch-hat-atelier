@@ -303,8 +303,11 @@
       <ul class="add-feed__candidates" id="add-feed-candidates" hidden></ul>
       <div class="add-feed__refused" id="add-feed-refused" hidden></div>
 
-      <details class="add-feed__bridge">
-        <summary>RSSHub bridge URL (optional)</summary>
+      <details class="add-feed__bridge" id="add-feed-bridge-details">
+        <summary>
+          <span class="add-feed__bridge-summary-label">RSSHub bridge URL (optional)</span>
+          <span class="add-feed__bridge-badge" id="add-feed-bridge-badge" data-configured="false" hidden></span>
+        </summary>
         <p class="settings__hint">
           If you operate an RSSHub instance (self-hosted or rented), enter its base URL here. CODA will use it to suggest candidate routes when you paste a Facebook, Instagram, X, or TikTok URL. Leave blank to disable bridge suggestions entirely.
         </p>
@@ -313,7 +316,8 @@
           <input id="add-feed-bridge" type="url" placeholder="https://rsshub.example.com" autocomplete="off" spellcheck="false">
         </label>
         <div class="add-feed__row">
-          <button type="button" id="add-feed-bridge-save">Save bridge</button>
+          <button type="button" id="add-feed-bridge-save" data-variant="primary">Save bridge</button>
+          <button type="button" id="add-feed-bridge-clear">Clear</button>
           <p class="settings__test" id="add-feed-bridge-status" aria-live="polite"></p>
         </div>
       </details>

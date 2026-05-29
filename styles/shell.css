@@ -1387,8 +1387,38 @@ body[data-page="settings"] .scrim { display: none !important; }
   color: var(--ink-soft);
   cursor: pointer;
   padding: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-s);
 }
 .add-feed__bridge summary:hover { color: var(--ink); }
+.add-feed__bridge-summary-label { flex: 0 0 auto; }
+.add-feed__bridge-badge {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-xs, 11px);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: var(--stroke-1) solid var(--sepia);
+  color: var(--sepia);
+  background: transparent;
+  border-radius: 2px;
+  line-height: 1.4;
+}
+.add-feed__configure-bridge {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: var(--stroke-1) solid var(--sepia);
+  background: transparent;
+  color: var(--sepia);
+  cursor: pointer;
+  margin-top: 4px;
+}
+.add-feed__configure-bridge:hover { color: var(--ink); border-color: var(--ink-soft); }
+.add-feed__configure-bridge:focus-visible { outline: var(--stroke-1) solid var(--ink); outline-offset: 2px; }
 
 @media (max-width: 768px) {
   .add-feed__candidate {
