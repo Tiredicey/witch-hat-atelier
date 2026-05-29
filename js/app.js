@@ -13,6 +13,7 @@ import { Dmz, mountRouter } from "./dmz.js";
 import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
+import { Intelligence } from "./intelligence/index.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -147,7 +148,6 @@ async function boot() {
         notes.bind(id);
         mobile.showReader();
         syncToolbar(id);
-        localStorage.setItem("coda/resume_id", id);
       } else {
         reader.renderEmpty();
         notes.unbind();
@@ -172,15 +172,6 @@ async function boot() {
     onSwitch: (shelfId) => applyShelf(shelfId)
   });
   applyShelf("all"); // align the list-header meta with the actual sample-item count
-
-  const resumeId = localStorage.getItem("coda/resume_id");
-  if (resumeId && list.find(resumeId)) {
-    list.setSelected(resumeId);
-    const a = list.find(resumeId);
-    reader.renderArticle(a);
-    notes.bind(resumeId);
-    syncToolbar(resumeId);
-  }
 
   function syncToolbar(id) {
     const starred = store.isStarred(id);
@@ -342,6 +333,17 @@ async function boot() {
   document.getElementById("enterSettingsBtn")?.addEventListener("click", () => router.go("settings"));
   $("#exitSettingsBtn").addEventListener("click", () => router.go("reader"));
   void settingsCtrl;
+
+  const intelligenceCtrl = new Intelligence({
+    pageEl:       $("#intelligenceSection"),
+    enableInput:  $("#intelligenceEnable"),
+    panelEl:      $("#intelligencePanel"),
+    disclosureEl: $("#intelligenceDisclosure"),
+    statusEl:     $("#intelligenceStatus"),
+    saveBtn:      $("#intelligenceSave"),
+    resetBtn:     $("#intelligenceReset"),
+  });
+  void intelligenceCtrl;
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
