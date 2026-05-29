@@ -170,6 +170,40 @@ test.describe('inoreader-import UI (Settings page)', () => {
     await expect(status).toContainText(/Import failed/);
   });
 
+  test('orphan stars (no matching feed entry) surface as rows in the Starred shelf', async ({ page }) => {
+    const fileBuf = Buffer.from(JSON.stringify(SAMPLE_EXPORT), 'utf-8');
+
+    await page.locator('#inoreader-stars-file').setInputFiles({
+      name: 'starred.json',
+      mimeType: 'application/json',
+      buffer: fileBuf,
+    });
+    await expect(page.locator('#inoreader-stars-status'))
+      .toHaveAttribute('data-status', 'ok', { timeout: 5000 });
+
+    await page.locator('#exitSettingsBtn').click();
+    await expect(page.locator('#settingsPage')).toBeHidden();
+
+    const starredShelf = page.locator('nav.rail .shelf[data-shelf="starred"]');
+    await starredShelf.click();
+
+    const orphanRow = page.locator('.article-row[data-orphan="true"]', {
+      hasText: 'Web Feeds in 2026',
+    });
+    await expect(orphanRow).toBeVisible({ timeout: 5000 });
+    await expect(orphanRow).toHaveAttribute('data-starred', 'true');
+
+    const jfRow = page.locator('.article-row[data-orphan="true"]', {
+      hasText: 'JSON Feed 1.1',
+    });
+    await expect(jfRow).toBeVisible();
+
+    await orphanRow.click();
+    const readerLink = page.locator('#reader a[href="https://www.mnot.net/blog/2026/feed-survey"]');
+    await expect(readerLink).toBeVisible();
+    await expect(readerLink).toHaveAttribute('target', '_blank');
+  });
+
   test('reports zero items when the export has no starred entries', async ({ page }) => {
     const status = page.locator('#inoreader-stars-status');
     await page.locator('#inoreader-stars-file').setInputFiles({

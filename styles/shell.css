@@ -206,6 +206,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 }
 .article-row[data-read="true"] .article-row__title { color: var(--ink-faint); font-weight: 400; }
 .article-row[data-read="true"] .article-row__excerpt { color: var(--ink-faint); }
+.article-row[data-orphan="true"] .article-row__excerpt { font-style: italic; color: var(--ink-soft); }
+.article-row[data-orphan="true"] .article-row__source::after { content: " · imported"; color: var(--ink-faint); }
 
 /* Hand-drawn divider between rows, three random variants */
 .article-row + .article-row::before {

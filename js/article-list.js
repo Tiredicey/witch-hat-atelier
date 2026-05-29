@@ -31,6 +31,17 @@ export class ArticleList {
   /** Public: which article id is currently selected (or null). */
   getSelectedId() { return this.selectedId; }
 
+  /** Public: swap the full item list and re-render (post-import refresh). */
+  setItems(items) {
+    this.allItems = items;
+    this.items = items.filter(this.filterFn);
+    this.#renderRows();
+    if (this.store) this.refreshFromStore(this.store);
+    if (this.selectedId && !this.items.some(x => x.id === this.selectedId)) {
+      this.selectedId = null;
+    }
+  }
+
   /** Public: id list of currently visible items (for j/k navigation). */
   getIds() { return this.items.map(x => x.id); }
 
@@ -93,6 +104,7 @@ export class ArticleList {
       div.dataset.id = it.id;
       div.dataset.read = String(it.read);
       div.dataset.starred = "false";
+      div.dataset.orphan = String(!!it.orphan);
       div.dataset.divider = DIVIDERS[i % DIVIDERS.length];
       div.innerHTML = `
         <div class="article-row__top">

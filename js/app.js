@@ -100,6 +100,35 @@ async function boot() {
     console.warn("app: feed load failed, using SAMPLE", e);
   }
 
+  const baseFeedItems = items;
+  items = mergeStarOrphans(baseFeedItems, store);
+
+  function mergeStarOrphans(base, st) {
+    const haveId = new Set(base.map(x => x.id));
+    const orphans = [];
+    for (const it of st.snapshot.items) {
+      if (!it.starred) continue;
+      if (haveId.has(it.id)) continue;
+      const link = it.link || it.id;
+      let host = "";
+      try { host = new URL(link).hostname.replace(/^www\./, ""); } catch { host = "imported"; }
+      orphans.push({
+        id: it.id,
+        source: host,
+        shelf: "starred-import",
+        title: it.title || link,
+        age: "imported",
+        read: !!it.read,
+        excerpt: link,
+        body: [],
+        link,
+        orphan: true,
+      });
+    }
+    if (!orphans.length) return base;
+    return [...base, ...orphans];
+  }
+
   const list = new ArticleList({
     listEl, rowsEl, items,
     onSelect: (id) => {
@@ -261,6 +290,12 @@ async function boot() {
     fileInput: document.getElementById("inoreader-stars-file"),
     statusEl:  document.getElementById("inoreader-stars-status"),
     store,
+    onAfter: () => {
+      const merged = mergeStarOrphans(baseFeedItems, store);
+      list.setItems(merged);
+      const shelfId = (railEl.querySelector(".shelf[aria-current=\"true\"]")?.dataset?.shelf) || "all";
+      applyShelf(shelfId);
+    },
   });
   void starsImport;
 
