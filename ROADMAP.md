@@ -493,3 +493,55 @@ These were proposed and refused for principled reasons; revisiting requires a ne
 - No commitment to any specific provider, model, or quota tier. The §17.3 table names provider shapes (TTS endpoint, translation server), not vendor lock-in.
 - No commitment that any §17.2 / §17.3 feature ships in 1.0. They are a v1.1 candidates pool, gated by §17.5's acceptance criteria.
 - No competitive-feature-parity goal. If a reader competitor ships "AI ranks your feed", CODA does not chase it; that violates §1's calm-feed thesis regardless of how it is implemented.
+
+
+---
+
+## 18 · Vault — generic file storage (v1.1 extension)
+
+A third page (peer to the reader and the DMZ) for uploading arbitrary files to the same adapter the user has already configured in Settings. Asked for on 2026-05-29; the brief was explicit: "real cloud storage, any file type, no mocks."
+
+**Why it sits where it does.** The reader stores RSS metadata in `coda/v1`. The DMZ stores shared text notes in `coda/dmz`. Both ride the §5 event-log + snapshot pattern. The Vault reuses that pattern for file *metadata* (`coda/vault/log.ndjson` + `coda/vault/snapshot.json`) and stores the file *bytes* at `coda/vault/blobs/<id>` via three new adapter methods. Same prefix-isolation rule as DMZ: never co-mingled with `coda/v1` or `coda/dmz`.
+
+**Adapter contract extension (additive only).**
+- `putBlob(key, blob)` — upload bytes
+- `getBlob(key)` — return Blob or null
+- `deleteBlob(key)` — idempotent delete
+
+LocalAdapter uses IndexedDB because localStorage cannot hold binary content. Cloud adapters use their native upload endpoints. ChainAdapter mirrors writes to every member that supports the method and returns the first non-null read.
+
+**Per-adapter honest caps.**
+- LocalAdapter: bounded only by the browser's IndexedDB origin quota.
+- S3-compatible: gated by your provider's PUT object cap (R2 single-PUT 4.995 GB; B2 5 GB).
+- WebDAV: gated by server config.
+- Dropbox: 150 MB per file via single-shot `files/upload`. Larger files need upload sessions, out of scope for v1.
+- GitHub Contents API: 100 MB hard cap; uploads over 1 MB are slow and consume ~33 % base64 overhead.
+- Telegram bot: 50 MB upload via `sendDocument`; round-trip downloads cap at 20 MB because `getFile` returns a 20 MB ceiling for bot consumers (Bot API limitation; MTProto is not browser-accessible).
+
+CODA enforces a client-side 100 MB ceiling above any per-adapter limit and surfaces it in the drop-zone hint, replaced with the configured adapter's specific caveat at boot.
+
+**Storage model for Telegram specifically.** The blob index `{ key → { fileId, messageId } }` is stored as a separate Telegram document. Its pointer (`fileId`) lives in the existing pinned-manifest JSON alongside `log` and `snapshot`. This sidesteps the 4096-char text limit on pinned messages and keeps the manifest small.
+
+**UX rules.**
+- Vault reachable in exactly one click from the reader rail; exit reachable in exactly one click.
+- Drop zone + `<input type="file" multiple>`; both surfaces accept the same file list.
+- Files sort newest-first. Each row shows name, size, content-type, timestamp.
+- Click the filename to download. The Blob is re-fetched from the configured adapter on every click; no browser-side caching layer.
+- Per-row delete is allowed; per-vault clear is not. Same reasoning as DMZ: a single click should never destroy a family's shared archive.
+
+**Explicitly out of scope for v1.1.**
+- No end-to-end encryption. Blobs are stored verbatim. The §5 encryption work, when it lands, will apply to vault blobs the same way it applies to the event log.
+- No public sharing URLs.
+- No preview surface (image thumbnails, audio scrubbing, PDF inline). Click-to-download only.
+- No chunked or resumable uploads. Single-shot per file, capped at 100 MB.
+- No attachment linking from reader items or DMZ notes. The Vault is a peer page; cross-linking is a future §18.1 task.
+
+**Risks.**
+- IndexedDB quotas are origin-wide and not user-visible. Mitigation: surface a calm size summary in the empty state next iteration.
+- A GitHub adapter writing many large files inflates the repo. Mitigation: documented cap; the user owns the repo.
+- A Telegram chat can accumulate orphan documents if blob-index updates fail mid-flight. Mitigation: per-blob delete only removes the index entry; the document remains in the chat history but is unreachable, matching Telegram's own retention semantics.
+- A misconfigured cloud adapter could leak file URLs if the bucket is misconfigured public. Mitigation: same as §5 — adapter Settings makes the trust model explicit at configuration time.
+
+---
+
+*Last revised: 2026-05-29.*

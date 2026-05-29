@@ -90,6 +90,32 @@ export class S3Adapter {
     if (!r.ok) throw new Error(`S3 write ${key} ${r.status}`);
   }
 
+  async putBlob(key, blob) {
+    const buf = await blob.arrayBuffer();
+    const body = new Uint8Array(buf);
+    const url = this.#url(key);
+    const headers = await signRequest({
+      method: "PUT", url, body,
+      region: this.region, service: "s3",
+      accessKey: this.accessKey, secretKey: this.secretKey,
+    });
+    if (blob.type) headers["Content-Type"] = blob.type;
+    const r = await fetch(url, { method: "PUT", headers, body });
+    if (!r.ok) throw new Error(`S3 putBlob ${r.status}`);
+  }
+
+  async getBlob(key) {
+    const r = await this.#request("GET", key);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`S3 getBlob ${r.status}`);
+    return await r.blob();
+  }
+
+  async deleteBlob(key) {
+    const r = await this.#request("DELETE", key);
+    if (!r.ok && r.status !== 404) throw new Error(`S3 deleteBlob ${r.status}`);
+  }
+
   async test() {
     const r = await this.#request("HEAD", this.snapKey);
     if (r.ok || r.status === 404) return { ok: true };

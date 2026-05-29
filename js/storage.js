@@ -39,6 +39,65 @@ export class LocalAdapter {
   async clear() {
     localStorage.removeItem(this.logKey);
     localStorage.removeItem(this.snapKey);
+    try {
+      const db = await this.#openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("blobs", "readwrite");
+        tx.objectStore("blobs").clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } catch { /* IDB optional during clear */ }
+  }
+
+  #openDb() {
+    if (typeof indexedDB === "undefined") {
+      return Promise.reject(new Error("IndexedDB unavailable"));
+    }
+    if (this._dbPromise) return this._dbPromise;
+    this._dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open("coda-blobs", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("blobs")) db.createObjectStore("blobs");
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return this._dbPromise;
+  }
+
+  async putBlob(key, blob) {
+    const db = await this.#openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("blobs", "readwrite");
+      tx.objectStore("blobs").put(blob, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async getBlob(key) {
+    const db = await this.#openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("blobs", "readonly");
+      const req = tx.objectStore("blobs").get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async deleteBlob(key) {
+    const db = await this.#openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("blobs", "readwrite");
+      tx.objectStore("blobs").delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
   }
 
   // Generic key-based read/write used by features that need a JSON file at a

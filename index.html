@@ -97,6 +97,14 @@
       <span class="shelf__label">Starred</span>
     </button>
 
+    <button class="shelf shelf--vault" id="enterVaultBtn" aria-label="Vault — file storage">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 19 L 3 7 L 9 7 L 11 9 L 21 9 L 21 19 Z"/>
+        <path d="M3 13 L 21 13"/>
+      </svg>
+      <span class="shelf__label">Vault &mdash; files</span>
+    </button>
+
     <button class="shelf" id="enterSettingsBtn" aria-label="Settings">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="3"/>
@@ -192,6 +200,34 @@
       <button type="submit" id="dmzSubmit" data-variant="primary" disabled>Pin to board</button>
     </div>
   </form>
+</main>
+
+<main class="vault" id="vaultPage" aria-label="Vault — file storage">
+  <header class="vault__header">
+    <button type="button" class="vault__exit" id="exitVaultBtn" aria-label="Back to reader">&larr; Back to reader</button>
+    <div class="vault__title-wrap">
+      <h1 class="vault__title">The Vault</h1>
+      <p class="vault__subtitle smallcaps">files &middot; any type &middot; your storage</p>
+    </div>
+  </header>
+  <div class="divider-hand vault__divider"></div>
+
+  <section class="vault__intake" aria-label="Upload">
+    <label class="vault__drop" id="vaultDrop" for="vaultFileInput">
+      <svg class="vault__drop-glyph" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 4 L 12 16 M 7 11 L 12 16 L 17 11"/>
+        <path d="M5 20 L 19 20"/>
+      </svg>
+      <span class="vault__drop-headline">Drop files here, or click to pick</span>
+      <span class="vault__drop-hint smallcaps" id="vaultCap">Stored in the configured adapter.</span>
+      <input id="vaultFileInput" type="file" multiple class="vault__file-input">
+    </label>
+  </section>
+
+  <section class="vault__shelf" aria-label="Stored files">
+    <p class="vault__empty" id="vaultEmpty">No files yet. Drop something in.</p>
+    <div class="vault__list" id="vaultList" aria-live="polite"></div>
+  </section>
 </main>
 
 <main class="settings" id="settingsPage" aria-label="Settings">
@@ -303,11 +339,8 @@
       <ul class="add-feed__candidates" id="add-feed-candidates" hidden></ul>
       <div class="add-feed__refused" id="add-feed-refused" hidden></div>
 
-      <details class="add-feed__bridge" id="add-feed-bridge-details">
-        <summary>
-          <span class="add-feed__bridge-summary-label">RSSHub bridge URL (optional)</span>
-          <span class="add-feed__bridge-badge" id="add-feed-bridge-badge" data-configured="false" hidden></span>
-        </summary>
+      <details class="add-feed__bridge">
+        <summary>RSSHub bridge URL (optional)</summary>
         <p class="settings__hint">
           If you operate an RSSHub instance (self-hosted or rented), enter its base URL here. CODA will use it to suggest candidate routes when you paste a Facebook, Instagram, X, or TikTok URL. Leave blank to disable bridge suggestions entirely.
         </p>
@@ -316,8 +349,7 @@
           <input id="add-feed-bridge" type="url" placeholder="https://rsshub.example.com" autocomplete="off" spellcheck="false">
         </label>
         <div class="add-feed__row">
-          <button type="button" id="add-feed-bridge-save" data-variant="primary">Save bridge</button>
-          <button type="button" id="add-feed-bridge-clear">Clear</button>
+          <button type="button" id="add-feed-bridge-save">Save bridge</button>
           <p class="settings__test" id="add-feed-bridge-status" aria-live="polite"></p>
         </div>
       </details>
