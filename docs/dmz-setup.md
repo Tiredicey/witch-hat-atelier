@@ -1,87 +1,90 @@
-# DMZ setup, in plain steps
+# DMZ setup, browser-only (no terminal)
 
 The DMZ is the shared board. Anyone who opens the page can read it, post text, edit
-their own notes, and upload files. This guide turns that on. No coding needed, but you
-will copy-paste a few secret values into a Cloudflare Worker.
+their own notes, and upload files. This guide turns that on using only websites you
+click through. No command line, no git client, no installs.
 
-You only do this once. Everyone else just opens the page.
+You do this once. Everyone else just opens the page.
 
-There are two halves:
+Two halves:
 
-- **Text board** (notes you type) is stored in a GitHub branch through the Worker.
-- **Files** (images, PDFs, anything you attach) are stored in **Telegram**, also through
-  the Worker, so the storage is effectively unlimited and free.
+- **Text board** (notes you type) lives in a GitHub branch, written by the Worker.
+- **Files** (images, PDFs, anything you attach) live in **Telegram**, also through the
+  Worker, so storage is effectively unlimited and free.
 
-You can set up the text board alone, or both. Files need the Telegram half.
+The text board has to exist first. Files build on top of it.
 
 ---
 
-## Part A: the text board
+## Part A: the text board (all in the browser)
 
-### 1. Make a place for the data to live (GitHub)
+### 1. Make a data branch on GitHub
 
-1. On GitHub, open the repository you want to hold the board data (your fork of
-   `witch-hat-atelier` is fine).
-2. Create an empty branch named `dmz-data`. The fastest way, if you have the repo on
-   your computer:
-   ```
-   git checkout --orphan dmz-data
-   git rm -rf .
-   git commit --allow-empty -m "dmz data branch"
-   git push origin dmz-data
-   ```
-   If that looks scary, ask anyone comfortable with git to make an empty branch called
-   `dmz-data`. Nothing else goes in it; the Worker fills it.
-3. Make a **fine-grained personal access token**: GitHub → Settings → Developer
-   settings → Fine-grained tokens. Give it access to that one repository, with
-   **Contents: Read and write**. Copy the token somewhere safe for the next step.
+1. Open your repository on github.com.
+2. Click the **branch dropdown** (top-left of the file list, usually says `main`).
+3. Type `dmz-data` in the box and click **Create branch: dmz-data from main**.
 
-### 2. Pick two random passwords
+That is it. A copy of `main` is fine; the Worker only writes files under `dmz/` on that
+branch.
 
-You need two long random strings. Any password generator works. Label them so you
-remember which is which:
+### 2. Make a GitHub access token
 
-- **HMAC secret**, the Worker uses this to prove who posted each note. Nobody types it.
-- **Owner token**, this is *yours*. Paste it into the app's Settings later, and it lets
-  you delete or edit anyone's note. Keep it private.
+1. Top-right avatar, **Settings**, then far down the left side **Developer settings**.
+2. **Personal access tokens**, then **Fine-grained tokens**, then **Generate new token**.
+3. **Repository access**: Only select repositories, pick your repo.
+4. **Permissions**, **Repository permissions**, find **Contents** and set it to
+   **Read and write**.
+5. Generate, then **copy the token now** (you cannot see it again).
 
-### 3. Put the secrets on the Worker
+### 3. Pick two random strings
 
-The Worker is the small program that already powers feed fetching. From the `worker`
-folder, run these and paste each value when asked:
+Use any password generator. Make two long strings and label them:
 
-```
-wrangler secret put DMZ_GITHUB_TOKEN     # the fine-grained token from step 1.3
-wrangler secret put DMZ_HMAC_SECRET      # the HMAC secret from step 2
-wrangler secret put DMZ_OWNER_TOKEN      # the owner token from step 2
-```
+- **HMAC secret**, the Worker uses it to prove who posted each note. Nobody types it.
+- **Owner token**, yours. You paste it into the app later; it lets you edit or delete
+  any note. Keep it private.
 
-Then set three plain values in `wrangler.toml` under `[vars]` (there is a commented
-template in that file):
+### 4. Put everything on the Worker (Cloudflare dashboard)
 
-```
-DMZ_GITHUB_OWNER  = "your-github-login"
-DMZ_GITHUB_REPO   = "the-repo-name"
-DMZ_GITHUB_BRANCH = "dmz-data"
-DMZ_ALLOWED_ORIGINS = "https://your-site-url"
-```
+The Worker that already powers your feeds is the same one that runs the DMZ.
 
-Deploy with `wrangler deploy`. Visit `https://your-worker-url/dmz/health` in a browser.
-You want to see `"configured": true`.
+1. Go to **dash.cloudflare.com**, open **Workers & Pages**, click your Worker.
+2. Open **Settings**, then **Variables and Secrets**.
+3. Add these as **Secret** (the encrypted kind):
+   - `DMZ_GITHUB_TOKEN` = the token from step 2
+   - `DMZ_HMAC_SECRET` = your HMAC secret
+   - `DMZ_OWNER_TOKEN` = your owner token
+4. Add these as **Text/Variable** (plain):
+   - `DMZ_GITHUB_OWNER` = your GitHub username
+   - `DMZ_GITHUB_REPO` = the repository name
+   - `DMZ_GITHUB_BRANCH` = `dmz-data`
+   - `DMZ_ALLOWED_ORIGINS` = the address where your site is hosted, for example
+     `https://your-site.pages.dev`
+5. Save. The dashboard redeploys the Worker for you.
 
-### 4. Turn it on in the app
+> If your Worker is connected to this GitHub repo (Cloudflare "Connect to Git"), then
+> merging the pull request that adds file support auto-deploys the new code. If you are
+> not sure it is connected, that is the one thing worth confirming with whoever first
+> deployed the Worker. Setting the variables above does not require a connection.
 
-1. Open the app, go to **Settings → DMZ shared board**.
-2. Paste the Worker URL.
+### 5. Check it
+
+Open `https://<your-worker-address>/dmz/health` in the browser. You want
+`"configured": true`.
+
+### 6. Turn it on in the app
+
+1. Open the app, **Settings**, then **DMZ shared board**.
+2. Paste the Worker address.
 3. Paste your **owner token**.
-4. Tick **Use the Worker for the DMZ board on this device** and Save. Reload.
+4. Tick **Use the Worker for the DMZ board on this device**, Save, reload.
 
-Everyone who opens the page now shares one board. Each device can delete and edit the
-notes it posted; your owner token can manage all of them.
+Now every device that opens the page shares one board. Each device can edit and delete
+its own notes; your owner token manages all of them.
 
 ---
 
-## Part B: files (Telegram storage)
+## Part B: files (Telegram storage, also browser-only)
 
 This adds the **Attach a file** button and unlimited file storage.
 
@@ -90,57 +93,55 @@ This adds the **Attach a file** button and unlimited file storage.
 1. In Telegram, open a chat with **@BotFather**.
 2. Send `/newbot`, follow the prompts, and copy the **bot token** it gives you.
 
-### 2. Make a place for files and get its id
+### 2. Make a place for files and find its id
 
-1. Create a Telegram **channel or group** for the board's files (private is fine).
-2. Add your new bot to it as an **administrator** (it needs permission to post).
-3. Get the chat's numeric id. The simplest way: post any message in the chat, then open
-   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in a browser and read the
-   `"chat":{"id": ...}` value. Group and channel ids usually start with `-100`.
+1. Create a Telegram **channel or group** for the files (private is fine).
+2. Add your bot to it as an **administrator** so it can post.
+3. Post any message in that chat.
+4. In a browser, open
+   `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` and read the
+   `"chat":{"id": ...}` number. Channel and group ids usually start with `-100`.
 
-### 3. Tell the Worker about Telegram
+### 3. Add the two Telegram values on the Worker
 
-From the `worker` folder:
+Back in Cloudflare, **Workers & Pages**, your Worker, **Settings**,
+**Variables and Secrets**. Add as **Secret**:
 
-```
-wrangler secret put DMZ_TELEGRAM_TOKEN   # the bot token from B.1
-wrangler secret put DMZ_TELEGRAM_CHAT    # the numeric chat id from B.2
-```
+- `DMZ_TELEGRAM_TOKEN` = the bot token
+- `DMZ_TELEGRAM_CHAT` = the chat id number
 
-Optional: set `DMZ_MAX_FILE_MB` in `wrangler.toml` to change the per-file limit
-(default 25 MB). Deploy again with `wrangler deploy`. Check `/dmz/health` shows
-`"files": true`.
+Optional plain variable `DMZ_MAX_FILE_MB` changes the per-file size limit (default 25).
+Save. Reopen `https://<your-worker-address>/dmz/health`; you now want `"files": true`.
 
-Reload the app. The **Attach a file** button now appears on the board.
+Reload the app. The **Attach a file** button appears on the board.
 
 ---
 
-## How moderation works, and what it cannot do
+## What moderation does, and what it cannot do
 
-The Worker checks every post and upload before it lands, on the server, so editing the
-page in dev tools cannot get around it:
+Every post and upload is checked on the Worker, before it lands, so editing the page in
+browser dev tools cannot get around it.
 
-- **Text and captions and file names** run through a matcher that folds look-alike
+- **Text, captions, and file names** run through a matcher that folds look-alike
   letters, strips accents, undoes common leetspeak, and fuzzy-matches an adult-content
   lexicon. Clear CSAM-adjacent terms are hard-blocked; general adult terms are rejected.
 - **Files** are also gated by type and size. Executable and active-script types
-  (`.exe`, `.js`, `.html`, `.svg`, and similar) are refused so the board can't be used
-  to hand out malware.
+  (`.exe`, `.js`, `.html`, `.svg`, and similar) are refused so the board cannot hand out
+  malware.
 
-Honest limits, so you are not surprised:
+Honest limits, so nothing surprises you:
 
 - **Image contents are not scanned by default.** A clean filename and caption on an
-  explicit image will pass unless you enable the optional Workers AI hook
-  (`DMZ_NSFW_MODEL` in `wrangler.toml`). Even then it covers still images, not video or
-  audio.
-- **Deleting a file removes it from the board, not from Telegram.** A Telegram bot
-  cannot reliably delete its own old uploads, so the bytes may remain in your Telegram
-  chat after a note disappears from the board.
-- **"No length limit" means no artificial cap.** The real ceiling is what the GitHub
-  Contents API will store in one file, not infinity.
+  explicit image will pass unless the optional Workers AI hook is configured, and even
+  then it covers still images, not video or audio.
+- **Deleting a file removes it from the board, not from Telegram.** A bot cannot reliably
+  delete its own old uploads, so the bytes may stay in your Telegram chat after the note
+  disappears.
+- **"No length limit" means no artificial cap**, not infinity. The real ceiling is what
+  the GitHub Contents API stores in one file.
 
 ## Quick health check
 
-- `/dmz/health` → `{"configured": true, "files": true}` means both halves are live.
-- `configured` false → a Part A secret or var is missing.
-- `files` false → a Part B Telegram secret is missing.
+- `/dmz/health` showing `{"configured": true, "files": true}` means both halves are live.
+- `configured` false means a Part A value is missing or misspelled.
+- `files` false means a Part B Telegram value is missing.
