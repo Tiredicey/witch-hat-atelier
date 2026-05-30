@@ -51,12 +51,14 @@ export class SummariseSurface {
   }
 
   activeProvider() {
-    for (const p of this.providers) {
-      if (this.intel.isSurfaceEnabled(p.surfaceId) && this.intel.getProviderKey(p.id)) {
-        return p;
-      }
-    }
-    return null;
+    const ready = this.readyProviders();
+    return ready.length ? ready[0] : null;
+  }
+
+  readyProviders() {
+    return this.providers.filter(
+      p => this.intel.isSurfaceEnabled(p.surfaceId) && this.intel.getProviderKey(p.id)
+    );
   }
 
   isReady() {
@@ -151,20 +153,21 @@ export class SummariseSurface {
   }
 
   #onTrigger() {
-    const active = this.activeProvider();
-    if (!active) return;
     if (this.inflight) return;
+    const chain = this.readyProviders();
+    if (!chain.length) return;
     const article = this.#articleSnapshot();
     if (!article) {
       this.#setStatus("Open an article first.", "info");
       return;
     }
-    if (isDisclosureAcked(active.hostname)) {
-      this.#run(active, article);
+    if (chain.every(p => isDisclosureAcked(p.hostname))) {
+      this.#run(chain[0], article);
       return;
     }
-    this.disclosureTextEl.textContent =
-      `This will send "${article.source} · ${article.title}" to ${active.hostname}.`;
+    this.disclosureTextEl.textContent = chain.length === 1
+      ? `This will send "${article.source} · ${article.title}" to ${chain[0].hostname}.`
+      : `This will send "${article.source} · ${article.title}" to ${chain[0].hostname}, falling back to ${chain.slice(1).map(p => p.hostname).join(", ")} if it is rate-limited.`;
     this.disclosureEl.hidden = false;
     this.confirmBtn.focus();
   }
@@ -181,9 +184,9 @@ export class SummariseSurface {
       this.#setStatus("Open an article first.", "info");
       return;
     }
-    ackDisclosure(active.hostname);
+    for (const p of this.readyProviders()) ackDisclosure(p.hostname);
     this.#dismissDisclosure();
-    this.#run(active, article);
+    this.#run(this.activeProvider(), article);
   }
 
   #dismissDisclosure() {
@@ -191,35 +194,63 @@ export class SummariseSurface {
     this.disclosureTextEl.textContent = "";
   }
 
-  async #run(provider, article) {
-    const apiKey = this.intel.getProviderKey(provider.id);
-    if (!apiKey) {
-      this.#setStatus(`Paste a ${provider.label} API key in Settings.`, "fail");
+  async #run(startProvider, article) {
+    const ready = this.readyProviders();
+    let start = ready.indexOf(startProvider);
+    if (start < 0) start = 0;
+    const chain = ready.slice(start);
+    if (!chain.length) {
+      this.#setStatus("Enable and key a provider in Settings.", "fail");
       return;
     }
     this.outputEl.hidden = true;
     this.outputEl.textContent = "";
     this.triggerBtn.disabled = true;
-    this.#setStatus(`Summarising via ${provider.hostname}…`, "pending");
     const controller = new AbortController();
     this.inflight = controller;
     try {
-      const { summary, model } = await chatComplete({
-        provider,
-        apiKey,
-        article,
-        signal: controller.signal,
-        fetchImpl: this.fetchImpl,
-      });
-      this.outputEl.textContent = summary;
-      this.outputEl.hidden = false;
-      this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
-    } catch (e) {
-      const msg = e && e.message ? e.message : "Summary failed.";
-      this.#setStatus(msg, "fail");
+      for (let i = 0; i < chain.length; i++) {
+        const provider = chain[i];
+        const apiKey = this.intel.getProviderKey(provider.id);
+        if (!apiKey) continue;
+        this.#setStatus(`Summarising via ${provider.hostname}…`, "pending");
+        try {
+          const { summary, model } = await chatComplete({
+            provider,
+            apiKey,
+            article,
+            signal: controller.signal,
+            fetchImpl: this.fetchImpl,
+          });
+          this.outputEl.textContent = summary;
+          this.outputEl.hidden = false;
+          this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
+          return;
+        } catch (e) {
+          if (controller.signal.aborted) return;
+          const next = chain.slice(i + 1).find(p => this.intel.getProviderKey(p.id));
+          if (next && this.#shouldFailover(e)) {
+            this.#setStatus(`${provider.hostname} is rate-limited. Trying ${next.hostname}…`, "pending");
+            continue;
+          }
+          const msg = e && e.message ? e.message : "Summary failed.";
+          this.#setStatus(msg, "fail");
+          return;
+        }
+      }
+      this.#setStatus("No provider with an API key was available.", "fail");
     } finally {
       this.triggerBtn.disabled = false;
       this.inflight = null;
     }
+  }
+
+  #shouldFailover(e) {
+    if (!e) return false;
+    const s = e.status;
+    if (s === 429 || s === 408) return true;
+    if (typeof s === "number" && s >= 500) return true;
+    if (typeof s !== "number") return true;
+    return false;
   }
 }
