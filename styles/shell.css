@@ -1679,6 +1679,10 @@ body[data-page="settings"] .scrim { display: none !important; }
   border-left: var(--stroke-2) solid var(--line);
   padding-left: var(--gutter-s);
   font-size: var(--size-ui-s);
+  max-height: 40vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 .list__briefing-output[hidden] { display: none; }
 
