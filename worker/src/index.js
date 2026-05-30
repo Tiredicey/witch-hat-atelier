@@ -47,8 +47,12 @@ export default {
       return new Response("ok", { headers: corsHeaders() });
     }
     if (url.pathname.startsWith("/dmz/")) {
-      const r = await handleDmz(req, url, env);
-      if (r) return r;
+      try {
+        const r = await handleDmz(req, url, env);
+        if (r) return r;
+      } catch (e) {
+        return jsonResp({ ok: false, error: "dmz_error", detail: String((e && e.message) || e) }, 500);
+      }
     }
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
