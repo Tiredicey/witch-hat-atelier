@@ -32,6 +32,7 @@ import { scoreFeed, passesQuality } from "./quality.js";
 import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
+import { handleDmz } from "./dmz.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
 
@@ -44,6 +45,10 @@ export default {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/healthz") {
       return new Response("ok", { headers: corsHeaders() });
+    }
+    if (url.pathname.startsWith("/dmz/")) {
+      const r = await handleDmz(req, url, env);
+      if (r) return r;
     }
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });

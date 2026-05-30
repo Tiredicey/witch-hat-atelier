@@ -22,7 +22,7 @@ const STATUS_LABELS = {
 };
 
 export class Dmz {
-  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback }) {
+  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback, canManage, modeLabel, onPostError }) {
     this.pageEl = pageEl;
     this.listEl = listEl;
     this.formEl = formEl;
@@ -31,6 +31,9 @@ export class Dmz {
     this.store = store;
     this.statusEl = statusEl;
     this.kind = adapter?.constructor?.name || "LocalAdapter";
+    this.canManage = typeof canManage === "function" ? canManage : () => true;
+    this.modeLabel = modeLabel || "";
+    this.onPostError = typeof onPostError === "function" ? onPostError : null;
     this.loadErrorText = loadError ? `Could not load shared notes: ${loadError}` : "";
     this.adapterFallbackText = adapterFallback ? `Cloud adapter failed to start (${adapterFallback}). Falling back to local storage on this device only.` : "";
 
@@ -66,6 +69,8 @@ export class Dmz {
     } else if (this.adapterFallbackText) {
       text = this.adapterFallbackText;
       isError = true;
+    } else if (this.modeLabel) {
+      text = this.modeLabel;
     } else {
       text = STATUS_LABELS[this.kind] || "Synced via the configured adapter.";
     }
@@ -77,8 +82,13 @@ export class Dmz {
   async #save() {
     const body = this.textareaEl.value.trim();
     if (!body) return;
-    await this.store.addNote(BOARD_ID, body);
-    this.textareaEl.value = "";
+    try {
+      await this.store.addNote(BOARD_ID, body);
+      this.textareaEl.value = "";
+    } catch (e) {
+      if (this.onPostError) this.onPostError(e, body);
+      else throw e;
+    }
     this.#syncSubmitState();
   }
 
@@ -112,14 +122,21 @@ export class Dmz {
     meta.className = "dmz-note__meta smallcaps";
     const time = document.createElement("span");
     time.textContent = fmtTime(n.at);
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "dmz-note__delete";
-    del.title = "Remove from board";
-    del.setAttribute("aria-label", "Remove note");
-    del.textContent = "×";
-    del.addEventListener("click", () => this.store.delNote(BOARD_ID, n.id));
-    meta.append(time, del);
+    meta.append(time);
+
+    if (this.canManage(n.id)) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "dmz-note__delete";
+      del.title = "Remove from board";
+      del.setAttribute("aria-label", "Remove note");
+      del.textContent = "×";
+      del.addEventListener("click", async () => {
+        try { await this.store.delNote(BOARD_ID, n.id); }
+        catch (e) { if (this.onPostError) this.onPostError(e, null); else throw e; }
+      });
+      meta.append(del);
+    }
 
     const body = document.createElement("p");
     body.className = "dmz-note__body";

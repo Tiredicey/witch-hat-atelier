@@ -34,3 +34,21 @@ FEEDS = '''[
 ]'''
 UA     = "CODA/0.1 (+https://github.com/Tiredicey/witch-hat-atelier)"
 PREFIX = "coda/feeds"
+
+# DMZ proxy (§15 shared free space).
+# All five secrets below are required before /dmz/* routes function.
+# Set them with wrangler secret put, never commit them:
+#   wrangler secret put DMZ_GITHUB_TOKEN     # fine-grained PAT, Contents:RW on the DMZ branch only
+#   wrangler secret put DMZ_HMAC_SECRET      # random 32+ byte string, signs per-note delete tokens
+#   wrangler secret put DMZ_OWNER_TOKEN      # random 32+ byte string, you paste this in Settings
+#
+# Public-ish config can stay here:
+#   DMZ_GITHUB_OWNER  : your GitHub login
+#   DMZ_GITHUB_REPO   : the repo holding the dmz-data branch
+#   DMZ_GITHUB_BRANCH : default "dmz-data"; create with git checkout --orphan dmz-data && git rm -rf .
+#   DMZ_ALLOWED_ORIGINS : comma-separated list, e.g. "https://witch-hat-atelier.pages.dev"
+# [vars]
+# DMZ_GITHUB_OWNER  = "your-github-login"
+# DMZ_GITHUB_REPO   = "witch-hat-atelier"
+# DMZ_GITHUB_BRANCH = "dmz-data"
+# DMZ_ALLOWED_ORIGINS = "https://witch-hat-atelier.pages.dev"
