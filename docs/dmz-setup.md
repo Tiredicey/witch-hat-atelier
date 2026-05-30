@@ -74,16 +74,16 @@ project, there is no separate Worker.
 Open `https://witch-hat-atelier.pages.dev/dmz/health` in the browser (use your own
 `pages.dev` address if it differs). You want `"configured": true`.
 
-### 6. Turn it on in the app
+### 6. That is it, the board is live for everyone
 
-1. Open the app, **Settings**, then **DMZ shared board**.
-2. In the **Worker base URL** field, paste your site address
-   `https://witch-hat-atelier.pages.dev` (no `/dmz` on the end).
-3. Paste your **owner token**.
-4. Tick **Use the Worker for the DMZ board on this device**, Save, reload.
+Once the steps above are deployed, every device that opens the page joins the same
+board automatically. Nobody has to open Settings, paste a URL, or tick a box. Each
+device can post and can edit or remove the notes it created.
 
-Now every device that opens the page shares one board. Each device can edit and delete
-its own notes; your owner token manages all of them.
+You only open **Settings**, **DMZ shared board** if you want owner powers: paste your
+**owner token** there, on your own device, to edit or remove anyone's note. The base
+URL field is only for the unusual case where the page and the DMZ backend are hosted on
+different origins.
 
 ---
 
