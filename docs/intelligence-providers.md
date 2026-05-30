@@ -20,6 +20,7 @@ PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17
 |---|---|---|---|---|---|---|
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Free tier with daily request/token caps and ~500 tok/s throughput at the entry date; current limits are listed on the Groq pricing page. | Free-tier prompts may be retained for evaluation per Groq's TOS. Re-check before pasting a key. | <https://groq.com/terms-of-use/> (pricing: <https://groq.com/pricing/>) | PR §17.11:2 |
 | Cerebras | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | Free Cerebras Cloud Inference tier with per-minute and daily caps at the entry date; current limits are listed in the Cerebras inference docs. | Free-tier usage is governed by the Cerebras Terms of Service which covers Cerebras Cloud Inference. Re-check before pasting a key. | <https://www.cerebras.ai/terms-of-service> (docs: <https://inference-docs.cerebras.ai/introduction>) | PR §17.11:3 |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` | Gemini API free tier, no card; per-minute and per-day request caps at the entry date. Current limits are listed on the Gemini API pricing page. | On the free tier Google may use prompts to improve its products per the Gemini API terms; the paid tier does not. Re-check before pasting a key. | <https://ai.google.dev/gemini-api/terms> (pricing: <https://ai.google.dev/gemini-api/docs/pricing>) | PR §17.11:4 |
 
 ## §17.9 — Rotating-credit providers
 

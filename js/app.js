@@ -19,6 +19,7 @@ import { Intelligence } from "./intelligence/index.js";
 import { SummariseSurface } from "./intelligence/summarise-surface.js";
 import { GROQ_PROVIDER } from "./intelligence/groq.js";
 import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
+import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -476,7 +477,7 @@ async function boot() {
   summariseSurface = new SummariseSurface({
     intelligence: intelligenceCtrl,
     reader,
-    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER],
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
     wrapEl:           $("#readerSummarise"),
     triggerBtn:       $("#readerSummariseBtn"),
     statusEl:         $("#readerSummariseStatus"),
