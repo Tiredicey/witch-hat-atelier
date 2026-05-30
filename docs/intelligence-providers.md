@@ -44,3 +44,14 @@ Routes that the canonical hosted CODA Worker explicitly refuses. Only self-hoste
 2. Every surface above is dark until the user enables the master checkbox in Settings and then the surface's own checkbox.
 3. Article text only leaves the device on an explicit user gesture, and the first such request per session shows a one-line disclosure naming the destination hostname.
 4. A surface that disappears from this document also disappears from the Settings panel in the same PR — checkboxes are not orphaned in the UI.
+
+## §18.3 rung 6 — Voice I/O (Web Speech API)
+
+The voice rung uses the browser's built-in Web Speech API. No product credential, no paid provider, two on-device-leaning surfaces gated behind their own Settings checkboxes (off by default, under the master intelligence checkbox).
+
+| Surface | API | Where it runs | Privacy note at entry date | Added in PR |
+|---|---|---|---|---|
+| Read article aloud | `speechSynthesis` + `SpeechSynthesisUtterance` | On-device. Uses the voices installed in the operating system / browser. Nothing leaves the device. | No network request. Honors `prefers-reduced-motion` and dark/light per §6/§7 by inheriting the shell. | §18.3 rung 6 |
+| Voice commands (microphone) | `SpeechRecognition` / `webkitSpeechRecognition` | Browser-dependent. Chrome and Edge transcribe captured audio on the browser maker's servers; some other engines run on-device. | A one-time-per-session disclosure states that audio may be sent to the browser maker before the microphone starts. Recognised input is restricted to a fixed command allowlist (summarise · read · stop); free-form text is rejected, not executed. CODA never receives or stores the audio. | §18.3 rung 6 |
+
+Honest caveat per §18.5: `SpeechRecognition` is **not** guaranteed on-device. The deliberate on-device STT path stays `whisper.cpp` (§17.7, issue #62) and remains a follow-up. Free-form conversational Q&A is rung 2 and is not shipped by this rung.

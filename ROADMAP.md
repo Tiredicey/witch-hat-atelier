@@ -589,6 +589,7 @@ Every §18 rung inherits the five §17.1 clauses verbatim (no product key, pre-s
 7. **Tool-use allowlist.** When the copilot can act (rung 5), it may call only a fixed, code-defined set of CODA actions, each reversible or confirmed. No arbitrary code, no shell, no network target the user did not configure.
 8. **Spend ceiling by construction.** Multi-provider failover (shipped) caps the blast radius of one provider's quota. The copilot shows which host answered and which model, every time.
 9. **No autonomy.** Restates §17.1.3 for emphasis: the copilot never acts between gestures.
+10. **Voice honesty (rung 6).** Read-aloud runs on-device via `speechSynthesis` and sends nothing off the device. Microphone input via `SpeechRecognition` is not guaranteed on-device: Chrome and Edge transcribe audio on the browser maker's servers, so a one-time-per-session disclosure must state this before the microphone starts. Recognised speech is constrained to a fixed command allowlist (summarise · read · stop) per §18.2.7; free-form utterances are rejected, never executed. Both surfaces are feature-detected, off by default, and carry their own §17.1.4 kill switch. The on-device STT path (`whisper.cpp`, issue #62) and free-form voice Q&A (rung 2) remain follow-ups.
 
 ### 18.3 · Capability ladder (each rung is a future PR, ordered by dependency)
 
@@ -597,7 +598,7 @@ Every §18 rung inherits the five §17.1 clauses verbatim (no product key, pre-s
 3. **Live-search grounding ("up to date").** The copilot may request a fresh fetch or search through the §4 Worker (extend `/fetch`, or add a `/search` route over an owner-configured search backend), then answer grounded in retrieved current content with inline links. This is the rung that makes it feel current. Blocked on the §18.2.6 prompt-injection design because it ingests live web text.
 4. **Cross-article briefing.** An on-demand digest over the unread set, grouped by feed or topic. Reuses rung 1 over a batch under a token budget.
 5. **Guarded tool use.** The copilot calls allowlisted CODA actions (star, mark read, add feed, filter subscriptions) via a code-defined registry, each confirmed or reversible (§18.2.7).
-6. **Voice I/O.** Speech-to-text (Web Speech API, or the on-device Whisper.cpp path queued as issue #62) plus read-aloud TTS (§17.7). Lets you summon, ask, and listen without the keyboard.
+6. **Voice I/O.** Speech-to-text (Web Speech API, or the on-device Whisper.cpp path queued as issue #62) plus read-aloud TTS (§17.7). Lets you summon, ask, and listen without the keyboard. Partially shipped: on-device read-aloud and allowlisted voice commands (summarise · read · stop) behind the §18.2.10 disclosure. On-device Whisper STT (#62) and free-form voice Q&A (depends on rung 2) remain open.
 
 ### 18.4 · "Adaptable to any environmental conditions" (scoped honestly)
 

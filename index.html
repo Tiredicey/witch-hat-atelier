@@ -171,6 +171,19 @@
       <div class="reader__summarise-output" id="readerSummariseOutput" aria-live="polite" hidden></div>
     </div>
 
+    <div class="reader__voice" id="readerVoice" hidden>
+      <button type="button" id="readerVoiceReadBtn" class="reader__voice-btn" aria-pressed="false" hidden>Read aloud</button>
+      <button type="button" id="readerVoiceMicBtn" class="reader__voice-btn" aria-pressed="false" hidden>Voice command</button>
+      <p class="reader__voice-status" id="readerVoiceStatus" aria-live="polite"></p>
+      <div class="reader__voice-disclosure" id="readerVoiceDisclosure" role="alertdialog" aria-live="assertive" hidden>
+        <p id="readerVoiceDisclosureText"></p>
+        <div class="reader__voice-disclosure-actions">
+          <button type="button" id="readerVoiceConfirm" class="reader__voice-confirm">Start listening</button>
+          <button type="button" id="readerVoiceCancel" class="reader__voice-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <div class="reader" id="reader"></div>
 
     <section class="notes" id="notesPanel" aria-label="Notes" data-open="false">
