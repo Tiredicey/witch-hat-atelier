@@ -92,6 +92,7 @@ html, body {
   font-feature-settings: "kern", "liga", "onum";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body::before {
@@ -165,7 +166,7 @@ button[data-variant="danger"] { color: var(--sigil-red); border-color: var(--sig
 
 input, textarea, select {
   font-family: var(--font-ui);
-  font-size: var(--size-ui-m);
+  font-size: max(var(--size-ui-m), 16px);
   color: var(--ink);
   background: var(--surface);
   border: var(--stroke-1) solid var(--line);
@@ -174,6 +175,10 @@ input, textarea, select {
   transition: border-color var(--motion-fast);
 }
 input:focus, textarea:focus { outline: none; border-color: var(--sepia); }
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--sepia);
+  outline-offset: 1px;
+}
 
 .sigil {
   width: 24px; height: 24px;
@@ -191,6 +196,11 @@ input:focus, textarea:focus { outline: none; border-color: var(--sepia); }
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 18' preserveAspectRatio='none'><path d='M2 9 C 40 7, 80 11, 120 8 S 200 10, 240 9 S 300 8, 318 9' fill='none' stroke='%231B2438' stroke-width='0.9' stroke-opacity='0.32' stroke-linecap='round'/></svg>");
   background-size: 100% 100%;
   background-repeat: no-repeat;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] .divider-hand {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 18' preserveAspectRatio='none'><path d='M2 9 C 40 7, 80 11, 120 8 S 200 10, 240 9 S 300 8, 318 9' fill='none' stroke='%23ECE2C8' stroke-width='0.9' stroke-opacity='0.32' stroke-linecap='round'/></svg>");
+  }
 }
 
 .unread-count {
@@ -222,3 +232,28 @@ input:focus, textarea:focus { outline: none; border-color: var(--sepia); }
 }
 
 ::selection { background: var(--wash-strong); color: var(--ink); }
+
+@media (max-width: 768px) {
+  :root {
+    --size-display-xl: 2.125rem;
+    --size-display-l: 1.625rem;
+    --size-display-m: 1.3125rem;
+    --gutter-xl: 24px;
+    --gutter-l: 16px;
+  }
+}
+@media (max-width: 399px) {
+  :root {
+    --size-display-xl: 1.75rem;
+    --size-display-l: 1.375rem;
+    --size-display-m: 1.125rem;
+    --gutter-xl: 20px;
+    --gutter-l: 12px;
+    --gutter-m: 12px;
+  }
+}
+
+button:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--sepia);
+  outline-offset: 2px;
+}
