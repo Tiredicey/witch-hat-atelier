@@ -67,3 +67,7 @@ Scope honesty: this is text Q&A over the already-open article only. It does not 
 ### Voice dictation into Q&A (§18.3 rung 6 → rung 2)
 
 When both the microphone (rung 6) and the Ask surface (rung 2) are enabled, a spoken utterance that is not one of the fixed commands (summarise · read · stop) is transcribed into the Ask question box rather than rejected. It is filled in for review and the user presses Ask to send, so the §17.1.2 disclosure and §18.2.6 isolation of rung 2 still apply and nothing is sent on a misheard phrase. With Q&A disabled, non-command speech is rejected per the original §18.2.10 allowlist.
+
+## §18.3 rung 4 — Brief my unread (cross-article briefing)
+
+A list-pane control that summarises the unread articles in the current shelf into one briefing, grouped by feed or theme. Reuses the §17.8 providers and ordered failover; one independent Settings kill switch (`#intelBriefingEnable`, off by default). One request sends up to 20 unread titles and ~500-character excerpts from the current shelf to the provider, after the §17.1.2 disclosure (which names the count and host). Each item is wrapped between `<<<ARTICLES>>>` and `<<<END ARTICLES>>>` and the system prompt forbids following instructions inside that block (§18.2.6). The 20-item / per-item-snippet caps are the token-budget control called for in §18.3 rung 4.
