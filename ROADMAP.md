@@ -350,7 +350,7 @@ A second, intentionally open area of the app, sitting alongside the private read
 
 **Routing.** A top-level `data-page` toggle on `<body>`: `reader` (the three-pane shell from §7) or `dmz` (the board). Two clickable affordances: a sigil button in the rail that opens the DMZ, and a "← Back to reader" button on the DMZ that returns. No URL routing in v1.1 — the page is in-app only; cloud-backed shareable URLs come with §8.2.
 
-**Content model.** A flat list of timestamped board notes. Each entry: `{ id, body, at }`. No author, no auth, no replies, no nesting. Anyone with the same browser (or, post-§8.2, the same shared bucket URL) reads and writes. Per-note deletion is allowed; per-board "clear" is not, to avoid one click destroying a family's shared history.
+**Content model.** A flat list of timestamped board notes. Each entry: `{ id, body, at, name? }`. The `name` is an optional, self-chosen display label, blank by default; it is not a profile, a login, or an authenticated identity, and the board never requires it. (Amended 2026-05-30 at the owner's request: the original v1.1 model stored no author at all; the owner now wants a visitor to optionally sign a note or stay anonymous. The name is a label, not auth: edit and delete rights still derive from the per-sender HMAC token, never from the name, so signing a note grants no privilege.) No replies, no nesting. Anyone with the same browser (or, post-§8.2, the same shared bucket URL) reads and writes. Per-note deletion is allowed; per-board "clear" is not, to avoid one click destroying a family's shared history.
 
 **UX rules.**
 - DMZ is reachable in exactly one click from the reader, and the reader is reachable in exactly one click from the DMZ.

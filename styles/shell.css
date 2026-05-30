@@ -647,6 +647,15 @@ body[data-page="dmz"] .scrim { display: none !important; }
   color: var(--ink-faint);
   margin-bottom: var(--gutter-s);
 }
+.dmz-note__when {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gutter-s);
+}
+.dmz-note__author {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
 .dmz-note__delete {
   border: none;
   background: transparent;
@@ -683,6 +692,10 @@ body[data-page="dmz"] .scrim { display: none !important; }
 .dmz__form-label {
   color: var(--ink-soft);
   margin: 0;
+}
+.dmz__name {
+  width: 100%;
+  max-width: 320px;
 }
 .dmz__form textarea {
   width: 100%;

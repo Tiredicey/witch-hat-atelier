@@ -400,6 +400,7 @@ async function boot() {
     fileInputEl: $("#dmzFile"),
     attachBtn:   $("#dmzAttach"),
     fileUrlFor:  dmzFileUrlFor,
+    nameEl:      $("#dmzName"),
   });
   const router = mountRouter({
     enterDmzBtn: $("#enterDmzBtn"),

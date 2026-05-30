@@ -34,7 +34,7 @@ export function materialise(base, events) {
       }
       case "note.add": {
         const it = ensure(ev.itemId);
-        it.notes.push({ id: ev.noteId, body: String(ev.body || ""), at: ev.at });
+        it.notes.push({ id: ev.noteId, body: String(ev.body || ""), at: ev.at, name: String(ev.name || "") });
         break;
       }
       case "note.del": {
@@ -89,11 +89,12 @@ export class Store {
     return this.setStarred(id, !this.isStarred(id));
   }
 
-  async addNote(id, body) {
+  async addNote(id, body, name = "") {
     const trimmed = String(body || "").trim();
     if (!trimmed) return null;
     const noteId = this.#noteId();
-    await this.#append({ t: "note.add", itemId: id, noteId, body: trimmed, at: Date.now() });
+    const label = String(name || "").trim().slice(0, 64);
+    await this.#append({ t: "note.add", itemId: id, noteId, body: trimmed, at: Date.now(), name: label });
     return noteId;
   }
 

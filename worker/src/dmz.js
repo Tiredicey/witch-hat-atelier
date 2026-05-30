@@ -312,13 +312,14 @@ async function postFile(env, req) {
   if (!file || typeof file.arrayBuffer !== "function") return err(400, "no_file", null, env, req);
 
   const name = safeName(form.get("name") || file.name);
+  const author = String(form.get("author") || "").trim().slice(0, 64);
   const caption = String(form.get("caption") || "").trim();
   const mime = String(file.type || "application/octet-stream");
   const limit = fileLimitBytes(env);
   if (typeof file.size === "number" && file.size > limit) return err(413, "file_too_large", { limit }, env, req);
   if (BLOCKED_EXT.has(extOf(name))) return err(415, "bad_type", { ext: extOf(name) }, env, req);
 
-  const verdict = moderateText(`${name} ${caption}`, { maxLength: MAX_BODY });
+  const verdict = moderateText(`${author} ${name} ${caption}`, { maxLength: MAX_BODY });
   if (!verdict.ok) return err(verdict.severity === "hard" ? 451 : 422, "moderation_blocked", { severity: verdict.severity }, env, req);
 
   const buf = await file.arrayBuffer();
@@ -332,7 +333,7 @@ async function postFile(env, req) {
   const at = Date.now();
   const clientId = (req.headers.get("x-dmz-client") || "anon").toString().slice(0, 64);
   await appendEvent(env, {
-    op: "add", id, body: caption, at, name: "", cid: clientId,
+    op: "add", id, body: caption, at, name: author, cid: clientId,
     kind: "file", file: { name, mime, size: up.size, tgFileId: up.fileId },
   });
   const deleteToken = await makeDeleteToken(env, id, clientId);
@@ -373,13 +374,13 @@ async function postNote(env, req) {
   const body = payload.body.trim();
   if (!body) return err(400, "empty", null, env, req);
 
-  const verdict = moderateText(body, { maxLength: MAX_BODY });
+  const name = typeof payload.name === "string" ? payload.name.trim().slice(0, 64) : "";
+  const verdict = moderateText(name ? `${name}\n${body}` : body, { maxLength: MAX_BODY });
   if (!verdict.ok) return err(verdict.severity === "hard" ? 451 : 422, "moderation_blocked", { severity: verdict.severity }, env, req);
 
   const id = crypto.randomUUID();
   const at = Date.now();
   const clientId = (req.headers.get("x-dmz-client") || payload.clientId || "anon").toString().slice(0, 64);
-  const name = typeof payload.name === "string" ? payload.name.slice(0, 64) : "";
 
   await appendEvent(env, { op: "add", id, body, at, name, cid: clientId });
   const deleteToken = await makeDeleteToken(env, id, clientId);

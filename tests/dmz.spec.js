@@ -114,4 +114,24 @@ test.describe('DMZ — shared free space (§15)', () => {
     expect(dmzLog).toContain('board one');
     expect(dmzLog).not.toContain('private one');
   });
+
+  test('an optional name signs a board note; blank stays anonymous', async ({ page }) => {
+    await enterDmz(page);
+    await expect(page.locator('#dmzName')).toBeVisible();
+
+    await page.locator('#dmzName').fill('Mara');
+    await page.locator('#dmzTextarea').fill('signed by a name');
+    await page.locator('#dmzSubmit').click();
+    await expect(page.locator('.dmz-note').first().locator('.dmz-note__author')).toHaveText('Mara');
+
+    await page.locator('#dmzName').fill('');
+    await page.locator('#dmzTextarea').fill('left anonymous');
+    await page.locator('#dmzSubmit').click();
+    await expect(page.locator('.dmz-note')).toHaveCount(2);
+    await expect(page.locator('.dmz-note').first().locator('.dmz-note__author')).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.locator('#dmzName')).toHaveValue('');
+    await expect(page.locator('.dmz-note').last().locator('.dmz-note__author')).toHaveText('Mara');
+  });
 });
