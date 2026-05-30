@@ -10,7 +10,7 @@ import { Store } from "./store.js";
 import { LocalAdapter } from "./storage.js";
 import { Notes } from "./notes.js";
 import { Dmz, mountRouter } from "./dmz.js";
-import { loadDmzConfig, saveDmzConfig, isDmzWorkerActive, markLocalMigrated, localMigratedAt } from "./dmz-config.js";
+import { loadDmzConfig, saveDmzConfig, markLocalMigrated, localMigratedAt } from "./dmz-config.js";
 import { DmzWorkerAdapter, RemoteDmzStore, loadOwnerToken, saveOwnerToken } from "./adapters/dmz-worker.js";
 import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
@@ -336,7 +336,7 @@ async function boot() {
   void attachSwipe; void attachLongPress;
 
   const dmzConfig = loadDmzConfig();
-  const dmzWorkerActive = isDmzWorkerActive(dmzConfig);
+  const dmzResolvedBase = await dmzResolveBase(dmzConfig.workerUrl || "");
 
   let dmzAdapter;
   let dmzAdapterFallback = null;
@@ -346,17 +346,17 @@ async function boot() {
   let dmzModeLabel = "";
   let dmzWorkerAdapter = null;
 
-  if (dmzWorkerActive) {
+  if (dmzResolvedBase !== null) {
     try {
-      dmzWorkerAdapter = new DmzWorkerAdapter({ baseUrl: dmzConfig.workerUrl });
+      dmzWorkerAdapter = new DmzWorkerAdapter({ baseUrl: dmzResolvedBase });
       const remoteStore = new RemoteDmzStore({ adapter: dmzWorkerAdapter, pollMs: 5000, boardId: "__board__" });
       await remoteStore.load();
       dmzStore = remoteStore;
       dmzAdapter = dmzWorkerAdapter;
       dmzCanManage = (noteId) => dmzWorkerAdapter.canManage(noteId);
       dmzModeLabel = loadOwnerToken()
-        ? "Shared board synced via your Worker (owner-mode)."
-        : "Shared board synced via your Worker. You can only remove notes you posted from this device.";
+        ? "Shared board, owner mode. You can edit or remove any note."
+        : "Shared board, synced live for everyone. You can edit or remove notes you post from this device.";
       remoteStore.start();
       tryMigrateLocalDmz(dmzWorkerAdapter).catch((e) => console.warn("dmz migration skipped:", e?.message || e));
     } catch (e) {
@@ -561,6 +561,19 @@ function wireDmzSettings() {
     statusEl.textContent = "Saved. Reload the page for the change to take effect.";
     statusEl.dataset.state = "ok";
   });
+}
+
+async function dmzResolveBase(preferred) {
+  const candidates = preferred ? [preferred, ""] : [""];
+  for (const base of candidates) {
+    try {
+      const r = await fetch(`${base}/dmz/health`);
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j && j.ok && j.configured) return base;
+    } catch (e) { /* try next candidate */ }
+  }
+  return null;
 }
 
 function surfaceDmzError(e) {
