@@ -22,7 +22,7 @@ const STATUS_LABELS = {
 };
 
 export class Dmz {
-  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback, canManage, modeLabel, onPostError }) {
+  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback, canManage, modeLabel, onPostError, fileInputEl, attachBtn, fileUrlFor }) {
     this.pageEl = pageEl;
     this.listEl = listEl;
     this.formEl = formEl;
@@ -34,6 +34,11 @@ export class Dmz {
     this.canManage = typeof canManage === "function" ? canManage : () => true;
     this.modeLabel = modeLabel || "";
     this.onPostError = typeof onPostError === "function" ? onPostError : null;
+    this.fileInputEl = fileInputEl || null;
+    this.attachBtn = attachBtn || null;
+    this.fileUrlFor = typeof fileUrlFor === "function" ? fileUrlFor : null;
+    this.canUpload = typeof store.uploadFile === "function" && !!this.fileInputEl;
+    this.canEdit = typeof store.editNote === "function";
     this.loadErrorText = loadError ? `Could not load shared notes: ${loadError}` : "";
     this.adapterFallbackText = adapterFallback ? `Cloud adapter failed to start (${adapterFallback}). Falling back to local storage on this device only.` : "";
 
@@ -50,6 +55,15 @@ export class Dmz {
       }
     });
     this.textareaEl.addEventListener("input", () => this.#syncSubmitState());
+
+    if (this.attachBtn) {
+      if (!this.canUpload) {
+        this.attachBtn.hidden = true;
+      } else {
+        this.attachBtn.addEventListener("click", () => this.fileInputEl.click());
+        this.fileInputEl.addEventListener("change", () => this.#upload());
+      }
+    }
 
     this.store.subscribe(() => this.#render());
     this.#syncSubmitState();
@@ -97,6 +111,71 @@ export class Dmz {
     if (this.submitBtn) this.submitBtn.disabled = !has;
   }
 
+  async #upload() {
+    const file = this.fileInputEl.files && this.fileInputEl.files[0];
+    if (!file) return;
+    const wasLabel = this.attachBtn ? this.attachBtn.textContent : "";
+    if (this.attachBtn) { this.attachBtn.disabled = true; this.attachBtn.textContent = "Uploading\u2026"; }
+    try {
+      await this.store.uploadFile(BOARD_ID, file, this.textareaEl.value.trim());
+      this.textareaEl.value = "";
+      this.#syncSubmitState();
+    } catch (e) {
+      if (this.onPostError) this.onPostError(e, null); else throw e;
+    } finally {
+      this.fileInputEl.value = "";
+      if (this.attachBtn) { this.attachBtn.disabled = false; this.attachBtn.textContent = wasLabel; }
+    }
+  }
+
+  #fmtSize(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  #beginEdit(card, note) {
+    if (card.querySelector(".dmz-note__editor")) return;
+    const bodyEl = card.querySelector(".dmz-note__body");
+    const editor = document.createElement("div");
+    editor.className = "dmz-note__editor";
+    const ta = document.createElement("textarea");
+    ta.value = note.body;
+    ta.rows = Math.min(8, Math.max(2, note.body.split("\\n").length));
+    const actions = document.createElement("div");
+    actions.className = "dmz-note__editor-actions";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.dataset.variant = "primary";
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    const restore = () => { editor.replaceWith(bodyEl); };
+    cancel.addEventListener("click", restore);
+    save.addEventListener("click", async () => {
+      const next = ta.value.trim();
+      if (!next || next === note.body) { restore(); return; }
+      save.disabled = true;
+      try {
+        await this.store.editNote(BOARD_ID, note.id, next);
+      } catch (e) {
+        save.disabled = false;
+        if (this.onPostError) this.onPostError(e, null); else throw e;
+        return;
+      }
+    });
+    ta.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); restore(); }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save.click(); }
+    });
+    actions.append(save, cancel);
+    editor.append(ta, actions);
+    bodyEl.replaceWith(editor);
+    ta.focus();
+  }
+
   #render() {
     const notes = this.store.notesFor(BOARD_ID);
     this.listEl.replaceChildren();
@@ -117,13 +196,26 @@ export class Dmz {
     const card = document.createElement("article");
     card.className = "dmz-note";
     card.dataset.noteId = n.id;
+    const isFile = n.kind === "file" && n.file;
 
     const meta = document.createElement("header");
     meta.className = "dmz-note__meta smallcaps";
     const time = document.createElement("span");
-    time.textContent = fmtTime(n.at);
+    time.textContent = fmtTime(n.at) + (n.editedAt ? " · edited" : "");
     meta.append(time);
 
+    const tools = document.createElement("span");
+    tools.className = "dmz-note__tools";
+    if (!isFile && this.canEdit && this.canManage(n.id)) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "dmz-note__edit";
+      edit.title = "Edit this note";
+      edit.setAttribute("aria-label", "Edit note");
+      edit.textContent = "Edit";
+      edit.addEventListener("click", () => this.#beginEdit(card, n));
+      tools.append(edit);
+    }
     if (this.canManage(n.id)) {
       const del = document.createElement("button");
       del.type = "button";
@@ -135,15 +227,62 @@ export class Dmz {
         try { await this.store.delNote(BOARD_ID, n.id); }
         catch (e) { if (this.onPostError) this.onPostError(e, null); else throw e; }
       });
-      meta.append(del);
+      tools.append(del);
+    }
+    meta.append(tools);
+    card.append(meta);
+
+    if (isFile) {
+      card.append(this.#renderFile(n));
+    }
+    if (!isFile || n.body) {
+      const body = document.createElement("p");
+      body.className = "dmz-note__body";
+      body.textContent = n.body;
+      card.append(body);
+    }
+    return card;
+  }
+
+  #renderFile(n) {
+    const wrap = document.createElement("div");
+    wrap.className = "dmz-note__file";
+    const url = this.fileUrlFor ? this.fileUrlFor(n.id)
+      : (typeof this.store.fileUrl === "function" ? this.store.fileUrl(n.id) : null);
+    const mime = (n.file.mime || "").toLowerCase();
+    const isImage = mime.startsWith("image/") && !mime.includes("svg");
+
+    if (isImage && url) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      const img = document.createElement("img");
+      img.className = "dmz-note__thumb";
+      img.loading = "lazy";
+      img.alt = n.file.name || "shared image";
+      img.src = url;
+      link.append(img);
+      wrap.append(link);
     }
 
-    const body = document.createElement("p");
-    body.className = "dmz-note__body";
-    body.textContent = n.body;
-
-    card.append(meta, body);
-    return card;
+    const row = document.createElement("a");
+    row.className = "dmz-note__file-link";
+    if (url) {
+      row.href = url;
+      row.target = "_blank";
+      row.rel = "noopener noreferrer";
+      if (!isImage) row.setAttribute("download", n.file.name || "file");
+    }
+    const nameEl = document.createElement("span");
+    nameEl.className = "dmz-note__file-name";
+    nameEl.textContent = n.file.name || "file";
+    const sizeEl = document.createElement("span");
+    sizeEl.className = "dmz-note__file-size smallcaps";
+    sizeEl.textContent = this.#fmtSize(n.file.size);
+    row.append(nameEl, sizeEl);
+    wrap.append(row);
+    return wrap;
   }
 }
 

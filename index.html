@@ -197,7 +197,9 @@
   <form class="dmz__form" id="dmzForm" aria-label="Pin a note to the board">
     <label for="dmzTextarea" class="smallcaps dmz__form-label">Pin a thought to the board</label>
     <textarea id="dmzTextarea" rows="3" placeholder="A line, a link, a quote &mdash; anything the others might want to see&hellip;" aria-label="Board note"></textarea>
+    <input id="dmzFile" class="dmz__file-input" type="file" aria-hidden="true" tabindex="-1">
     <div class="dmz__form-actions">
+      <button type="button" id="dmzAttach" class="dmz__attach" hidden>Attach a file</button>
       <button type="submit" id="dmzSubmit" data-variant="primary" disabled>Pin to board</button>
     </div>
   </form>

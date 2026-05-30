@@ -52,3 +52,23 @@ PREFIX = "coda/feeds"
 # DMZ_GITHUB_REPO   = "witch-hat-atelier"
 # DMZ_GITHUB_BRANCH = "dmz-data"
 # DMZ_ALLOWED_ORIGINS = "https://witch-hat-atelier.pages.dev"
+
+# DMZ file uploads (PR 2, Telegram blob backend).
+# Files posted on the board are streamed to a Telegram chat through the Worker,
+# so the bot token never reaches the browser. The text log on the dmz-data
+# branch keeps the file index; Telegram holds the bytes.
+# Required before /dmz/file routes function:
+#   wrangler secret put DMZ_TELEGRAM_TOKEN   # bot token from @BotFather
+#   wrangler secret put DMZ_TELEGRAM_CHAT    # numeric chat id the bot can post to
+# Optional file vars:
+#   DMZ_MAX_FILE_MB : per-file ceiling, default 25
+# DMZ_MAX_FILE_MB = 25
+#
+# Optional image moderation via Workers AI. Without it, uploads are gated by
+# type/size/filename and caption text only; images are NOT content-scanned.
+# To enable, add an [ai] binding and name a model the account can run:
+#   [ai]
+#   binding = "AI"
+#   DMZ_NSFW_MODEL = "<an image-classification model id your account can run>"
+#   DMZ_NSFW_THRESHOLD = 0.6      # reject when a nsfw/explicit label scores >= this
+#   DMZ_NSFW_FAILCLOSED = "false" # "true" rejects images when the classifier errors

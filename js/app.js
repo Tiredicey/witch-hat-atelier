@@ -382,6 +382,7 @@ async function boot() {
     }
   }
 
+  const dmzFileUrlFor = dmzWorkerAdapter ? (id) => dmzWorkerAdapter.fileUrl(id) : null;
   const dmz = new Dmz({
     pageEl:     $("#dmzPage"),
     listEl:     $("#dmzList"),
@@ -396,6 +397,9 @@ async function boot() {
     canManage:  dmzCanManage,
     modeLabel:  dmzModeLabel,
     onPostError: (e) => surfaceDmzError(e),
+    fileInputEl: $("#dmzFile"),
+    attachBtn:   $("#dmzAttach"),
+    fileUrlFor:  dmzFileUrlFor,
   });
   const router = mountRouter({
     enterDmzBtn: $("#enterDmzBtn"),
@@ -565,7 +569,15 @@ function surfaceDmzError(e) {
   const reason = e?.code === "moderation_blocked"
     ? (e?.detail?.severity === "hard"
         ? "Blocked: this content cannot be posted."
-        : "Blocked: this content was flagged. Revise and try again.")
+        : e?.detail?.source === "image"
+          ? "Blocked: this image was flagged as explicit."
+          : "Blocked: this content was flagged. Revise and try again.")
+    : e?.code === "file_too_large"
+      ? "That file is over the size limit for the board."
+    : e?.code === "bad_type"
+      ? "That file type is not allowed on the board."
+    : e?.code === "no_file"
+      ? "No file was selected."
     : e?.code === "forbidden"
       ? "Only the original sender or the owner can remove this note."
       : e?.code === "not_configured"
