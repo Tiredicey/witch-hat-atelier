@@ -10,6 +10,19 @@ function fmtTime(at) {
 }
 
 const BOARD_ID = "__board__";
+const NAME_KEY = "coda/dmz/display-name";
+
+function loadDisplayName() {
+  try { return (localStorage.getItem(NAME_KEY) || "").slice(0, 64); } catch { return ""; }
+}
+
+function saveDisplayName(name) {
+  try {
+    const trimmed = String(name || "").trim().slice(0, 64);
+    if (trimmed) localStorage.setItem(NAME_KEY, trimmed);
+    else localStorage.removeItem(NAME_KEY);
+  } catch {}
+}
 
 const STATUS_LABELS = {
   LocalAdapter: "Stored on this device only. Configure a cloud adapter in Settings to sync across devices.",
@@ -22,7 +35,7 @@ const STATUS_LABELS = {
 };
 
 export class Dmz {
-  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback, canManage, modeLabel, onPostError, fileInputEl, attachBtn, fileUrlFor }) {
+  constructor({ pageEl, listEl, formEl, textareaEl, submitBtn, store, statusEl, adapter, loadError, adapterFallback, canManage, modeLabel, onPostError, fileInputEl, attachBtn, fileUrlFor, nameEl }) {
     this.pageEl = pageEl;
     this.listEl = listEl;
     this.formEl = formEl;
@@ -36,6 +49,7 @@ export class Dmz {
     this.onPostError = typeof onPostError === "function" ? onPostError : null;
     this.fileInputEl = fileInputEl || null;
     this.attachBtn = attachBtn || null;
+    this.nameEl = nameEl || null;
     this.fileUrlFor = typeof fileUrlFor === "function" ? fileUrlFor : null;
     this.canUpload = typeof store.uploadFile === "function" && !!this.fileInputEl;
     this.canEdit = typeof store.editNote === "function";
@@ -63,6 +77,12 @@ export class Dmz {
         this.attachBtn.addEventListener("click", () => this.fileInputEl.click());
         this.fileInputEl.addEventListener("change", () => this.#upload());
       }
+    }
+
+    if (this.nameEl) {
+      const saved = loadDisplayName();
+      if (saved) this.nameEl.value = saved;
+      this.nameEl.addEventListener("change", () => saveDisplayName(this.nameEl.value));
     }
 
     this.store.subscribe(() => this.#render());
@@ -97,7 +117,7 @@ export class Dmz {
     const body = this.textareaEl.value.trim();
     if (!body) return;
     try {
-      await this.store.addNote(BOARD_ID, body);
+      await this.store.addNote(BOARD_ID, body, this.#name());
       this.textareaEl.value = "";
     } catch (e) {
       if (this.onPostError) this.onPostError(e, body);
@@ -111,13 +131,20 @@ export class Dmz {
     if (this.submitBtn) this.submitBtn.disabled = !has;
   }
 
+  #name() {
+    if (!this.nameEl) return "";
+    const value = this.nameEl.value.trim().slice(0, 64);
+    saveDisplayName(value);
+    return value;
+  }
+
   async #upload() {
     const file = this.fileInputEl.files && this.fileInputEl.files[0];
     if (!file) return;
     const wasLabel = this.attachBtn ? this.attachBtn.textContent : "";
     if (this.attachBtn) { this.attachBtn.disabled = true; this.attachBtn.textContent = "Uploading\u2026"; }
     try {
-      await this.store.uploadFile(BOARD_ID, file, this.textareaEl.value.trim());
+      await this.store.uploadFile(BOARD_ID, file, this.textareaEl.value.trim(), this.#name());
       this.textareaEl.value = "";
       this.#syncSubmitState();
     } catch (e) {
@@ -200,9 +227,20 @@ export class Dmz {
 
     const meta = document.createElement("header");
     meta.className = "dmz-note__meta smallcaps";
+    const when = document.createElement("span");
+    when.className = "dmz-note__when";
+    const author = (n.name || "").trim();
+    if (author) {
+      const who = document.createElement("span");
+      who.className = "dmz-note__author";
+      who.textContent = author;
+      when.append(who);
+    }
     const time = document.createElement("span");
+    time.className = "dmz-note__time";
     time.textContent = fmtTime(n.at) + (n.editedAt ? " · edited" : "");
-    meta.append(time);
+    when.append(time);
+    meta.append(when);
 
     const tools = document.createElement("span");
     tools.className = "dmz-note__tools";

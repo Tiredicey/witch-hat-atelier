@@ -128,9 +128,9 @@ export class DmzWorkerAdapter {
 
 async uploadFile(file, { caption = "", name = "" } = {}) {
     const fd = new FormData();
-    fd.append("file", file, file.name || name || "file");
+    fd.append("file", file, file.name || "file");
     if (caption) fd.append("caption", caption);
-    if (name) fd.append("name", name);
+    if (name) fd.append("author", name);
     const headers = { "x-dmz-client": this.clientId };
     const owner = loadOwnerToken();
     if (owner) headers["x-dmz-owner"] = owner;
@@ -227,10 +227,10 @@ export class RemoteDmzStore {
 
   itemFor() { return { id: this.boardId, notes: this.notes.slice() }; }
 
-  async addNote(id, body) {
+  async addNote(id, body, name = "") {
     if (id !== this.boardId) throw new Error("unknown board");
-    const result = await this.adapter.post(body);
-    const optimistic = { id: result.id, body, at: result.at || Date.now(), name: "", clientId: this.adapter.clientId };
+    const result = await this.adapter.post(body, { name });
+    const optimistic = { id: result.id, body, at: result.at || Date.now(), name, clientId: this.adapter.clientId };
     this.notes = [optimistic, ...this.notes.filter(n => n.id !== result.id)];
     this.#emit();
     this.load();
@@ -254,9 +254,9 @@ export class RemoteDmzStore {
     return result;
   }
 
-  async uploadFile(id, file, caption) {
+  async uploadFile(id, file, caption, name = "") {
     if (id !== this.boardId) throw new Error("unknown board");
-    const result = await this.adapter.uploadFile(file, { caption });
+    const result = await this.adapter.uploadFile(file, { caption, name });
     await this.load();
     return result;
   }

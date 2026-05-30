@@ -45,7 +45,7 @@ function installWorkerMock(page, state) {
       const id = `note-${state.notes.length + 1}`;
       const at = Date.now();
       const cid = headers["x-dmz-client"] || "anon";
-      state.notes.push({ id, body: text, at, name: "", clientId: cid });
+      state.notes.push({ id, body: text, at, name: String(body.name || ""), clientId: cid });
       state.tokens[id] = `v1.${cid}.sig-${id}`;
       return respond(200, { ok: true, id, at, deleteToken: state.tokens[id] });
     }
@@ -137,5 +137,20 @@ test.describe("DMZ shared log via Worker", () => {
     await page.locator("#dmzSubmit").click();
     await expect(page.locator("#dmzStatus")).toContainText(/blocked/i, { timeout: 4000 });
     await expect(page.locator(".dmz-note")).toHaveCount(0);
+  });
+
+  test("an optional name is sent to the worker and rendered on the note", async ({ page }) => {
+    const state = { notes: [], tokens: {}, ownerToken: "owner-secret" };
+    await installWorkerMock(page, state);
+    await configureDmz(page);
+    await page.reload();
+
+    await page.locator("#enterDmzBtn").click();
+    await page.locator("#dmzName").fill("Mara");
+    await page.locator("#dmzTextarea").fill("signed via the shared board");
+    await page.locator("#dmzSubmit").click();
+    await expect(page.locator(".dmz-note")).toHaveCount(1);
+    await expect(page.locator(".dmz-note__author")).toHaveText("Mara");
+    expect(state.notes[0].name).toBe("Mara");
   });
 });
