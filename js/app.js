@@ -22,6 +22,7 @@ import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { VoiceIO } from "./intelligence/voice.js";
 import { AskSurface } from "./intelligence/ask-surface.js";
+import { BriefingSurface } from "./intelligence/briefing-surface.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -520,6 +521,19 @@ async function boot() {
     confirmBtn:       $("#readerAskConfirm"),
     cancelBtn:        $("#readerAskCancel"),
     logEl:            $("#readerAskLog"),
+  });
+  void new BriefingSurface({
+    intelligence: intelligenceCtrl,
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
+    getUnread: () => list.getItems().filter(it => !store.isRead(it.id)),
+    wrapEl:           $("#listBriefing"),
+    triggerBtn:       $("#listBriefingBtn"),
+    statusEl:         $("#listBriefingStatus"),
+    disclosureEl:     $("#listBriefingDisclosure"),
+    disclosureTextEl: $("#listBriefingDisclosureText"),
+    confirmBtn:       $("#listBriefingConfirm"),
+    cancelBtn:        $("#listBriefingCancel"),
+    outputEl:         $("#listBriefingOutput"),
   });
 
   const starsImport = new StarsImport({

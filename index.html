@@ -138,6 +138,19 @@
     </div>
     <div class="divider-hand" style="margin: 0 var(--gutter-l)"></div>
 
+    <div class="list__briefing" id="listBriefing" hidden>
+      <button type="button" id="listBriefingBtn" class="list__briefing-btn">Brief unread</button>
+      <p class="list__briefing-status" id="listBriefingStatus" aria-live="polite"></p>
+      <div class="list__briefing-disclosure" id="listBriefingDisclosure" role="alertdialog" aria-live="assertive" hidden>
+        <p id="listBriefingDisclosureText"></p>
+        <div class="list__briefing-disclosure-actions">
+          <button type="button" id="listBriefingConfirm" class="list__briefing-confirm">Send</button>
+          <button type="button" id="listBriefingCancel" class="list__briefing-cancel">Cancel</button>
+        </div>
+      </div>
+      <div class="list__briefing-output" id="listBriefingOutput" aria-live="polite" hidden></div>
+    </div>
+
     <div class="list__scroll" id="rows" aria-live="polite"></div>
   </section>
 
