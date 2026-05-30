@@ -21,3 +21,4 @@
 {"op":"del","id":"ff7981fb-9ed4-4f27-972d-b84398b0a5c1","at":1780148082029}
 {"op":"del","id":"da8e444f-1f3d-4e83-83d2-9fcc7cd77d70","at":1780148086091}
 {"op":"del","id":"c6795ab6-f388-4ea4-a3b9-d330b9b47fc2","at":1780148089646}
+{"op":"add","id":"e265d70d-6902-429e-bdae-8b1f66328a70","body":"","at":1780148422805,"name":"Test","cid":"b54de33f-8583-4891-b5bf-b32e6f5f119a","kind":"file","file":{"name":"paste.docx","mime":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","size":36514,"tgFileId":"BQACAgUAAyEGAATYU51vAAMFahroxnyHWUEr-ZQ3RWjgCMiM9pQAAqsfAALlnNlUkOEQBj_17ew7BA"}}
