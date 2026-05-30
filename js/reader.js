@@ -161,6 +161,16 @@ export class Reader {
       <circle cx="60" cy="9" r="1.4" fill="currentColor" opacity="0.5"/>`;
     article.appendChild(flourish);
 
+    const enc = a.enclosure;
+    if (enc && enc.url && /^audio\//i.test(enc.type || "")) {
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "none";
+      audio.src = enc.url;
+      audio.className = "reader__audio";
+      article.appendChild(audio);
+    }
+
     for (const para of a.body) {
       const p = document.createElement("p");
       p.textContent = para;

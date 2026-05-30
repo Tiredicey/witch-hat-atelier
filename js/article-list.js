@@ -111,6 +111,7 @@ export class ArticleList {
         <div class="article-row__top">
           <span class="article-row__source"></span>
           <span class="article-row__age"></span>
+          <span class="article-row__badge" hidden></span>
         </div>
         <h3 class="article-row__title"></h3>
         <p class="article-row__excerpt"></p>
@@ -118,6 +119,12 @@ export class ArticleList {
       `;
       div.querySelector(".article-row__source").textContent  = it.source;
       div.querySelector(".article-row__age").textContent     = it.age;
+      const badge = div.querySelector(".article-row__badge");
+      if (it.enclosure && it.enclosure.url && /^audio\//i.test(it.enclosure.type || "")) {
+        badge.textContent = "Audio";
+        badge.setAttribute("aria-label", "Has audio");
+        badge.hidden = false;
+      }
       div.querySelector(".article-row__title").textContent   = it.title;
       div.querySelector(".article-row__excerpt").textContent = it.excerpt;
       this.#renderPreview(div.querySelector(".article-row__preview"), it);
