@@ -241,8 +241,8 @@ function extOf(name) {
 }
 
 function safeName(name) {
-  const base = String(name || "file").split(/[\\\\/]/).pop().slice(0, 120);
-  return base.replace(/[\\u0000-\\u001f\\u007f"]/g, "").trim() || "file";
+  const base = String(name || "file").split(/[\\/]/).pop().slice(0, 120);
+  return base.replace(/[\u0000-\u001f\u007f"]/g, "").trim() || "file";
 }
 
 function tgBase(env) {
@@ -271,7 +271,7 @@ async function tgGetFilePath(env, fileId) {
 }
 
 async function moderateImage(env, bytes, mime) {
-  if (!env.AI || !env.DMZ_NSFW_MODEL || !/^image\\//i.test(mime || "")) return { ok: true };
+  if (!env.AI || !env.DMZ_NSFW_MODEL || !/^image\//i.test(mime || "")) return { ok: true };
   try {
     const out = await env.AI.run(env.DMZ_NSFW_MODEL, { image: [...new Uint8Array(bytes)] });
     const arr = Array.isArray(out) ? out : (out && out.results) || [];
@@ -327,15 +327,24 @@ async function postFile(env, req) {
   const imageVerdict = await moderateImage(env, buf, mime);
   if (!imageVerdict.ok) return err(422, "moderation_blocked", { severity: "nsfw", source: "image" }, env, req);
 
-  const up = await tgSendDocument(env, new Uint8Array(buf), name, mime);
+  let up;
+  try {
+    up = await tgSendDocument(env, new Uint8Array(buf), name, mime);
+  } catch (e) {
+    return err(502, "upload_failed", { detail: String((e && e.message) || e) }, env, req);
+  }
 
   const id = crypto.randomUUID();
   const at = Date.now();
   const clientId = (req.headers.get("x-dmz-client") || "anon").toString().slice(0, 64);
-  await appendEvent(env, {
-    op: "add", id, body: caption, at, name: author, cid: clientId,
-    kind: "file", file: { name, mime, size: up.size, tgFileId: up.fileId },
-  });
+  try {
+    await appendEvent(env, {
+      op: "add", id, body: caption, at, name: author, cid: clientId,
+      kind: "file", file: { name, mime, size: up.size, tgFileId: up.fileId },
+    });
+  } catch (e) {
+    return err(502, "store_failed", { detail: String((e && e.message) || e) }, env, req);
+  }
   const deleteToken = await makeDeleteToken(env, id, clientId);
   return json({ ok: true, id, at, deleteToken, file: { name, mime, size: up.size } }, {}, env, req);
 }
@@ -348,8 +357,13 @@ async function getFile(env, req, url) {
   const note = await findFileNote(env, id);
   if (!note) return err(404, "not_found", null, env, req);
 
-  const path = await tgGetFilePath(env, note.file.tgFileId);
-  const r = await fetch(`https://api.telegram.org/file/bot${env.DMZ_TELEGRAM_TOKEN}/${path}`);
+  let path, r;
+  try {
+    path = await tgGetFilePath(env, note.file.tgFileId);
+    r = await fetch(`https://api.telegram.org/file/bot${env.DMZ_TELEGRAM_TOKEN}/${path}`);
+  } catch (e) {
+    return err(502, "blob_unavailable", { detail: String((e && e.message) || e) }, env, req);
+  }
   if (!r.ok) return err(502, "blob_unavailable", { status: r.status }, env, req);
 
   const mime = note.file.mime || "application/octet-stream";

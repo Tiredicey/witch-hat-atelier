@@ -596,6 +596,8 @@ function surfaceDmzError(e) {
       ? "Only the original sender or the owner can remove this note."
       : e?.code === "not_configured"
         ? "The DMZ Worker is not fully configured yet."
+      : (e?.code === "upload_failed" || e?.code === "store_failed" || e?.code === "blob_unavailable" || e?.code === "dmz_error")
+        ? `File transfer failed: ${e?.detail?.detail || (typeof e?.detail === "string" ? e.detail : "") || e?.message || "the storage backend rejected it"}`
         : e?.message || "Could not reach the DMZ Worker.";
   status.dataset.error = "true";
   status.textContent = reason;
