@@ -44,11 +44,14 @@ Use any password generator. Make two long strings and label them:
 - **Owner token**, yours. You paste it into the app later; it lets you edit or delete
   any note. Keep it private.
 
-### 4. Put everything on the Worker (Cloudflare dashboard)
+### 4. Put everything on the Pages project (Cloudflare dashboard)
 
-The Worker that already powers your feeds is the same one that runs the DMZ.
+Your site is a Cloudflare **Pages** project (it deploys from this repo). The DMZ
+backend runs as a Pages Function on the same site, so the settings go on the Pages
+project, there is no separate Worker.
 
-1. Go to **dash.cloudflare.com**, open **Workers & Pages**, click your Worker.
+1. Go to **dash.cloudflare.com**, open **Workers & Pages**, click your project
+   (**witch-hat-atelier**).
 2. Open **Settings**, then **Variables and Secrets**.
 3. Add these as **Secret** (the encrypted kind):
    - `DMZ_GITHUB_TOKEN` = the token from step 2
@@ -62,20 +65,20 @@ The Worker that already powers your feeds is the same one that runs the DMZ.
      `https://your-site.pages.dev`
 5. Save. The dashboard redeploys the Worker for you.
 
-> If your Worker is connected to this GitHub repo (Cloudflare "Connect to Git"), then
-> merging the pull request that adds file support auto-deploys the new code. If you are
-> not sure it is connected, that is the one thing worth confirming with whoever first
-> deployed the Worker. Setting the variables above does not require a connection.
+> Your Pages project is connected to this GitHub repo, so it redeploys automatically
+> whenever changes merge to the main branch. After saving variables, trigger one
+> redeploy (or merge any change) so the new values and the `/dmz/*` function go live.
 
 ### 5. Check it
 
-Open `https://<your-worker-address>/dmz/health` in the browser. You want
-`"configured": true`.
+Open `https://witch-hat-atelier.pages.dev/dmz/health` in the browser (use your own
+`pages.dev` address if it differs). You want `"configured": true`.
 
 ### 6. Turn it on in the app
 
 1. Open the app, **Settings**, then **DMZ shared board**.
-2. Paste the Worker address.
+2. In the **Worker base URL** field, paste your site address
+   `https://witch-hat-atelier.pages.dev` (no `/dmz` on the end).
 3. Paste your **owner token**.
 4. Tick **Use the Worker for the DMZ board on this device**, Save, reload.
 
@@ -104,14 +107,15 @@ This adds the **Attach a file** button and unlimited file storage.
 
 ### 3. Add the two Telegram values on the Worker
 
-Back in Cloudflare, **Workers & Pages**, your Worker, **Settings**,
-**Variables and Secrets**. Add as **Secret**:
+Back in Cloudflare, **Workers & Pages**, your **witch-hat-atelier** project,
+**Settings**, **Variables and Secrets**. Add as **Secret**:
 
 - `DMZ_TELEGRAM_TOKEN` = the bot token
 - `DMZ_TELEGRAM_CHAT` = the chat id number
 
 Optional plain variable `DMZ_MAX_FILE_MB` changes the per-file size limit (default 25).
-Save. Reopen `https://<your-worker-address>/dmz/health`; you now want `"files": true`.
+Save and redeploy. Reopen `https://witch-hat-atelier.pages.dev/dmz/health`; you now
+want `"files": true`.
 
 Reload the app. The **Attach a file** button appears on the board.
 
