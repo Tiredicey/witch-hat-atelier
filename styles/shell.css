@@ -4,7 +4,7 @@
    ------------------------------------------------------------------ */
 
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; }
 
 .app {
   display: grid;
@@ -99,11 +99,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   display: flex;
   flex-direction: column;
   min-width: 0;
-  /* min-height: 0 lets this grid item shrink to its cell so .list__scroll
-     can become the actual scroll container. Without it the grid item grows
-     past 100dvh and html/body { overflow: hidden } clips the overflow,
-     leaving the list unscrollable. */
   min-height: 0;
+  overscroll-behavior-y: contain;
 }
 .list__header {
   padding: var(--gutter-l) var(--gutter-l) var(--gutter-s);
@@ -141,6 +138,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 .list__scroll {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding: 0 var(--gutter-l) var(--gutter-l);
   min-height: 0;
 }
@@ -318,7 +317,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
   grid-column: 3;
   background: var(--surface);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   position: relative;
+  min-height: 0;
+  min-width: 0;
 }
 .reader-wrap::after {
   /* watercolour wash overlay, off by default; swells on selection */
