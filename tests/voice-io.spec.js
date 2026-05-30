@@ -175,6 +175,35 @@ test.describe('voice I/O (§18.3 rung 6)', () => {
     await expect(page.locator('#readerVoiceStatus')).toContainText('No command recognised');
   });
 
+  test('a non-command utterance becomes a question in the Ask box, not auto-sent', async ({ page }) => {
+    await stubSpeech(page);
+    let groqCalls = 0;
+    await page.route(GROQ_URL, async route => {
+      groqCalls += 1;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', choices: [{ message: { role: 'assistant', content: 'Answer.' } }] }),
+      });
+    });
+    await page.goto('/');
+    await page.locator('#enterSettingsBtn').click();
+    await page.locator('#intelligenceEnable').check();
+    await page.locator('#intelVoiceCommandsEnable').check();
+    await page.locator('#intelGroqSurfaceEnable').check();
+    await page.locator('#intelGroqApiKey').fill('gsk_test_key');
+    await page.locator('#intelAskEnable').check();
+    await page.locator('#intelligenceSave').click();
+    await page.locator('#exitSettingsBtn').click();
+    await openFirstArticle(page);
+
+    await page.evaluate(() => { window.__nextTranscript = 'what is the core argument'; });
+    await page.locator('#readerVoiceMicBtn').click();
+    await page.locator('#readerVoiceConfirm').click();
+
+    await expect(page.locator('#readerAskInput')).toHaveValue('what is the core argument');
+    expect(groqCalls).toBe(0);
+  });
+
   test('degrades gracefully when the browser lacks speech APIs', async ({ page }) => {
     await stubNoSpeech(page);
     await page.goto('/');
