@@ -496,6 +496,7 @@ async function boot() {
     intelligence: intelligenceCtrl,
     reader,
     onCommand: (cmd) => { if (cmd === "summarise" && summariseSurface) summariseSurface.trigger(); },
+    onDictation: (text) => (ask ? ask.fillQuestion(text) : false),
     wrapEl:           $("#readerVoice"),
     readBtn:          $("#readerVoiceReadBtn"),
     micBtn:           $("#readerVoiceMicBtn"),

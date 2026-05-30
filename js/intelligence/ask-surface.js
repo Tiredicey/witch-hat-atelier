@@ -55,6 +55,15 @@ export class AskSurface {
     if (this.inputEl) this.inputEl.value = "";
   }
 
+  fillQuestion(text) {
+    const q = String(text || "").trim();
+    if (!q || !this.isReady() || !this.inputEl) return false;
+    this.inputEl.value = q;
+    try { this.inputEl.focus(); } catch {}
+    this.#setStatus("Question ready from voice. Review, then press Ask.", "info");
+    return true;
+  }
+
   #mountSettings() {
     const target = this.intel.mountTarget();
     if (!target) return;

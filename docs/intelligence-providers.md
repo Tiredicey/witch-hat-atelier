@@ -63,3 +63,7 @@ A reader-pane question box that answers from the open article only. It reuses th
 Untrusted-input isolation (§18.2.6) is implemented, not just claimed: the article is sent in a dedicated `user` message wrapped between `<<<ARTICLE>>>` and `<<<END ARTICLE>>>`, and the system prompt instructs the model to treat that block as quoted data and never follow instructions inside it. Conversation history is memory-only and is cleared when the open article changes; nothing is written to a storage adapter.
 
 Scope honesty: this is text Q&A over the already-open article only. It does not fetch live web pages (rung 3, blocked on §18.2.6 design for arbitrary web text) and does not take actions (rung 5). Free-form voice Q&A becomes possible now that rung 2 exists, but is left as a follow-up that routes the §18.3 rung 6 microphone into this surface.
+
+### Voice dictation into Q&A (§18.3 rung 6 → rung 2)
+
+When both the microphone (rung 6) and the Ask surface (rung 2) are enabled, a spoken utterance that is not one of the fixed commands (summarise · read · stop) is transcribed into the Ask question box rather than rejected. It is filled in for review and the user presses Ask to send, so the §17.1.2 disclosure and §18.2.6 isolation of rung 2 still apply and nothing is sent on a misheard phrase. With Q&A disabled, non-command speech is rejected per the original §18.2.10 allowlist.

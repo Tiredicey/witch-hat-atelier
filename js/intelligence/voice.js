@@ -39,6 +39,7 @@ export class VoiceIO {
     this.intel = opts.intelligence;
     this.reader = opts.reader;
     this.onCommand = typeof opts.onCommand === "function" ? opts.onCommand : () => {};
+    this.onDictation = typeof opts.onDictation === "function" ? opts.onDictation : null;
     this.wrapEl = opts.wrapEl;
     this.readBtn = opts.readBtn;
     this.micBtn = opts.micBtn;
@@ -313,6 +314,10 @@ export class VoiceIO {
     }
     const command = matchCommand(transcript);
     if (!command) {
+      if (this.onDictation && transcript && this.onDictation(transcript.trim())) {
+        this.#setStatus(`Heard your question: "${transcript.trim()}".`, "ok");
+        return;
+      }
       const heard = transcript ? ` Heard "${transcript.trim()}".` : "";
       this.#setStatus(`No command recognised.${heard}`, "fail");
       return;
