@@ -74,6 +74,7 @@ export class Dmz {
       if (!this.canUpload) {
         this.attachBtn.hidden = true;
       } else {
+        this.attachBtn.hidden = false;
         this.attachBtn.addEventListener("click", () => this.fileInputEl.click());
         this.fileInputEl.addEventListener("change", () => this.#upload());
       }
