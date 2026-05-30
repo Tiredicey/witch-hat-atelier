@@ -28,7 +28,7 @@ async function mockGroq(page, { calls } = {}) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        model: 'llama-3.1-70b-versatile',
+        model: 'llama-3.3-70b-versatile',
         choices: [{ message: { role: 'assistant', content: MOCK_SUMMARY } }],
       }),
     });
@@ -107,7 +107,7 @@ test.describe('Groq summarise surface (§17.11:2)', () => {
     expect(calls[0].method).toBe('POST');
     expect(calls[0].headers['authorization']).toBe('Bearer gsk_test_key');
     const body = JSON.parse(calls[0].postData);
-    expect(body.model).toBe('llama-3.1-70b-versatile');
+    expect(body.model).toBe('llama-3.3-70b-versatile');
     expect(Array.isArray(body.messages)).toBe(true);
     expect(body.messages.some(m => m.role === 'user')).toBe(true);
     await expect(page.locator('#readerSummariseStatus')).toContainText('Answered by api.groq.com');

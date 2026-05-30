@@ -18,8 +18,8 @@ PR §17.11:1 shipped the Settings panel + provider registry scaffolding. PR §17
 
 | Provider | `baseUrl` | Default model | Free tier at PR-merge date | Prompt-logging note at PR-merge date | Canonical TOS link | Added in PR |
 |---|---|---|---|---|---|---|
-| Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | Free tier with daily request/token caps and ~500 tok/s throughput at the entry date; current limits are listed on the Groq pricing page. | Free-tier prompts may be retained for evaluation per Groq's TOS. Re-check before pasting a key. | <https://groq.com/terms-of-use/> (pricing: <https://groq.com/pricing/>) | PR §17.11:2 |
-| Cerebras | `https://api.cerebras.ai/v1` | `llama3.1-70b` | Free Cerebras Cloud Inference tier with per-minute and daily caps at the entry date; current limits are listed in the Cerebras inference docs. | Free-tier usage is governed by the Cerebras Terms of Service which covers Cerebras Cloud Inference. Re-check before pasting a key. | <https://www.cerebras.ai/terms-of-service> (docs: <https://inference-docs.cerebras.ai/introduction>) | PR §17.11:3 |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Free tier with daily request/token caps and ~500 tok/s throughput at the entry date; current limits are listed on the Groq pricing page. | Free-tier prompts may be retained for evaluation per Groq's TOS. Re-check before pasting a key. | <https://groq.com/terms-of-use/> (pricing: <https://groq.com/pricing/>) | PR §17.11:2 |
+| Cerebras | `https://api.cerebras.ai/v1` | `gpt-oss-120b` | Free Cerebras Cloud Inference tier with per-minute and daily caps at the entry date; current limits are listed in the Cerebras inference docs. | Free-tier usage is governed by the Cerebras Terms of Service which covers Cerebras Cloud Inference. Re-check before pasting a key. | <https://www.cerebras.ai/terms-of-service> (docs: <https://inference-docs.cerebras.ai/introduction>) | PR §17.11:3 |
 
 ## §17.9 — Rotating-credit providers
 

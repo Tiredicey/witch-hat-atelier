@@ -16,6 +16,9 @@ import { VaultStore } from "./vault-store.js";
 import { Vault } from "./vault.js";
 import { Settings } from "./settings.js";
 import { Intelligence } from "./intelligence/index.js";
+import { SummariseSurface } from "./intelligence/summarise-surface.js";
+import { GROQ_PROVIDER } from "./intelligence/groq.js";
+import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -206,6 +209,7 @@ async function boot() {
     notes.isOpen() ? notes.close() : notes.open();
   });
 
+  let summariseSurface = null;
   new Shortcuts({
     scrimEl,
     handlers: {
@@ -248,7 +252,8 @@ async function boot() {
       goShelf: (id) => {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();
-      }
+      },
+      summarise: () => { if (summariseSurface) summariseSurface.trigger(); }
     }
   });
 
@@ -468,7 +473,19 @@ async function boot() {
     saveBtn:      $("#intelligenceSave"),
     resetBtn:     $("#intelligenceReset"),
   });
-  void intelligenceCtrl;
+  summariseSurface = new SummariseSurface({
+    intelligence: intelligenceCtrl,
+    reader,
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER],
+    wrapEl:           $("#readerSummarise"),
+    triggerBtn:       $("#readerSummariseBtn"),
+    statusEl:         $("#readerSummariseStatus"),
+    disclosureEl:     $("#readerSummariseDisclosure"),
+    disclosureTextEl: $("#readerSummariseDisclosureText"),
+    confirmBtn:       $("#readerSummariseConfirm"),
+    cancelBtn:        $("#readerSummariseCancel"),
+    outputEl:         $("#readerSummariseOutput"),
+  });
 
   const starsImport = new StarsImport({
     fileInput: document.getElementById("inoreader-stars-file"),
