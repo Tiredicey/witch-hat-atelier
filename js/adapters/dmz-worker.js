@@ -126,6 +126,31 @@ export class DmzWorkerAdapter {
     return j;
   }
 
+async uploadFile(file, { caption = "", name = "" } = {}) {
+    const fd = new FormData();
+    fd.append("file", file, file.name || name || "file");
+    if (caption) fd.append("caption", caption);
+    if (name) fd.append("name", name);
+    const headers = { "x-dmz-client": this.clientId };
+    const owner = loadOwnerToken();
+    if (owner) headers["x-dmz-owner"] = owner;
+    const r = await fetch(this.#url("/dmz/file"), { method: "POST", headers, body: fd });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const error = new Error(j.error || `dmz upload: ${r.status}`);
+      error.status = r.status;
+      error.code = j.error;
+      error.detail = j.detail;
+      throw error;
+    }
+    if (j.deleteToken) saveDeleteToken(j.id, j.deleteToken);
+    return j;
+  }
+
+  fileUrl(id) {
+    return `${this.baseUrl}/dmz/file?id=${encodeURIComponent(id)}`;
+  }
+
   async migrate(notes) {
     const owner = loadOwnerToken();
     if (!owner) throw new Error("owner token required");
@@ -220,6 +245,26 @@ export class RemoteDmzStore {
     this.load();
   }
 
+  async editNote(id, noteId, body) {
+    if (id !== this.boardId) throw new Error("unknown board");
+    const result = await this.adapter.edit(noteId, body);
+    this.notes = this.notes.map(n => n.id === noteId ? { ...n, body, editedAt: Date.now() } : n);
+    this.#emit();
+    this.load();
+    return result;
+  }
+
+  async uploadFile(id, file, caption) {
+    if (id !== this.boardId) throw new Error("unknown board");
+    const result = await this.adapter.uploadFile(file, { caption });
+    await this.load();
+    return result;
+  }
+
+  fileUrl(noteId) {
+    return typeof this.adapter.fileUrl === "function" ? this.adapter.fileUrl(noteId) : null;
+  }
+
   subscribe(fn) {
     this.listeners.add(fn);
     try { fn(); } catch (e) { console.warn("dmz subscriber threw", e); }
@@ -236,7 +281,7 @@ export class RemoteDmzStore {
     if (next.length !== this.notes.length) return true;
     for (let i = 0; i < next.length; i++) {
       const a = next[i], b = this.notes[i];
-      if (!b || a.id !== b.id || a.body !== b.body || a.at !== b.at) return true;
+      if (!b || a.id !== b.id || a.body !== b.body || a.at !== b.at || a.editedAt !== b.editedAt) return true;
     }
     return false;
   }

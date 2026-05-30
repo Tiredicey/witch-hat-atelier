@@ -1,7 +1,10 @@
 import { moderateText } from "./moderation.js";
 
-const MAX_BODY = 8000;
+const MAX_BODY = 100000;
 const PAGE_LIMIT = 500;
+const DEFAULT_MAX_FILE_MB = 25;
+const BLOCKED_EXT = new Set(["exe","msi","bat","cmd","com","scr","pif","jar","sh","bash","ps1","psm1","vbs","vbe","js","mjs","cjs","wsf","hta","apk","app","deb","rpm","dll","so","dylib","html","htm","xhtml","shtml","svg","swf","wasm","php","phtml","asp","aspx","jsp","cgi"]);
+const INLINE_MIME = /^(image\/(?!svg)|video\/|audio\/|application\/pdf$)/i;
 const HMAC_VERSION = "v1";
 const LOG_KEY = "dmz/log.ndjson";
 const SNAPSHOT_KEY = "dmz/snapshot.json";
@@ -171,7 +174,7 @@ function parseLog(content) {
     if (!trimmed) continue;
     try {
       const n = JSON.parse(trimmed);
-      if (n && typeof n.id === "string" && typeof n.body === "string") notes.push(n);
+      if (n && typeof n.id === "string" && (typeof n.body === "string" || n.op === "del")) notes.push(n);
     } catch {}
   }
   return notes;
@@ -193,6 +196,8 @@ function materialise(events) {
         name: ev.name || "",
         clientId: ev.cid || "anon",
         editedAt: ev.editedAt || null,
+        kind: ev.kind || "text",
+        file: ev.file || null,
       });
     }
   }
@@ -216,6 +221,146 @@ async function appendEvent(env, event) {
     await ghPutFile(env, SNAPSHOT_KEY, snapshot, snapFile.sha, `dmz: refresh snapshot`);
     return next;
   });
+}
+
+function fileLimitBytes(env) {
+  const mb = Number(env.DMZ_MAX_FILE_MB) || DEFAULT_MAX_FILE_MB;
+  return Math.max(1, mb) * 1024 * 1024;
+}
+
+function ensureFileConfigured(env) {
+  const missing = [];
+  if (!env.DMZ_TELEGRAM_TOKEN) missing.push("DMZ_TELEGRAM_TOKEN");
+  if (!env.DMZ_TELEGRAM_CHAT) missing.push("DMZ_TELEGRAM_CHAT");
+  return missing;
+}
+
+function extOf(name) {
+  const dot = String(name || "").lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+function safeName(name) {
+  const base = String(name || "file").split(/[\\\\/]/).pop().slice(0, 120);
+  return base.replace(/[\\u0000-\\u001f\\u007f"]/g, "").trim() || "file";
+}
+
+function tgBase(env) {
+  return `https://api.telegram.org/bot${env.DMZ_TELEGRAM_TOKEN}`;
+}
+
+async function tgSendDocument(env, bytes, filename, mime) {
+  const fd = new FormData();
+  fd.append("chat_id", String(env.DMZ_TELEGRAM_CHAT));
+  fd.append("disable_notification", "true");
+  fd.append("document", new Blob([bytes], { type: mime || "application/octet-stream" }), filename);
+  const r = await fetch(`${tgBase(env)}/sendDocument`, { method: "POST", body: fd });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(`telegram sendDocument: ${j.description || r.status}`);
+  const res = j.result || {};
+  const doc = res.document || res.video || res.audio || (Array.isArray(res.photo) ? res.photo[res.photo.length - 1] : null);
+  if (!doc || !doc.file_id) throw new Error("telegram sendDocument: missing file_id");
+  return { fileId: doc.file_id, size: doc.file_size || bytes.byteLength };
+}
+
+async function tgGetFilePath(env, fileId) {
+  const r = await fetch(`${tgBase(env)}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false || !j.result || !j.result.file_path) throw new Error(`telegram getFile: ${j.description || r.status}`);
+  return j.result.file_path;
+}
+
+async function moderateImage(env, bytes, mime) {
+  if (!env.AI || !env.DMZ_NSFW_MODEL || !/^image\\//i.test(mime || "")) return { ok: true };
+  try {
+    const out = await env.AI.run(env.DMZ_NSFW_MODEL, { image: [...new Uint8Array(bytes)] });
+    const arr = Array.isArray(out) ? out : (out && out.results) || [];
+    const thr = Number(env.DMZ_NSFW_THRESHOLD) || 0.6;
+    for (const r of arr) {
+      const label = String(r.label || r.className || "").toLowerCase();
+      const score = Number(r.score ?? r.probability ?? 0);
+      if (/nsfw|porn|explicit|hentai|nude|sexy|unsafe/.test(label) && score >= thr) {
+        return { ok: false, label, score };
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    if (env.DMZ_NSFW_FAILCLOSED === "true") return { ok: false, label: "classifier_error" };
+    return { ok: true, skipped: e.message };
+  }
+}
+
+async function findFileNote(env, id) {
+  const snap = await ghGetFile(env, SNAPSHOT_KEY).catch(() => ({ exists: false }));
+  let notes = [];
+  if (snap.exists && snap.content) {
+    try { notes = JSON.parse(snap.content); } catch { notes = materialise((await loadState(env)).events); }
+  } else {
+    notes = materialise((await loadState(env)).events);
+  }
+  if (!Array.isArray(notes)) return null;
+  return notes.find(n => n && n.id === id && n.kind === "file" && n.file && n.file.tgFileId) || null;
+}
+
+async function postFile(env, req) {
+  const missing = ensureConfigured(env).concat(ensureFileConfigured(env));
+  if (missing.length) return err(503, "not_configured", { missing }, env, req);
+
+  let form;
+  try { form = await req.formData(); } catch { return err(400, "bad_payload", null, env, req); }
+  const file = form.get("file");
+  if (!file || typeof file.arrayBuffer !== "function") return err(400, "no_file", null, env, req);
+
+  const name = safeName(form.get("name") || file.name);
+  const caption = String(form.get("caption") || "").trim();
+  const mime = String(file.type || "application/octet-stream");
+  const limit = fileLimitBytes(env);
+  if (typeof file.size === "number" && file.size > limit) return err(413, "file_too_large", { limit }, env, req);
+  if (BLOCKED_EXT.has(extOf(name))) return err(415, "bad_type", { ext: extOf(name) }, env, req);
+
+  const verdict = moderateText(`${name} ${caption}`, { maxLength: MAX_BODY });
+  if (!verdict.ok) return err(verdict.severity === "hard" ? 451 : 422, "moderation_blocked", { severity: verdict.severity }, env, req);
+
+  const buf = await file.arrayBuffer();
+  if (buf.byteLength > limit) return err(413, "file_too_large", { limit }, env, req);
+  const imageVerdict = await moderateImage(env, buf, mime);
+  if (!imageVerdict.ok) return err(422, "moderation_blocked", { severity: "nsfw", source: "image" }, env, req);
+
+  const up = await tgSendDocument(env, new Uint8Array(buf), name, mime);
+
+  const id = crypto.randomUUID();
+  const at = Date.now();
+  const clientId = (req.headers.get("x-dmz-client") || "anon").toString().slice(0, 64);
+  await appendEvent(env, {
+    op: "add", id, body: caption, at, name: "", cid: clientId,
+    kind: "file", file: { name, mime, size: up.size, tgFileId: up.fileId },
+  });
+  const deleteToken = await makeDeleteToken(env, id, clientId);
+  return json({ ok: true, id, at, deleteToken, file: { name, mime, size: up.size } }, {}, env, req);
+}
+
+async function getFile(env, req, url) {
+  const missing = ensureConfigured(env).concat(ensureFileConfigured(env));
+  if (missing.length) return err(503, "not_configured", { missing }, env, req);
+  const id = url.searchParams.get("id");
+  if (!id) return err(400, "missing_id", null, env, req);
+  const note = await findFileNote(env, id);
+  if (!note) return err(404, "not_found", null, env, req);
+
+  const path = await tgGetFilePath(env, note.file.tgFileId);
+  const r = await fetch(`https://api.telegram.org/file/bot${env.DMZ_TELEGRAM_TOKEN}/${path}`);
+  if (!r.ok) return err(502, "blob_unavailable", { status: r.status }, env, req);
+
+  const mime = note.file.mime || "application/octet-stream";
+  const inline = INLINE_MIME.test(mime);
+  const headers = {
+    ...corsHeaders(env, req),
+    "content-type": inline ? mime : "application/octet-stream",
+    "content-disposition": `${inline ? "inline" : "attachment"}; filename="${safeName(note.file.name)}"`,
+    "cache-control": "public, max-age=31536000, immutable",
+    "x-content-type-options": "nosniff",
+  };
+  return new Response(r.body, { status: 200, headers });
 }
 
 async function postNote(env, req) {
@@ -340,7 +485,7 @@ async function migrate(env, req) {
 }
 
 async function health(env, req) {
-  return json({ ok: true, configured: ensureConfigured(env).length === 0, branch: branch(env) }, {}, env, req);
+  return json({ ok: true, configured: ensureConfigured(env).length === 0, files: ensureFileConfigured(env).length === 0, branch: branch(env) }, {}, env, req);
 }
 
 export async function handleDmz(req, url, env) {
@@ -351,6 +496,8 @@ export async function handleDmz(req, url, env) {
   if (path === "/dmz/message" && req.method === "POST") return postNote(env, req);
   if (path === "/dmz/message" && req.method === "PATCH") return editNote(env, req);
   if (path === "/dmz/message" && req.method === "DELETE") return deleteNote(env, req);
+  if (path === "/dmz/file" && req.method === "POST") return postFile(env, req);
+  if (path === "/dmz/file" && req.method === "GET") return getFile(env, req, url);
   if (path === "/dmz/migrate" && req.method === "POST") return migrate(env, req);
   return null;
 }
