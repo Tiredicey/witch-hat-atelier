@@ -594,7 +594,7 @@ Every §18 rung inherits the five §17.1 clauses verbatim (no product key, pre-s
 ### 18.3 · Capability ladder (each rung is a future PR, ordered by dependency)
 
 1. **Summarise the open article.** Shipped (Groq, Cerebras, Gemini, plus failover). Baseline.
-2. **Ask-about-this-article Q&A.** A short conversational exchange grounded in the open article's text. No new network surface beyond the §17.8 providers. Playwright spec mocks the provider.
+2. **Ask-about-this-article Q&A.** A short conversational exchange grounded in the open article's text. No new network surface beyond the §17.8 providers. Playwright spec mocks the provider. Shipped: reader-pane question box reusing the §17.8 provider chain and failover, its own §17.1.4 kill switch, the §17.1.2 send disclosure, and §18.2.6 isolation (article wrapped as `<<<ARTICLE>>>` data, never instructions). Memory-only history, cleared on article change.
 3. **Live-search grounding ("up to date").** The copilot may request a fresh fetch or search through the §4 Worker (extend `/fetch`, or add a `/search` route over an owner-configured search backend), then answer grounded in retrieved current content with inline links. This is the rung that makes it feel current. Blocked on the §18.2.6 prompt-injection design because it ingests live web text.
 4. **Cross-article briefing.** An on-demand digest over the unread set, grouped by feed or topic. Reuses rung 1 over a batch under a token budget.
 5. **Guarded tool use.** The copilot calls allowlisted CODA actions (star, mark read, add feed, filter subscriptions) via a code-defined registry, each confirmed or reversible (§18.2.7).

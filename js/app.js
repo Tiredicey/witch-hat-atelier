@@ -21,6 +21,7 @@ import { GROQ_PROVIDER } from "./intelligence/groq.js";
 import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { VoiceIO } from "./intelligence/voice.js";
+import { AskSurface } from "./intelligence/ask-surface.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -76,13 +77,14 @@ async function boot() {
   }
 
   let voice = null;
+  let ask = null;
   const reader  = new Reader({
     wrapEl,
     readerEl,
     extractWrapEl:   document.getElementById("readerExtract"),
     extractBtn:      document.getElementById("readCleanBtn"),
     extractStatusEl: document.getElementById("readerExtractStatus"),
-    onArticleChange: () => { if (voice) voice.stop(); },
+    onArticleChange: () => { if (voice) voice.stop(); if (ask) ask.reset(); },
   });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
   const mobile  = new Mobile({ appEl, backBtn });
@@ -502,6 +504,21 @@ async function boot() {
     disclosureTextEl: $("#readerVoiceDisclosureText"),
     confirmBtn:       $("#readerVoiceConfirm"),
     cancelBtn:        $("#readerVoiceCancel"),
+  });
+  ask = new AskSurface({
+    intelligence: intelligenceCtrl,
+    reader,
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
+    wrapEl:           $("#readerAsk"),
+    formEl:           $("#readerAskForm"),
+    inputEl:          $("#readerAskInput"),
+    sendBtn:          $("#readerAskSend"),
+    statusEl:         $("#readerAskStatus"),
+    disclosureEl:     $("#readerAskDisclosure"),
+    disclosureTextEl: $("#readerAskDisclosureText"),
+    confirmBtn:       $("#readerAskConfirm"),
+    cancelBtn:        $("#readerAskCancel"),
+    logEl:            $("#readerAskLog"),
   });
 
   const starsImport = new StarsImport({

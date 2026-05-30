@@ -55,3 +55,11 @@ The voice rung uses the browser's built-in Web Speech API. No product credential
 | Voice commands (microphone) | `SpeechRecognition` / `webkitSpeechRecognition` | Browser-dependent. Chrome and Edge transcribe captured audio on the browser maker's servers; some other engines run on-device. | A one-time-per-session disclosure states that audio may be sent to the browser maker before the microphone starts. Recognised input is restricted to a fixed command allowlist (summarise · read · stop); free-form text is rejected, not executed. CODA never receives or stores the audio. | §18.3 rung 6 |
 
 Honest caveat per §18.5: `SpeechRecognition` is **not** guaranteed on-device. The deliberate on-device STT path stays `whisper.cpp` (§17.7, issue #62) and remains a follow-up. Free-form conversational Q&A is rung 2 and is not shipped by this rung.
+
+## §18.3 rung 2 — Ask about the article (grounded Q&A)
+
+A reader-pane question box that answers from the open article only. It reuses the §17.8 providers the user already enabled and keyed (Groq, Cerebras, Gemini) with the same ordered failover; no new key field, no new host. One independent Settings kill switch (`#intelAskEnable`, off by default) under the master intelligence checkbox.
+
+Untrusted-input isolation (§18.2.6) is implemented, not just claimed: the article is sent in a dedicated `user` message wrapped between `<<<ARTICLE>>>` and `<<<END ARTICLE>>>`, and the system prompt instructs the model to treat that block as quoted data and never follow instructions inside it. Conversation history is memory-only and is cleared when the open article changes; nothing is written to a storage adapter.
+
+Scope honesty: this is text Q&A over the already-open article only. It does not fetch live web pages (rung 3, blocked on §18.2.6 design for arbitrary web text) and does not take actions (rung 5). Free-form voice Q&A becomes possible now that rung 2 exists, but is left as a follow-up that routes the §18.3 rung 6 microphone into this surface.
