@@ -158,6 +158,19 @@
       <p class="reader__extract-status" id="readerExtractStatus" aria-live="polite"></p>
     </div>
 
+    <div class="reader__summarise" id="readerSummarise" hidden>
+      <button type="button" id="readerSummariseBtn" class="reader__summarise-btn">Summarise</button>
+      <p class="reader__summarise-status" id="readerSummariseStatus" aria-live="polite"></p>
+      <div class="reader__summarise-disclosure" id="readerSummariseDisclosure" role="alertdialog" aria-live="assertive" hidden>
+        <p id="readerSummariseDisclosureText"></p>
+        <div class="reader__summarise-disclosure-actions">
+          <button type="button" id="readerSummariseConfirm" class="reader__summarise-confirm">Send</button>
+          <button type="button" id="readerSummariseCancel" class="reader__summarise-cancel">Cancel</button>
+        </div>
+      </div>
+      <div class="reader__summarise-output" id="readerSummariseOutput" aria-live="polite" hidden></div>
+    </div>
+
     <div class="reader" id="reader"></div>
 
     <section class="notes" id="notesPanel" aria-label="Notes" data-open="false">

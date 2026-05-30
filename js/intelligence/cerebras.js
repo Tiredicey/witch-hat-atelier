@@ -6,7 +6,7 @@ export const CEREBRAS_PROVIDER = Object.freeze({
   label: "Cerebras",
   hostname: "api.cerebras.ai",
   baseUrl: "https://api.cerebras.ai/v1",
-  defaultModel: "llama3.1-70b",
+  defaultModel: "gpt-oss-120b",
   tosUrl: "https://www.cerebras.ai/terms-of-service",
   pricingUrl: "https://inference-docs.cerebras.ai/introduction",
   keyPlaceholder: "csk-…",

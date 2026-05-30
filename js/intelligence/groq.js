@@ -6,7 +6,7 @@ export const GROQ_PROVIDER = Object.freeze({
   label: "Groq",
   hostname: "api.groq.com",
   baseUrl: "https://api.groq.com/openai/v1",
-  defaultModel: "llama-3.1-70b-versatile",
+  defaultModel: "llama-3.3-70b-versatile",
   tosUrl: "https://groq.com/terms-of-use/",
   pricingUrl: "https://groq.com/pricing/",
   keyPlaceholder: "gsk_…",
