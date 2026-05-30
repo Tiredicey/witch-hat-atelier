@@ -621,6 +621,10 @@ Environmental adaptability here means graceful degradation, not world control:
 
 A rung promotes to merged only when it honors every §17.1 and §18.2 clause, is BYO-key with zero product credentials, ships Playwright coverage (mocked provider or Worker boundary), and records any new provider or route terms in `docs/intelligence-providers.md` as of the commit date.
 
+### 18.6a · Audio entries (prerequisite for transcription)
+
+Podcast/audio support starts with the data model, not the transcriber. The §4 Worker already extracts RSS `<enclosure>` and Atom `<link rel="enclosure">` into `entry.enclosure`. The client now surfaces that: audio entries carry an "Audio" badge in the list and render an `<audio>` player in the reader pane (see `tests/audio-entry.spec.js`). This is the hook that a future transcription engine attaches to. The engine itself (on-device `whisper.cpp` issue #62, or a BYO-key cloud `/audio/transcriptions` surface requiring a §17 amendment) remains a separate follow-up; neither ships until it can be verified.
+
 ### 18.7 · Hard prerequisites and open questions
 
 - A grounded-retrieval Worker route (rung 3): which search backend, owner-configured, what rate limits, what cache TTL.

@@ -25,6 +25,20 @@ export const SAMPLE = [
     ]
   },
   {
+    id: "a-podcast",
+    source: "coda.demo",
+    shelf: "standards",
+    title: "Audio entry: a silent demo clip",
+    age: "5h",
+    read: false,
+    excerpt: "A demo podcast entry that carries an audio enclosure, so the list shows an audio badge and the reader shows a player. The clip is a short silent tone, not a real episode.",
+    body: [
+      "This entry exists to exercise audio rendering. Its enclosure points at a tiny silent clip embedded inline, so nothing is fetched from the network.",
+      "When real feeds carry a podcast enclosure, the same player appears here and the same badge appears in the list. Transcription of the audio is a separate, later step."
+    ],
+    enclosure: { url: "data:audio/wav;base64,UklGRhQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YfAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIA=", type: "audio/wav", length: "" }
+  },
+  {
     id: "a2",
     source: "ietf.org",
     shelf: "standards",

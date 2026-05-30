@@ -1595,6 +1595,25 @@ body[data-page="settings"] .scrim { display: none !important; }
 }
 .list__briefing-output[hidden] { display: none; }
 
+.reader__audio {
+  display: block;
+  width: 100%;
+  max-width: var(--reader-max-ch);
+  margin: var(--gutter-m) auto var(--gutter-l);
+}
+.article-row__badge {
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--sigil-red);
+  border: var(--stroke-1) solid var(--line);
+  border-radius: var(--radius-s);
+  padding: 0 6px;
+  margin-left: auto;
+}
+.article-row__badge[hidden] { display: none; }
+
 .add-feed__row {
   display: flex;
   align-items: center;
