@@ -146,6 +146,7 @@ test.describe("DMZ shared log via Worker", () => {
     await page.reload();
 
     await page.locator("#enterDmzBtn").click();
+    await expect(page.locator("#dmzAttach")).toBeVisible();
     await page.locator("#dmzName").fill("Mara");
     await page.locator("#dmzTextarea").fill("signed via the shared board");
     await page.locator("#dmzSubmit").click();
