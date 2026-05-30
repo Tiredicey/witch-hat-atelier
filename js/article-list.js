@@ -202,7 +202,7 @@ export class ArticleList {
           ? `https://player.vimeo.com/video/${it.video.id}?dnt=1&autoplay=1`
           : `https://www.youtube-nocookie.com/embed/${it.video.id}?autoplay=1&rel=0&modestbranding=1`;
         iframe.allow = "encrypted-media; picture-in-picture";
-        iframe.referrerPolicy = "no-referrer";
+        iframe.referrerPolicy = "strict-origin-when-cross-origin";
         iframe.loading = "lazy";
         iframe.title = "Embedded video";
         iframe.allowFullscreen = true;
