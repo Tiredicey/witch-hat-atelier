@@ -20,6 +20,7 @@ import { SummariseSurface } from "./intelligence/summarise-surface.js";
 import { GROQ_PROVIDER } from "./intelligence/groq.js";
 import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
+import { VoiceIO } from "./intelligence/voice.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -74,12 +75,14 @@ async function boot() {
     console.warn("primary store load failed, continuing with empty snapshot", e);
   }
 
+  let voice = null;
   const reader  = new Reader({
     wrapEl,
     readerEl,
     extractWrapEl:   document.getElementById("readerExtract"),
     extractBtn:      document.getElementById("readCleanBtn"),
     extractStatusEl: document.getElementById("readerExtractStatus"),
+    onArticleChange: () => { if (voice) voice.stop(); },
   });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
   const mobile  = new Mobile({ appEl, backBtn });
@@ -486,6 +489,19 @@ async function boot() {
     confirmBtn:       $("#readerSummariseConfirm"),
     cancelBtn:        $("#readerSummariseCancel"),
     outputEl:         $("#readerSummariseOutput"),
+  });
+  voice = new VoiceIO({
+    intelligence: intelligenceCtrl,
+    reader,
+    onCommand: (cmd) => { if (cmd === "summarise" && summariseSurface) summariseSurface.trigger(); },
+    wrapEl:           $("#readerVoice"),
+    readBtn:          $("#readerVoiceReadBtn"),
+    micBtn:           $("#readerVoiceMicBtn"),
+    statusEl:         $("#readerVoiceStatus"),
+    disclosureEl:     $("#readerVoiceDisclosure"),
+    disclosureTextEl: $("#readerVoiceDisclosureText"),
+    confirmBtn:       $("#readerVoiceConfirm"),
+    cancelBtn:        $("#readerVoiceCancel"),
   });
 
   const starsImport = new StarsImport({

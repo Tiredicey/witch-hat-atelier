@@ -17,9 +17,10 @@ export class Reader {
    * @param {string=} opts.extractBase           — origin for /extract (default same-origin "")
    * @param {(url:string)=>Promise<Response>=} opts.fetchImpl — injectable for tests
    */
-  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, fetchImpl }) {
+  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, fetchImpl, onArticleChange }) {
     this.wrapEl = wrapEl;
     this.readerEl = readerEl;
+    this.onArticleChange = typeof onArticleChange === "function" ? onArticleChange : null;
     this.extractWrapEl   = extractWrapEl   || null;
     this.extractBtn      = extractBtn      || null;
     this.extractStatusEl = extractStatusEl || null;
@@ -122,12 +123,14 @@ export class Reader {
     this.readerEl.appendChild(wrap);
     this.wrapEl.classList.remove("has-selection");
     this.currentArticle = null;
+    if (this.onArticleChange) this.onArticleChange(null);
     this.resetExtract();
     this.syncExtractVisibility();
   }
 
   renderArticle(a) {
     this.currentArticle = a;
+    if (this.onArticleChange) this.onArticleChange(a);
     this.resetExtract();
     this.syncExtractVisibility();
     this.readerEl.replaceChildren();
