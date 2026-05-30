@@ -321,13 +321,13 @@
     <section class="settings__section settings__dmz" id="settingsDmzSection">
       <h2 class="settings__section-title">DMZ shared board</h2>
       <p class="settings__note">
-        The DMZ (§15) is the unencrypted, free-for-everyone board. Point it at your Cloudflare Worker to share one log across every device that opens the link. The Worker holds the GitHub credentials; your browser never sees them.
+        The DMZ (§15) is the unencrypted, free-for-everyone board. When the site is deployed with the DMZ backend, every device that opens the page joins the same board automatically. There is nothing to set up per device.
       </p>
       <p class="settings__hint">
-        Anyone with the page URL can read and post. The owner token below lets <em>you</em> remove any note; without it, every device can only remove the notes it posted from itself. Server-side moderation rejects clearly-NSFW content before it lands in the log.
+        Anyone with the page URL can read, post, and edit their own notes with no setup. The fields below are optional: set a base URL only if the DMZ backend runs on a different origin than this page, and paste an owner token only if <em>you</em> need to edit or remove anyone's note. Server-side moderation rejects clearly-NSFW content before it lands in the log.
       </p>
       <label class="settings__field">
-        <span>Worker base URL</span>
+        <span>Backend base URL (optional, only for a different origin)</span>
         <input id="dmz-workerUrl" type="url" placeholder="https://coda-feeds.your-subdomain.workers.dev" autocomplete="off" spellcheck="false">
       </label>
       <label class="settings__field">
@@ -336,7 +336,7 @@
       </label>
       <label class="settings__field settings__field--inline">
         <input id="dmz-enabled" type="checkbox">
-        <span>Use the Worker for the DMZ board on this device</span>
+        <span>Use this custom backend URL on this device</span>
       </label>
       <div class="add-feed__row">
         <button type="button" id="dmz-save" data-variant="primary">Save DMZ settings</button>

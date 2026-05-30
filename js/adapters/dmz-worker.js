@@ -45,9 +45,9 @@ export function saveOwnerToken(token) {
 }
 
 export class DmzWorkerAdapter {
-  constructor({ baseUrl }) {
-    if (!baseUrl) throw new Error("DmzWorkerAdapter: baseUrl required");
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  constructor({ baseUrl } = {}) {
+    if (baseUrl == null) throw new Error("DmzWorkerAdapter: baseUrl required");
+    this.baseUrl = String(baseUrl).replace(/\/+$/, "");
     this.clientId = ensureClientId();
   }
 
