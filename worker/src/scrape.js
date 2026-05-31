@@ -53,6 +53,14 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
     return { items, headingLevel: 0, selector, method: "selector", confidence: confidenceOf(items) };
   }
 
+  if (isSocialHost(baseUrl)) {
+    const social = finalize(collectSocialItems(html, baseUrl), baseUrl, limit);
+    if (social.length) {
+      return { items: social, headingLevel: 0, selector, method: "social-json", confidence: confidenceOf(social) };
+    }
+    return { ...empty };
+  }
+
   const headingRaw = collectByHeadings(cleaned, baseUrl);
   const headingLevel = modalLevel(headingRaw);
   let items = finalize(headingRaw.filter((it) => !headingLevel || it.level === headingLevel), baseUrl, limit);
@@ -66,13 +74,6 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
   if (items.length < minItems) {
     const embedded = finalize(collectFromEmbeddedJson(html, baseUrl), baseUrl, limit);
     if (embedded.length >= minItems) { items = embedded; method = "embedded-json"; }
-  }
-
-  if (items.length < minItems) {
-    const social = finalize(collectSocialItems(html, baseUrl), baseUrl, limit);
-    if (social.length) {
-      return { items: social, headingLevel: 0, selector, method: "social-json", confidence: confidenceOf(social) };
-    }
   }
 
   if (items.length < minItems) return { ...empty, headingLevel };
@@ -160,6 +161,12 @@ function collectFromEmbeddedJson(html, baseUrl) {
     }
   }
   return out;
+}
+
+function isSocialHost(baseUrl) {
+  let host;
+  try { host = new URL(baseUrl).hostname.toLowerCase(); } catch { return false; }
+  return /(^|\.)(facebook\.com|fb\.com|fb\.watch|instagram\.com|instagr\.am)$/.test(host);
 }
 
 function collectSocialItems(html, baseUrl) {
