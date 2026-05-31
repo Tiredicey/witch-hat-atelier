@@ -20,7 +20,7 @@
 // re-exports the Worker so both routes work on a plain Pages deploy.
 
 import { resolve as resolveUrl } from "./url-resolver.js";
-import { parseFeed } from "../worker/src/parse.js";
+import { parseFeed, isBridgeErrorEntry } from "../worker/src/parse.js";
 import { parseOpml } from "./opml.js";
 
 const BRIDGE_KEY = "coda/bridge/base";
@@ -282,9 +282,20 @@ export class AddFeed {
         throw new Error("Response did not parse as RSS / Atom / JSON Feed.");
       }
       const n = parsed.entries.length;
+      const bridgeErrors = parsed.entries.filter(isBridgeErrorEntry);
+      if (bridgeErrors.length > 0 && bridgeErrors.length === n) {
+        outEl.dataset.status = "fail";
+        outEl.textContent =
+          `This bridge returned an error, not posts: "${bridgeErrors[0].title}"`;
+        return;
+      }
+      const realCount = n - bridgeErrors.length;
       outEl.dataset.status = "ok";
+      const warn = bridgeErrors.length
+        ? ` (${bridgeErrors.length} bridge error entrie${bridgeErrors.length === 1 ? "" : "s"} filtered)`
+        : "";
       outEl.textContent =
-        `Parsed ${n} entrie${n === 1 ? "" : "s"}. Feed title: ${parsed.feedTitle || "(none)"}`;
+        `Parsed ${realCount} entrie${realCount === 1 ? "" : "s"}${warn}. Feed title: ${parsed.feedTitle || "(none)"}`;
       if (parsed.feedTitle && (!titleEl.textContent || titleEl.textContent === "(no title)")) {
         titleEl.textContent = parsed.feedTitle;
       }
