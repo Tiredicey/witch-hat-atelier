@@ -237,6 +237,17 @@ export class AddFeed {
     meta.appendChild(title);
     meta.appendChild(url);
     meta.appendChild(tag);
+    if (cand.synthetic) {
+      const note = document.createElement("span");
+      note.className = "add-feed__synthetic";
+      const n = cand.itemCount || (Array.isArray(cand.preview) ? cand.preview.length : 0);
+      const head = (cand.preview || []).slice(0, 3).join(" \u00b7 ");
+      note.textContent =
+        `Synthesized from page layout \u00b7 ${n} item${n === 1 ? "" : "s"}` +
+        `${cand.confidence ? ` \u00b7 ${cand.confidence} confidence` : ""}` +
+        `${head ? ` \u2014 ${head}` : ""}`;
+      meta.appendChild(note);
+    }
 
     const actions = document.createElement("div");
     actions.className = "add-feed__actions";
@@ -505,7 +516,7 @@ function diagnoseEmpty({ gateBlocked, gateReason, upstreamError, sourceStatus, p
     return `Site returned HTTP ${sourceStatus} when the Worker fetched it. That usually means the site detected a bot fetch and blocked it. Try the feed URL directly if you know it.`;
   }
   if (probed) {
-    return `Page loaded, but had no <link rel="alternate"> tag, and the /feed, /rss, /atom.xml probes returned no feed content. The site may not publish RSS.`;
+    return `Page loaded, but had no <link rel="alternate"> tag, the /feed, /rss, and /atom.xml probes returned no feed content, and no repeating headline-link pattern could be turned into a synthetic feed. The site may not publish anything feed-shaped at this URL.`;
   }
   return `Page loaded, but had no <link rel="alternate"> tag in the <head>. The site may not publish RSS at this URL.`;
 }
@@ -522,6 +533,7 @@ function labelFor(cand) {
   if (cand.source === "medium-user")     return "Medium user";
   if (cand.source === "medium-publication") return "Medium publication";
   if (cand.source === "tumblr")          return "Tumblr";
+  if (cand.synthetic)                     return "SYNTHESIZED";
   if (cand.source === "discover")         return cand.type ? cand.type.toUpperCase() : "discovered";
   return cand.type ? cand.type.toUpperCase() : "feed";
 }
