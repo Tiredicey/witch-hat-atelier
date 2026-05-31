@@ -75,11 +75,14 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
 }
 
 function finalize(raw, baseUrl, limit) {
-  const filtered = raw.filter((it) => acceptable(it, baseUrl));
-  return dedupeByLink(filtered).slice(0, limit).map((it) => ({
+  const merged = mergeByLink(raw);
+  const filtered = merged.filter((it) => acceptable(it, baseUrl));
+  return filtered.slice(0, limit).map((it) => ({
     title: it.title,
     link: it.link,
     published: it.published || 0,
+    image: it.image || "",
+    excerpt: it.excerpt || "",
   }));
 }
 
@@ -97,8 +100,9 @@ function collectByAnchorPattern(html, baseUrl) {
     const link = resolveLink(href, baseUrl);
     if (!link || !articleLike(link, baseUrl)) continue;
     const title = clean(m[2]) || clean(attrValue(m[1], "aria-label")) || clean(attrValue(m[1], "title"));
-    if (!title) continue;
-    out.push({ title, link, level: 0, pos: m.index });
+    const image = firstImageIn(m[1] + " " + m[2], baseUrl);
+    if (!title && !image) continue;
+    out.push({ title, link, level: 0, pos: m.index, image, excerpt: excerptNear(html, A.lastIndex, title) });
   }
   return out;
 }
@@ -131,19 +135,22 @@ export function buildAtom(items, meta = {}) {
   const entries = list.map((it, i) => {
     const stamp = it.published || (nowMs - i * 1000);
     const id = it.link || `${feedId}#${i}`;
-    return [
+    const lines = [
       "  <entry>",
       `    <title>${xml(it.title || "(untitled)")}</title>`,
       `    <link rel="alternate" href="${xml(it.link || pageUrl)}"/>`,
       `    <id>${xml(id)}</id>`,
       `    <updated>${isoOf(stamp)}</updated>`,
-      "  </entry>",
-    ].join("\n");
+    ];
+    if (it.excerpt) lines.push(`    <summary>${xml(it.excerpt)}</summary>`);
+    if (it.image) lines.push(`    <media:thumbnail url="${xml(it.image)}"/>`);
+    lines.push("  </entry>");
+    return lines.join("\n");
   });
 
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
-    '<feed xmlns="http://www.w3.org/2005/Atom">',
+    '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">',
     `  <title>${xml(title)}</title>`,
     `  <link rel="alternate" href="${xml(pageUrl)}"/>`,
     selfUrl ? `  <link rel="self" href="${xml(selfUrl)}"/>` : "",
@@ -168,7 +175,7 @@ function collectByHeadings(html, baseUrl) {
     if (!hh) continue;
     const link = resolveLink(href, baseUrl);
     if (!link) continue;
-    out.push({ title: clean(hh[2]), link, level: Number(hh[1]), pos: m.index });
+    out.push({ title: clean(hh[2]), link, level: Number(hh[1]), pos: m.index, image: firstImageIn(m[2], baseUrl), excerpt: excerptNear(html, A.lastIndex, clean(hh[2])) });
   }
 
   const H = /<h([1-4])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -181,7 +188,7 @@ function collectByHeadings(html, baseUrl) {
     const link = resolveLink(href, baseUrl);
     if (!link) continue;
     const title = clean(a[2]) || clean(inner);
-    out.push({ title, link, level: Number(m[1]), pos: m.index });
+    out.push({ title, link, level: Number(m[1]), pos: m.index, image: firstImageIn(inner, baseUrl), excerpt: excerptNear(html, H.lastIndex, title) });
   }
 
   out.sort((x, y) => x.pos - y.pos);
@@ -212,7 +219,7 @@ function collectBySelector(html, baseUrl, token) {
     if (!link) continue;
     const hh = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/i.exec(window);
     const title = clean(hh ? hh[2] : a[2]);
-    out.push({ title, link, level: 0, pos: matches[i].idx });
+    out.push({ title, link, level: 0, pos: matches[i].idx, image: firstImageIn(window, baseUrl), excerpt: excerptNear(window, 0, title) });
   }
   return out;
 }
@@ -238,15 +245,19 @@ function modalLevel(items) {
   return best;
 }
 
-function dedupeByLink(items) {
-  const seen = new Set();
-  const out = [];
+function mergeByLink(items) {
+  const map = new Map();
   for (const it of items) {
-    if (seen.has(it.link)) continue;
-    seen.add(it.link);
-    out.push(it);
+    const cur = map.get(it.link);
+    if (!cur) { map.set(it.link, { ...it }); continue; }
+    if (!cur.image && it.image) cur.image = it.image;
+    if (!cur.published && it.published) cur.published = it.published;
+    if ((it.title || "").length > (cur.title || "").length) {
+      cur.title = it.title;
+      cur.excerpt = it.excerpt || "";
+    }
   }
-  return out;
+  return [...map.values()];
 }
 
 function stripNoise(html) {
@@ -313,6 +324,48 @@ function decodeEntities(s) {
 function safeChar(code) {
   if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return "";
   try { return String.fromCodePoint(code); } catch { return ""; }
+}
+
+const LEAD_KEYWORDS = "lead|excerpt|summary|dek|teaser|standfirst|description|desc|snippet|subtitle|subhead";
+
+function firstImageIn(fragment, baseUrl) {
+  const s = String(fragment || "");
+  let m = /<img\b[^>]*?\b(?:data-src|src)\s*=\s*("([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(s);
+  let cand = m ? (m[2] ?? m[3] ?? m[4]) : "";
+  if (!cand) {
+    const ss = /\bsrcset\s*=\s*("([^"]+)"|'([^']+)')/i.exec(s);
+    if (ss) cand = String(ss[2] ?? ss[3] ?? "").split(",")[0].trim().split(/\s+/)[0];
+  }
+  if (!cand) {
+    const bg = /background-image\s*:\s*url\(\s*(?:&quot;|&#0*39;|["'])?([^"')&]+)/i.exec(s);
+    if (bg) cand = bg[1];
+  }
+  cand = decodeEntities(String(cand || "")).trim();
+  if (!cand || /^data:/i.test(cand)) return "";
+  let u;
+  try { u = new URL(cand, baseUrl); } catch { return ""; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+  return u.toString();
+}
+
+function excerptNear(html, fromPos, title) {
+  const window = String(html).slice(fromPos, fromPos + 1400);
+  let text = "";
+  const tagRe = new RegExp(
+    `<([a-z][a-z0-9]*)\\b[^>]*class\\s*=\\s*("[^"]*\\b(?:${LEAD_KEYWORDS})\\b[^"]*"|'[^']*\\b(?:${LEAD_KEYWORDS})\\b[^']*')[^>]*>([\\s\\S]*?)</\\1>`,
+    "i",
+  );
+  const m = tagRe.exec(window);
+  if (m) text = clean(m[3]);
+  if (!text) {
+    const p = /<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(window);
+    if (p) text = clean(p[1]);
+  }
+  if (!text) return "";
+  const t = (title || "").trim();
+  if (t && text === t) return "";
+  if (text.length < 16) return "";
+  return text.slice(0, 320);
 }
 
 function xml(s) {

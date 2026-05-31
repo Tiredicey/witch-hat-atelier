@@ -41,7 +41,8 @@ export async function renderHtml(targetUrl, env, opts = {}) {
     Number(env.RENDER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
     HARD_TIMEOUT_CAP_MS,
   );
-  const waitUntil = env.RENDER_WAIT_UNTIL || "networkidle2";
+  const waitUntil = env.RENDER_WAIT_UNTIL || "load";
+  const settleMs = Math.min(Math.max(Number(env.RENDER_SETTLE_MS) || 2500, 0), 60_000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -53,6 +54,7 @@ export async function renderHtml(targetUrl, env, opts = {}) {
         rejectResourceTypes: REJECT_RESOURCE_TYPES,
         gotoOptions: { waitUntil, timeout: timeoutMs },
       };
+      if (settleMs) body.waitForTimeout = settleMs;
       if (opts.waitForSelector) body.waitForSelector = { selector: opts.waitForSelector, timeout: timeoutMs };
       res = await fetch(
         `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/browser-rendering/content`,
