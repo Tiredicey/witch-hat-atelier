@@ -534,6 +534,7 @@ async function boot() {
     confirmBtn:       $("#listBriefingConfirm"),
     cancelBtn:        $("#listBriefingCancel"),
     outputEl:         $("#listBriefingOutput"),
+    toggleBtn:        $("#listBriefingToggle"),
   });
 
   const starsImport = new StarsImport({

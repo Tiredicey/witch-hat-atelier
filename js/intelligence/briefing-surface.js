@@ -20,6 +20,7 @@ export class BriefingSurface {
     this.confirmBtn = opts.confirmBtn;
     this.cancelBtn = opts.cancelBtn;
     this.outputEl = opts.outputEl;
+    this.toggleBtn = opts.toggleBtn || null;
     this.fetchImpl = opts.fetchImpl || null;
     this.inflight = null;
 
@@ -67,6 +68,7 @@ export class BriefingSurface {
 
   #bind() {
     if (this.triggerBtn) this.triggerBtn.addEventListener("click", () => this.#onTrigger());
+    if (this.toggleBtn) this.toggleBtn.addEventListener("click", () => this.#toggleOutput());
     if (this.confirmBtn) this.confirmBtn.addEventListener("click", () => this.#onConfirm());
     if (this.cancelBtn) this.cancelBtn.addEventListener("click", () => this.#dismissDisclosure());
     this.#sync();
@@ -77,7 +79,7 @@ export class BriefingSurface {
     if (this.wrapEl) this.wrapEl.hidden = !ready;
     if (!ready) {
       this.#dismissDisclosure();
-      if (this.outputEl) { this.outputEl.hidden = true; this.outputEl.textContent = ""; }
+      this.#hideOutput();
       this.#setStatus("", null);
     }
   }
@@ -133,8 +135,7 @@ export class BriefingSurface {
       this.#setStatus("Enable and key a provider in Settings.", "fail");
       return;
     }
-    this.outputEl.hidden = true;
-    this.outputEl.textContent = "";
+    this.#hideOutput();
     this.triggerBtn.disabled = true;
     const controller = new AbortController();
     this.inflight = controller;
@@ -153,8 +154,7 @@ export class BriefingSurface {
             signal: controller.signal,
             fetchImpl: this.fetchImpl,
           });
-          this.outputEl.textContent = briefing;
-          this.outputEl.hidden = false;
+          this.#showOutput(briefing);
           this.#setStatus(`Briefed ${count} unread · ${provider.hostname} · ${model}`, "ok");
           return;
         } catch (e) {
@@ -173,6 +173,32 @@ export class BriefingSurface {
       this.triggerBtn.disabled = false;
       this.inflight = null;
     }
+  }
+
+  #showOutput(text) {
+    if (!this.outputEl) return;
+    this.outputEl.textContent = text;
+    this.outputEl.hidden = false;
+    this.#setToggle(true, false);
+  }
+
+  #hideOutput() {
+    if (this.outputEl) { this.outputEl.hidden = true; this.outputEl.textContent = ""; }
+    this.#setToggle(false, true);
+  }
+
+  #toggleOutput() {
+    if (!this.outputEl || !this.outputEl.textContent) return;
+    const collapsed = this.outputEl.hidden;
+    this.outputEl.hidden = !collapsed;
+    this.#setToggle(true, !collapsed);
+  }
+
+  #setToggle(visible, collapsed) {
+    if (!this.toggleBtn) return;
+    this.toggleBtn.hidden = !visible;
+    this.toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    this.toggleBtn.textContent = collapsed ? "Show briefing" : "Hide briefing";
   }
 
   #setStatus(msg, status) {
