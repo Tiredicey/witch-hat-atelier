@@ -22,6 +22,7 @@
 import { resolve as resolveUrl } from "./url-resolver.js";
 import { parseFeed, isBridgeErrorEntry } from "../worker/src/parse.js";
 import { parseOpml } from "./opml.js";
+import { feedRequestUrl } from "./feed-fetch.js";
 
 const BRIDGE_KEY = "coda/bridge/base";
 const BRIDGE_KIND_KEY = "coda/bridge/kind";
@@ -285,7 +286,7 @@ export class AddFeed {
     outEl.textContent = "Fetching feed via /fetch\u2026";
     addBtn.disabled = true;
     try {
-      const res = await fetch(`${this.fetchBase}/fetch?url=${encodeURIComponent(cand.url)}`);
+      const res = await fetch(feedRequestUrl(cand.url, this.fetchBase));
       if (!res.ok) throw new Error(`/fetch responded ${res.status}`);
       const ct = res.headers.get("content-type") || "";
       const text = await res.text();
