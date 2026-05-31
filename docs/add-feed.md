@@ -346,3 +346,66 @@ and the diagnosis is incomplete:**
 
 Sources: RSS-Bridge issues #954, #2413, #3465 (github.com/RSS-Bridge/rss-bridge);
 Cloudflare HTMLRewriter runtime docs (developers.cloudflare.com/workers/runtime-apis/html-rewriter).
+
+## Headless-render tier for JS-only sites (free-first)
+
+Some pages publish nothing feed-shaped *and* render their article list in
+the browser with JavaScript (GMA's `/lifestyle/*` section is the reference
+case: the Worker receives a ~21 KB jQuery shell with zero article links).
+Static scraping cannot recover that. The Worker has an optional
+headless-render tier that fires only after the static fetch + scrape returns
+nothing, then re-runs the scraper on the rendered DOM.
+
+### No-charge guarantee
+
+The default backend is Cloudflare Browser Rendering's REST `/content`
+endpoint, **included on the Workers Free plan**: 10 minutes of browser time
+per day, 3 concurrent browsers, ~6 REST calls/min. On the Free plan,
+exceeding those limits returns HTTP 429 and renders nothing more until the
+next UTC day. It does not bill. As long as the deployment stays on the
+Workers Free plan, the render tier cannot incur a charge; it just renders
+fewer JS pages per day. Each render also rejects images, fonts, stylesheets,
+and media to keep per-page browser time (and the daily budget) low.
+
+### Configuration (Pages project or Worker → environment variables)
+
+Cloudflare Browser Rendering (recommended, free):
+
+```
+CF_ACCOUNT_ID         your Cloudflare account id
+BROWSER_RENDER_TOKEN  an API token with the Browser Rendering permission
+```
+
+Generic / self-hosted renderer (Browserless-style `POST /content`):
+
+```
+RENDER_BACKEND  generic
+RENDER_URL      https://<your-renderer>/content?token=<token>
+```
+
+Optional tuning (both backends):
+
+```
+RENDER_WAIT_UNTIL   load | domcontentloaded | networkidle0 | networkidle2 (default networkidle2)
+RENDER_TIMEOUT_MS   per-render timeout, capped at 55000 (default 25000)
+```
+
+With none of these set, JS-only pages simply produce no synthetic feed, the
+same as before this tier shipped.
+
+### What it does and does not clear
+
+It clears JS-rendered listing pages that, after hydration, expose a repeating
+headline-link or article-card pattern. The scraper now detects two shapes:
+heading clusters (`<h3>` inside or wrapping an anchor) and heading-less
+article-card anchors (title is the anchor's own text and the link is
+article-like: a numeric id segment, a `/story` or `/article` segment, or a
+multi-word hyphenated slug). Validated end to end against
+`gmanetwork.com/lifestyle/shopping`: 21 KB static shell yields nothing, a
+headless render yields the hydrated DOM, and the anchor-pattern detector
+returns the visible story cards.
+
+It does not turn every site into a feed. Login-gated content,
+infinite-scroll APIs with no anchors in the DOM, and aggressive bot
+challenges can still return nothing; the Add-a-feed panel reports that
+honestly instead of inventing items.

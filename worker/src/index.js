@@ -33,6 +33,7 @@ import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 import { scrapeFeedItems, buildAtom } from "./scrape.js";
+import { renderHtml, rendererConfigured } from "./render.js";
 import { handleDmz } from "./dmz.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
@@ -311,7 +312,15 @@ async function handleDiscover(url, env) {
     if (found.length >= 5) break;
   }
   if (found.length) return jsonResp({ candidates: found, probed: true });
-  const scraped = scrapeFeedItems(html, target);
+  let scraped = scrapeFeedItems(html, target);
+  let rendered = false;
+  if (!scraped.items.length && rendererConfigured(env)) {
+    const r = await renderHtml(target, env);
+    if (r.ok && r.html) {
+      const viaRender = scrapeFeedItems(r.html, target);
+      if (viaRender.items.length) { scraped = viaRender; rendered = true; }
+    }
+  }
   if (scraped.items.length) {
     return jsonResp({
       candidates: [{
@@ -319,6 +328,7 @@ async function handleDiscover(url, env) {
         type: "atom",
         title: `${hostOf(target)} (synthesized)`,
         synthetic: true,
+        rendered,
         itemCount: scraped.items.length,
         confidence: scraped.confidence,
         preview: scraped.items.slice(0, 5).map((it) => it.title),
@@ -342,7 +352,14 @@ async function handleScrape(url, env) {
   const html = decodeText(page.body);
   const selector = url.searchParams.get("sel") || url.searchParams.get("selector") || "";
   const limit = Number(url.searchParams.get("limit")) || undefined;
-  const { items } = scrapeFeedItems(html, target, { selector, limit });
+  let { items } = scrapeFeedItems(html, target, { selector, limit });
+  if (!items.length && rendererConfigured(env)) {
+    const r = await renderHtml(target, env, { waitForSelector: url.searchParams.get("wait") || "" });
+    if (r.ok && r.html) {
+      const viaRender = scrapeFeedItems(r.html, target, { selector, limit });
+      if (viaRender.items.length) items = viaRender.items;
+    }
+  }
   const selfUrl = `${url.origin}${url.pathname}${url.search}`;
   const atom = buildAtom(items, { pageUrl: target, selfUrl, title: hostOf(target) });
   return new Response(atom, {
