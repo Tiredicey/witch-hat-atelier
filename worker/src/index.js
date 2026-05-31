@@ -301,29 +301,25 @@ async function handleDiscover(url, env) {
     const r = await renderHtml(target, env);
     if (r.ok && r.html) { html = r.html; pageRendered = true; }
   }
-  if (!html.trim()) {
-    if (page.status === 0)  return jsonResp({ candidates: [], probed: false, upstreamError: page.error || "upstream fetch failed" }, 200);
-    return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
+  if (html.trim()) {
+    const fromHtml = extractFeedLinks(html, target);
+    if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false, pageRendered });
   }
-  const fromHtml = extractFeedLinks(html, target);
-  if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false, pageRendered });
   const found = [];
-  if (!blocked) {
-    const probes = commonFeedPaths(target).slice(0, 12);
-    const seen = new Set();
-    for (const p of probes) {
-      const gate2 = allowProxy(p, env.PROXY_ALLOW);
-      if (!gate2.ok) continue;
-      const r = await proxyFetch(p, { ua: env.UA, maxBytes: 200_000 });
-      if (r.status !== 200) continue;
-      if (!looksLikeFeed(r.body, r.contentType)) continue;
-      if (seen.has(p)) continue;
-      seen.add(p);
-      found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
-      if (found.length >= 5) break;
-    }
-    if (found.length) return jsonResp({ candidates: found, probed: true });
+  const probes = commonFeedPaths(target).slice(0, 12);
+  const seen = new Set();
+  for (const p of probes) {
+    const gate2 = allowProxy(p, env.PROXY_ALLOW);
+    if (!gate2.ok) continue;
+    const r = await proxyFetch(p, { ua: env.UA, maxBytes: 200_000 });
+    if (r.status !== 200) continue;
+    if (!looksLikeFeed(r.body, r.contentType)) continue;
+    if (seen.has(p)) continue;
+    seen.add(p);
+    found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
+    if (found.length >= 5) break;
   }
+  if (found.length) return jsonResp({ candidates: found, probed: true });
   const structured = await fetchStructuredItems(target, env);
   if (structured.length) {
     return jsonResp({
@@ -342,8 +338,9 @@ async function handleDiscover(url, env) {
       synthetic: true,
     });
   }
-  let scraped = scrapeFeedItems(html, target);
+  let scraped = { items: [], confidence: "none" };
   let rendered = pageRendered;
+  if (html.trim()) scraped = scrapeFeedItems(html, target);
   if (!scraped.items.length && !pageRendered && rendererConfigured(env)) {
     const r = await renderHtml(target, env);
     if (r.ok && r.html) {
@@ -366,6 +363,10 @@ async function handleDiscover(url, env) {
       probed: true,
       synthetic: true,
     });
+  }
+  if (!html.trim()) {
+    if (page.status === 0) return jsonResp({ candidates: [], probed: true, upstreamError: page.error || "upstream fetch failed" }, 200);
+    return jsonResp({ candidates: [], probed: true, sourceStatus: page.status });
   }
   return jsonResp({ candidates: found, probed: true, pageRendered });
 }

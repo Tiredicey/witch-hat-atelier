@@ -63,6 +63,11 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
     if (anchorItems.length >= minItems) { items = anchorItems; method = "anchor-pattern"; }
   }
 
+  if (items.length < minItems) {
+    const embedded = finalize(collectFromEmbeddedJson(html, baseUrl), baseUrl, limit);
+    if (embedded.length >= minItems) { items = embedded; method = "embedded-json"; }
+  }
+
   if (items.length < minItems) return { ...empty, headingLevel };
 
   return {
@@ -122,6 +127,70 @@ function articleLike(link, baseUrl) {
     if (last.length > 15 && hyphens >= 2) return true;
   }
   return false;
+}
+
+function collectFromEmbeddedJson(html, baseUrl) {
+  const out = [];
+  const seen = new Set();
+  const scripts = String(html || "").match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
+  if (!scripts) return out;
+  const STR = /"((?:[^"\\]|\\.)*)"/g;
+  for (const block of scripts) {
+    const body = block.replace(/^<script\b[^>]*>/i, "").replace(/<\/script\s*>$/i, "");
+    const strings = [];
+    let m;
+    while ((m = STR.exec(body)) !== null) strings.push(decodeJsonText(m[1]));
+    for (let i = 0; i < strings.length; i++) {
+      const s = strings[i];
+      if (!/^https?:\/\//i.test(s) && !s.startsWith("/")) continue;
+      const link = resolveLink(s, baseUrl);
+      if (!link || !articleLike(link, baseUrl)) continue;
+      if (seen.has(link)) continue;
+      seen.add(link);
+      const title = titleFromSlug(link);
+      if (!title) continue;
+      out.push({ title, link, level: 0, pos: i, image: "", excerpt: excerptFromStrings(strings, i) });
+    }
+  }
+  return out;
+}
+
+function excerptFromStrings(strings, i) {
+  for (let j = i + 1; j < Math.min(strings.length, i + 4); j++) {
+    const s = String(strings[j] || "").trim();
+    if (s.length < 24 || s.length > 600) continue;
+    if (/^https?:\/\//i.test(s) || s.startsWith("/")) continue;
+    if (!/\s/.test(s) || !/[a-z]/i.test(s)) continue;
+    return s.slice(0, 320);
+  }
+  return "";
+}
+
+function titleFromSlug(link) {
+  let seg;
+  try { seg = new URL(link).pathname.split("/").filter(Boolean).pop() || ""; } catch { return ""; }
+  if (!seg) return "";
+  seg = seg.replace(/\.(html?|php|aspx?)$/i, "");
+  seg = seg.replace(/-[a-z]?\d{1,6}-\d{8}-[a-z]{2,6}$/i, "");
+  seg = seg.replace(/-\d{8}$/i, "");
+  seg = seg.replace(/-[a-z]\d{3,}$/i, "");
+  seg = seg.replace(/-\d{5,}$/, "");
+  const words = seg.split(/[-_]/).filter(Boolean);
+  if (words.length < 2) return "";
+  return words
+    .map((w) => (w.length <= 3 && !/\d/.test(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function decodeJsonText(s) {
+  return String(s || "").replace(/\\(u[0-9a-fA-F]{4}|.)/g, (_, g) => {
+    if (g[0] === "u") return safeChar(parseInt(g.slice(1), 16));
+    if (g === "n" || g === "t" || g === "r") return " ";
+    if (g === "/" || g === '"' || g === "\\") return g;
+    return g;
+  });
 }
 
 export function buildAtom(items, meta = {}) {
