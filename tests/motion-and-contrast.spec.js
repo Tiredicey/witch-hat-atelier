@@ -87,10 +87,8 @@ test.describe('motion + contrast (engineering constraints)', () => {
       return getComputedStyle(document.body).backgroundColor;
     }));
     const ratio = contrastRatio(fg, bg);
-    // ink-faint #6B7185 on surface #FAF4E2 ≈ 4.0:1.
-    // This is just under WCAG AA (4.5:1). We assert ≥ 3:1 (large text minimum)
-    // and surface the gap rather than silently fail. If we want AA, tokens
-    // need adjusting; that's a roadmap decision, not a shell decision.
-    expect(ratio).toBeGreaterThanOrEqual(3.0);
+    // ink-faint #63687B (light) / #968F78 (dark) clears WCAG AA (4.5:1) on every
+    // surface a row or byline sits on: --bg, --surface, --surface-raised.
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });
