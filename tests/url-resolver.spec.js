@@ -221,3 +221,97 @@ test.describe('url-resolver — invalid input', () => {
     expect(r.reason).toMatch(/protocol/i);
   });
 });
+
+test.describe('url-resolver — expanded no-RSS host coverage', () => {
+  const hosts = [
+    ['https://web.facebook.com/nasa', 'Facebook'],
+    ['https://business.facebook.com/nasa', 'Facebook'],
+    ['https://l.facebook.com/l.php', 'Facebook'],
+    ['https://fb.watch/abc123/', 'Facebook'],
+    ['https://instagr.am/natgeo', 'Instagram'],
+    ['https://vm.tiktok.com/ZMabc/', 'TikTok'],
+    ['https://vt.tiktok.com/ZMabc/', 'TikTok'],
+    ['https://mobile.twitter.com/jack', 'X (Twitter)'],
+  ];
+  for (const [url, platform] of hosts) {
+    test(`${url} is refused as ${platform}`, async ({ page }) => {
+      await page.goto('/');
+      const r = await resolveIn(page, url);
+      expect(r.kind).toBe('refused');
+      expect(r.platform).toBe(platform);
+    });
+  }
+
+  test('web.facebook.com/@handle does NOT misfire the Mastodon @user pattern', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://web.facebook.com/@cocacola');
+    expect(r.kind).toBe('refused');
+    expect(r.platform).toBe('Facebook');
+  });
+});
+
+test.describe('url-resolver — bridge route shapes (documented routes only)', () => {
+  const bridge = { bridgeBase: 'https://rsshub.example.com' };
+
+  test('facebook vanity page → /facebook/page/{slug}', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://business.facebook.com/nasa', bridge);
+    expect(r.bridgeHint.candidateUrl).toBe('https://rsshub.example.com/facebook/page/nasa');
+  });
+
+  test('facebook profile.php?id= → no candidate, points at the bridge docs', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/profile.php?id=100064', bridge);
+    expect(r.bridgeHint.configured).toBe(true);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+    expect(r.bridgeHint.message).toMatch(/documented route/i);
+  });
+
+  test('facebook /groups/ → no candidate (not a page)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/groups/123456', bridge);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+  });
+
+  test('fb.watch share link → no candidate (not a page slug)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://fb.watch/abc123/', bridge);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+  });
+
+  test('instagram user → /instagram/user/{handle}', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://instagr.am/natgeo', bridge);
+    expect(r.bridgeHint.candidateUrl).toBe('https://rsshub.example.com/instagram/user/natgeo');
+  });
+
+  test('instagram /p/ post → no candidate (not a profile)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.instagram.com/p/Cabc123/', bridge);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+  });
+
+  test('x /status/ tweet → no candidate (not a user timeline)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://x.com/jack/status/20', bridge);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+  });
+
+  test('x handle → /twitter/user/{handle}', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://x.com/jack', bridge);
+    expect(r.bridgeHint.candidateUrl).toBe('https://rsshub.example.com/twitter/user/jack');
+  });
+
+  test('tiktok @handle → /tiktok/user/@{handle}', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.tiktok.com/@charlidamelio', bridge);
+    expect(r.bridgeHint.candidateUrl).toBe('https://rsshub.example.com/tiktok/user/@charlidamelio');
+  });
+
+  test('tiktok bare share host → no candidate (no @handle in path)', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://vm.tiktok.com/ZMabc/', bridge);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+  });
+});
