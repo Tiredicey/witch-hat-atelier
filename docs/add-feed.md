@@ -262,3 +262,87 @@ feature; add the generic key API to enable it.
 
 Both specs run on `desktop-chromium`, `mobile-chromium`, and
 `reduced-motion` projects.
+
+## Synthetic feeds for no-RSS sites (`/discover` fallback + `/scrape`)
+
+Some publishers ship no `<link rel="alternate">` and no feed at any common
+path. GMA Network (`gmanetwork.com/news/`) is the reference case: zero
+native feeds, but the landing page renders the same headline-link card
+shape ~16 times.
+
+When `/discover` exhausts alternate-link extraction and the common-path
+probe, it runs `scrapeFeedItems()` from `worker/src/scrape.js`. That helper
+collects two repeating shapes, dependency-free:
+
+- `<a href="..."><h3>Headline</h3></a>` (anchor wraps heading)
+- `<h3><a href="...">Headline</a></h3>` (heading wraps anchor)
+
+It keeps the modal heading level, dedupes by resolved link, drops nav-word
+and self links, and requires at least three items before offering anything.
+If the cluster holds, `/discover` returns one candidate:
+
+```json
+{
+  "url": "https://<worker>/scrape?url=https%3A%2F%2Fwww.gmanetwork.com%2Fnews%2F",
+  "type": "atom",
+  "title": "www.gmanetwork.com (synthesized)",
+  "synthetic": true,
+  "itemCount": 16,
+  "confidence": "high",
+  "preview": ["...first five headlines..."]
+}
+```
+
+Subscribing to that candidate polls `GET /scrape`, which re-fetches the
+page through the `PROXY_ALLOW`-gated proxy and serves a valid Atom 1.0
+document. Because the feed URL lives on the Worker origin, the polling
+path (`/fetch?url=<scrape-url>`) needs the Worker's own origin to pass
+`PROXY_ALLOW` (a `*` allowlist already covers it; restrictive allowlists
+must add the origin).
+
+### Manual selector override
+
+If auto-detection misses (JS-rendered cards, unusual markup), pass a class
+token:
+
+```
+GET /scrape?url=<page>&sel=story-card
+```
+
+`sel` accepts a single class token with or without a leading `.`. The
+scraper matches elements carrying that class and pulls the first anchor
+plus the first heading (or the anchor text) inside each. Full CSS selector
+syntax is not supported: a Cloudflare Worker has no DOM engine, and pulling
+in cheerio or linkedom (Node DOM libraries, not edge-first) to gain it is
+not worth the bundle. The platform-native alternative, HTMLRewriter, is a
+streaming rewriter with no `innerHTML`, so it is awkward for cluster
+detection; the bounded-regex scan mirrors `discover.js` and stays
+reviewable.
+
+### On the "route RSS-Bridge through a residential proxy" claim
+
+A separate request asked CODA to route outbound scraper traffic through a
+rotating residential proxy (Webshare, Bright Data) to clear Facebook and X
+blocks (`Bridge returned error 0`). This is **out of scope for this repo,
+and the diagnosis is incomplete:**
+
+- CODA does not run RSS-Bridge. `url-resolver.js` only *builds candidate
+  bridge URLs* for a bridge instance the operator self-hosts. The IP that
+  Meta or X sees is the operator's bridge host (e.g. on Render), not any
+  CODA code path. The proxy change, if wanted, is infrastructure config on
+  that external PHP instance, not a change here.
+- "Error 0 / cURL error 0" is not solely an IP block. RSS-Bridge's own
+  issues attribute it to several distinct causes: SSL peer-verification /
+  CA-bundle failures (RSS-Bridge#954), upstream `403` responses
+  (RSS-Bridge#2413), and Twitter/X API-access removal (RSS-Bridge#3465).
+  A residential proxy addresses the IP-reputation cause only; it does not
+  fix stale CA bundles or the fact that X removed free API access, and the
+  FacebookBridge has no upstream maintainer in 2026 (already noted in the
+  refusal copy). Treat "residential proxy fixes everything" as a partial,
+  optimistic claim.
+- Routing CODA's Worker through a residential-proxy pool to scrape Meta/X
+  would also cut against §13: it is the opposite of the honest-refusal
+  stance the resolver already takes for those platforms.
+
+Sources: RSS-Bridge issues #954, #2413, #3465 (github.com/RSS-Bridge/rss-bridge);
+Cloudflare HTMLRewriter runtime docs (developers.cloudflare.com/workers/runtime-apis/html-rewriter).

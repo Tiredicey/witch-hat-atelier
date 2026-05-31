@@ -32,6 +32,7 @@ import { scoreFeed, passesQuality } from "./quality.js";
 import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
+import { scrapeFeedItems, buildAtom } from "./scrape.js";
 import { handleDmz } from "./dmz.js";
 
 const DEFAULT_PREFIX = "coda/feeds";
@@ -62,6 +63,9 @@ export default {
     }
     if (req.method === "GET" && url.pathname === "/discover") {
       return handleDiscover(url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/scrape") {
+      return handleScrape(url, env);
     }
     if (req.method === "GET" && url.pathname === "/extract") {
       return handleExtract(req, url, env);
@@ -306,7 +310,49 @@ async function handleDiscover(url, env) {
     found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
     if (found.length >= 5) break;
   }
+  if (found.length) return jsonResp({ candidates: found, probed: true });
+  const scraped = scrapeFeedItems(html, target);
+  if (scraped.items.length) {
+    return jsonResp({
+      candidates: [{
+        url: `${url.origin}/scrape?url=${encodeURIComponent(target)}`,
+        type: "atom",
+        title: `${hostOf(target)} (synthesized)`,
+        synthetic: true,
+        itemCount: scraped.items.length,
+        confidence: scraped.confidence,
+        preview: scraped.items.slice(0, 5).map((it) => it.title),
+      }],
+      probed: true,
+      synthetic: true,
+    });
+  }
   return jsonResp({ candidates: found, probed: true });
+}
+
+async function handleScrape(url, env) {
+  const target = url.searchParams.get("url");
+  if (!target) return jsonError(400, "missing url");
+  const gate = allowProxy(target, env.PROXY_ALLOW);
+  if (!gate.ok) return jsonError(403, `proxy ${gate.reason}`);
+  const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
+  const page = await proxyFetch(target, { ua: env.UA, maxBytes });
+  if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
+  if (page.status >= 400) return jsonError(page.status, `upstream ${page.status}`);
+  const html = decodeText(page.body);
+  const selector = url.searchParams.get("sel") || url.searchParams.get("selector") || "";
+  const limit = Number(url.searchParams.get("limit")) || undefined;
+  const { items } = scrapeFeedItems(html, target, { selector, limit });
+  const selfUrl = `${url.origin}${url.pathname}${url.search}`;
+  const atom = buildAtom(items, { pageUrl: target, selfUrl, title: hostOf(target) });
+  return new Response(atom, {
+    status: 200,
+    headers: { "Content-Type": "application/atom+xml; charset=utf-8", ...corsHeaders() },
+  });
+}
+
+function hostOf(u) {
+  try { return new URL(u).host; } catch { return "feed"; }
 }
 
 function decodeText(buf) {
