@@ -174,12 +174,33 @@ async function boot() {
   });
 
   const metaEl = document.getElementById("shelf-meta");
+  function shelfPredicate(shelfId) {
+    if (shelfId === "all")     return () => true;
+    if (shelfId === "starred") return (it) => store.isStarred(it.id);
+    return (it) => it.shelf === shelfId;
+  }
+  function unreadInShelf(shelfId) {
+    const pred = shelfPredicate(shelfId);
+    return list.getAllItems().filter(pred).filter(it => !store.isRead(it.id)).length;
+  }
+  function renderCounts() {
+    railEl.querySelectorAll(".shelf[data-shelf]").forEach(btn => {
+      const span = btn.querySelector(".count");
+      if (!span) return;
+      const n = unreadInShelf(btn.dataset.shelf);
+      if (n > 0) {
+        span.textContent = String(n);
+        span.hidden = false;
+        span.setAttribute("aria-label", `${n} unread`);
+      } else {
+        span.textContent = "";
+        span.hidden = true;
+        span.removeAttribute("aria-label");
+      }
+    });
+  }
   function applyShelf(shelfId) {
-    let pred;
-    if (shelfId === "all")          pred = () => true;
-    else if (shelfId === "starred") pred = (it) => store.isStarred(it.id);
-    else                            pred = (it) => it.shelf === shelfId;
-    list.setFilter(pred);
+    list.setFilter(shelfPredicate(shelfId));
     if (metaEl) {
       const n = list.getIds().length;
       metaEl.textContent = n === 1 ? "1 item" : `${n} items`;
@@ -205,9 +226,13 @@ async function boot() {
 
   store.subscribe(() => {
     list.refreshFromStore(store);
+    renderCounts();
     const id = list.getSelectedId();
     if (id) syncToolbar(id);
   });
+
+  list.refreshFromStore(store);
+  renderCounts();
 
   markBtn.addEventListener("click", () => {
     const id = list.getSelectedId();
@@ -559,6 +584,7 @@ async function boot() {
       list.setItems(merged);
       const shelfId = (railEl.querySelector(".shelf[aria-current=\"true\"]")?.dataset?.shelf) || "all";
       applyShelf(shelfId);
+      renderCounts();
     },
   });
   void starsImport;
