@@ -364,7 +364,7 @@ async function handleScrape(url, env) {
   if (!target) return jsonError(400, "missing url");
   const gate = allowProxy(target, env.PROXY_ALLOW);
   if (!gate.ok) return jsonError(403, `proxy ${gate.reason}`);
-  const structured = await fetchStructuredItems(target, env, { page: url.searchParams.get("page") });
+  const structured = await fetchStructuredItems(target, env, { page: url.searchParams.get("page"), pages: url.searchParams.get("pages") });
   if (structured.length) {
     const selfUrl = `${url.origin}${url.pathname}${url.search}`;
     const atom = buildAtom(structured, { pageUrl: target, selfUrl, title: hostOf(target) });
@@ -397,13 +397,32 @@ async function handleScrape(url, env) {
 }
 
 async function fetchStructuredItems(target, env, opts = {}) {
-  const api = gmaListingApi(target, opts.page || 1);
-  if (!api) return [];
-  const gate = allowProxy(api, env.PROXY_ALLOW);
-  if (!gate.ok) return [];
-  const r = await proxyFetch(api, { ua: env.UA, maxBytes: 2_000_000 });
-  if (r.status !== 200) return [];
-  return gmaListingItems(decodeText(r.body), { limit: Number(env.SCRAPE_LIMIT) || 50 });
+  if (!gmaListingApi(target, 1)) return [];
+  const hardMax = Math.min(Math.max(Number(env.GMA_MAX_PAGES) || 5, 1), 20);
+  const startPage = Number(opts.page) > 0 ? Math.floor(Number(opts.page)) : 1;
+  const want = Math.min(Math.max(Number(opts.pages) || 1, 1), hardMax);
+  const perPage = Number(env.SCRAPE_LIMIT) || 50;
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < want; i++) {
+    const api = gmaListingApi(target, startPage + i);
+    if (!api) break;
+    const gate = allowProxy(api, env.PROXY_ALLOW);
+    if (!gate.ok) break;
+    const r = await proxyFetch(api, { ua: env.UA, maxBytes: 2_000_000 });
+    if (r.status !== 200) break;
+    const items = gmaListingItems(decodeText(r.body), { limit: perPage });
+    if (!items.length) break;
+    let added = 0;
+    for (const it of items) {
+      if (seen.has(it.link)) continue;
+      seen.add(it.link);
+      out.push(it);
+      added++;
+    }
+    if (added === 0) break;
+  }
+  return out;
 }
 
 function hostOf(u) {
