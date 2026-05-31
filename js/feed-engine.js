@@ -32,7 +32,7 @@
 //   user's own OPML choices has no business second-guessing them, so this
 //   module does NOT call passesQuality \u2014 every parseable feed contributes.
 
-import { parseFeed } from "../worker/src/parse.js";
+import { parseFeed, isBridgeErrorEntry } from "../worker/src/parse.js";
 
 const SUBS_KEY = "coda/subs/subscriptions.json";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -101,7 +101,9 @@ async function fetchAndParseOne(sub, { fetchBase, signal, timeoutMs }) {
     const parsed = parseFeed(text, ct);
     if (!parsed || !Array.isArray(parsed.entries)) return [];
     const shelf = sub.shelf || "all";
-    return parsed.entries.map(e => ({ ...e, shelf }));
+    return parsed.entries
+      .filter(e => !isBridgeErrorEntry(e))
+      .map(e => ({ ...e, shelf }));
   } finally {
     clearTimeout(timer);
   }
