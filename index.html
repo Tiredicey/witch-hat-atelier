@@ -419,7 +419,7 @@
         Paste any site URL. CODA resolves documented patterns (YouTube channel / playlist, Reddit subreddit, Mastodon profile, GitHub releases) directly; for everything else it asks the &sect;4 Worker&rsquo;s <code>/discover</code> endpoint to scan the page for <code>&lt;link rel=&quot;alternate&quot;&gt;</code> tags and probe common feed paths.
       </p>
       <p class="settings__hint">
-        Facebook, Instagram, X (Twitter), and TikTok do not publish public RSS feeds in 2026. CODA refuses those URLs with an explanation; if you run an RSSHub bridge of your own, configure its base URL below and CODA will suggest candidate bridge routes. CODA will never silently route your URLs through a public bridge instance.
+        Facebook, Instagram, X (Twitter), and TikTok do not publish public RSS feeds in 2026. CODA refuses those URLs with an explanation; if you run your own RSSHub or RSS-Bridge instance, configure its base URL below and CODA will build a ready-to-add candidate feed. CODA will never silently route your URLs through a public bridge instance.
       </p>
       <label class="settings__field">
         <span>URL</span>
@@ -438,13 +438,21 @@
       <div class="add-feed__refused" id="add-feed-refused" hidden></div>
 
       <details class="add-feed__bridge">
-        <summary>RSSHub bridge URL (optional)</summary>
+        <summary>Bridge URL (optional)</summary>
         <p class="settings__hint">
-          If you operate an RSSHub instance (self-hosted or rented), enter its base URL here. CODA will use it to suggest candidate routes when you paste a Facebook, Instagram, X, or TikTok URL. Leave blank to disable bridge suggestions entirely.
+          If you operate your own RSSHub or RSS-Bridge instance (self-hosted or rented), enter its base URL here. CODA builds a ready-to-add candidate feed when you paste a Facebook, Instagram, X, or TikTok URL. Leave blank to disable bridge suggestions entirely.
         </p>
         <label class="settings__field">
           <span>Bridge base URL</span>
-          <input id="add-feed-bridge" type="url" placeholder="https://rsshub.example.com" autocomplete="off" spellcheck="false">
+          <input id="add-feed-bridge" type="url" placeholder="https://rss-bridge.example.com" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="settings__field">
+          <span>Bridge type</span>
+          <select id="add-feed-bridge-kind">
+            <option value="">Auto-detect from URL</option>
+            <option value="rsshub">RSSHub (path routes)</option>
+            <option value="rss-bridge">RSS-Bridge (action=display)</option>
+          </select>
         </label>
         <div class="add-feed__row">
           <button type="button" id="add-feed-bridge-save">Save bridge</button>
