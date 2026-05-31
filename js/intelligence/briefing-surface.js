@@ -1,8 +1,14 @@
-import { chatBrief, isTransientError } from "./openai-compatible.js";
+import { chatBrief, chatBriefMerge, isTransientError } from "./openai-compatible.js";
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
 
 export const BRIEFING_SURFACE = "briefing";
-const MAX_ITEMS = 20;
+const BATCH_SIZE = 20;
+
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 export class BriefingSurface {
   constructor(opts) {
@@ -53,9 +59,11 @@ export class BriefingSurface {
         <span>Summarise the unread articles in the current shelf into one briefing</span>
       </label>
       <p class="settings__hint">
-        Reuses the providers you enabled and keyed above. One request sends up to ${MAX_ITEMS} unread
-        titles and excerpts from the current shelf to the provider, after the same one-line disclosure.
-        The article text is treated as quoted data, never as instructions.
+        Reuses the providers you enabled and keyed above. It batches the unread items of the current
+        shelf in groups of ${BATCH_SIZE}, briefs each batch, then merges the results into one briefing,
+        so a full day of unread is covered rather than only the first ${BATCH_SIZE}. Each request goes
+        out after the same one-line disclosure. The article text is treated as quoted data, never as
+        instructions.
       </p>
     `;
     target.appendChild(fieldset);
@@ -86,7 +94,7 @@ export class BriefingSurface {
 
   #collectUnread() {
     const items = this.getUnread() || [];
-    return items.filter(it => it && (it.title || it.body || it.summary)).slice(0, MAX_ITEMS);
+    return items.filter(it => it && (it.title || it.body || it.summary));
   }
 
   #onTrigger() {
@@ -140,39 +148,63 @@ export class BriefingSurface {
     const controller = new AbortController();
     this.inflight = controller;
     try {
-      for (let i = 0; i < chain.length; i++) {
-        const provider = chain[i];
-        const apiKey = this.intel.getProviderKey(provider.id);
-        if (!apiKey) continue;
-        this.#setStatus(`Briefing ${items.length} unread via ${provider.hostname}…`, "pending");
-        try {
-          const { briefing, count, model } = await chatBrief({
-            provider,
-            apiKey,
-            items,
-            maxItems: MAX_ITEMS,
-            signal: controller.signal,
-            fetchImpl: this.fetchImpl,
-          });
-          this.#showOutput(briefing);
-          this.#setStatus(`Briefed ${count} unread · ${provider.hostname} · ${model}`, "ok");
-          return;
-        } catch (e) {
-          if (controller.signal.aborted) return;
-          const next = chain.slice(i + 1).find(p => this.intel.getProviderKey(p.id));
-          if (next && isTransientError(e)) {
-            this.#setStatus(`${provider.hostname} is rate-limited. Trying ${next.hostname}…`, "pending");
-            continue;
-          }
-          this.#setStatus(e && e.message ? e.message : "The briefing failed.", "fail");
-          return;
-        }
+      const batches = chunk(items, BATCH_SIZE);
+      if (batches.length === 1) {
+        this.#setStatus(`Briefing ${items.length} unread…`, "pending");
+        const r = await this.#briefBatch(batches[0], controller.signal);
+        this.#showOutput(r.briefing);
+        this.#setStatus(`Briefed ${items.length} unread · ${r.hostname} · ${r.model}`, "ok");
+        return;
       }
-      this.#setStatus("No provider with an API key was available.", "fail");
+      const partials = [];
+      for (let b = 0; b < batches.length; b++) {
+        this.#setStatus(`Briefing batch ${b + 1} of ${batches.length} · ${items.length} unread…`, "pending");
+        const r = await this.#briefBatch(batches[b], controller.signal);
+        if (controller.signal.aborted) return;
+        partials.push(r.briefing);
+      }
+      this.#setStatus(`Merging ${batches.length} batches…`, "pending");
+      const merged = await this.#mergeBatches(partials, controller.signal);
+      this.#showOutput(merged.briefing);
+      this.#setStatus(`Briefed ${items.length} unread in ${batches.length} batches · ${merged.hostname} · ${merged.model}`, "ok");
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      this.#setStatus(e && e.message ? e.message : "The briefing failed.", "fail");
     } finally {
       this.triggerBtn.disabled = false;
       this.inflight = null;
     }
+  }
+
+  async #callChain(signal, fn) {
+    const chain = this.readyProviders();
+    for (let i = 0; i < chain.length; i++) {
+      const provider = chain[i];
+      const apiKey = this.intel.getProviderKey(provider.id);
+      if (!apiKey) continue;
+      try {
+        return await fn(provider, apiKey, signal);
+      } catch (e) {
+        if (signal.aborted) throw e;
+        const next = chain.slice(i + 1).find(p => this.intel.getProviderKey(p.id));
+        if (next && isTransientError(e)) {
+          this.#setStatus(`${provider.hostname} is rate-limited. Trying ${next.hostname}…`, "pending");
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw new Error("No provider with an API key was available.");
+  }
+
+  #briefBatch(batch, signal) {
+    return this.#callChain(signal, (provider, apiKey, s) =>
+      chatBrief({ provider, apiKey, items: batch, maxItems: BATCH_SIZE, signal: s, fetchImpl: this.fetchImpl }));
+  }
+
+  #mergeBatches(partials, signal) {
+    return this.#callChain(signal, (provider, apiKey, s) =>
+      chatBriefMerge({ provider, apiKey, partials, signal: s, fetchImpl: this.fetchImpl }));
   }
 
   #showOutput(text) {

@@ -122,4 +122,53 @@ test.describe('cross-article briefing (§18.3 rung 4)', () => {
     await expect(out).toContainText('Theme one');
     await expect(toggle).toHaveText('Hide briefing');
   });
+
+  test('over BATCH_SIZE unread is briefed in batches and merged into one', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(async () => {
+      const { BriefingSurface } = await import('/js/intelligence/briefing-surface.js');
+      const provider = {
+        id: 'groq', surfaceId: 'groq', label: 'Groq', hostname: 'api.groq.com',
+        baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'm',
+      };
+      const intel = {
+        isEnabled: () => true, isSurfaceEnabled: () => true, getProviderKey: () => 'k',
+        subscribe: () => {}, mountTarget: () => null, snapshot: () => ({ surfaces: {} }),
+      };
+      document.body.innerHTML =
+        '<div id="w"><button id="t"></button><p id="s"></p>' +
+        '<div id="d" hidden><p id="dt"></p></div>' +
+        '<button id="c"></button><button id="x"></button>' +
+        '<button id="tg" hidden></button><div id="o" hidden></div></div>';
+      const $ = (id) => document.getElementById(id);
+      let brief = 0, merge = 0;
+      const fetchImpl = async (url, init) => {
+        const body = JSON.parse(init.body);
+        const isMerge = body.messages[0].content.includes('consolidate');
+        if (isMerge) merge++; else brief++;
+        return {
+          ok: true,
+          json: async () => ({ model: 'm', choices: [{ message: { role: 'assistant', content: isMerge ? '- Final merged bullet.' : '- Batch bullet.' } }] }),
+        };
+      };
+      const items = Array.from({ length: 45 }, (_, i) => ({ id: 'i' + i, title: 'T' + i, source: 'S', body: ['body ' + i], read: false }));
+      const surf = new BriefingSurface({
+        intelligence: intel, providers: [provider], getUnread: () => items,
+        wrapEl: $('w'), triggerBtn: $('t'), statusEl: $('s'), disclosureEl: $('d'),
+        disclosureTextEl: $('dt'), confirmBtn: $('c'), cancelBtn: $('x'),
+        outputEl: $('o'), toggleBtn: $('tg'), fetchImpl,
+      });
+      $('t').click();
+      $('c').click();
+      const t0 = Date.now();
+      while ((surf.inflight || $('o').hidden) && Date.now() - t0 < 4000) {
+        await new Promise(res => setTimeout(res, 25));
+      }
+      return { brief, merge, output: $('o').textContent, status: $('s').textContent };
+    });
+    expect(r.brief).toBe(3);
+    expect(r.merge).toBe(1);
+    expect(r.output).toContain('Final merged bullet.');
+    expect(r.status).toContain('in 3 batches');
+  });
 });
