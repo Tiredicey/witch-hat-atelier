@@ -2,7 +2,9 @@ import { isDisclosureAcked, ackDisclosure } from "./index.js";
 
 export const VOICE_READALOUD_SURFACE = "voice-readaloud";
 export const VOICE_COMMANDS_SURFACE = "voice-commands";
+export const VOICE_SPEAK_ANSWERS_SURFACE = "voice-speak-answers";
 const STT_DISCLOSURE_HOST = "browser-speech-recognition";
+const SPEAK_ANSWERS_DISCLOSURE = "voice-speak-answers";
 
 const COMMAND_RULES = [
   { test: /\b(summari[sz]e|summary)\b/, command: "summarise" },
@@ -56,6 +58,9 @@ export class VoiceIO {
     this.recognition = null;
     this.listening = false;
     this.speaking = false;
+    this.answerSpeaking = false;
+    this.pendingDisclosure = null;
+    this.pendingAnswerText = "";
 
     this.readSupported = !!(this.synth && this.UtteranceCtor);
     this.commandsSupported = !!this.RecognitionCtor;
@@ -71,6 +76,29 @@ export class VoiceIO {
 
   isCommandsReady() {
     return this.commandsSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_COMMANDS_SURFACE);
+  }
+
+  isSpeakAnswersReady() {
+    return this.readSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_SPEAK_ANSWERS_SURFACE);
+  }
+
+  speakAnswer(text) {
+    const t = String(text || "").trim();
+    if (!t || !this.isSpeakAnswersReady()) return false;
+    if (isDisclosureAcked(SPEAK_ANSWERS_DISCLOSURE)) {
+      this.#stopListening();
+      this.answerSpeaking = true;
+      this.#startSpeaking(t);
+      return true;
+    }
+    this.pendingDisclosure = "speak-answers";
+    this.pendingAnswerText = t;
+    this.disclosureTextEl.textContent =
+      "Answers will be read aloud on your device using its built-in speech. No audio leaves your device, " +
+      "and nothing is asked or spoken on its own. Read this answer aloud now?";
+    this.disclosureEl.hidden = false;
+    this.confirmBtn.focus();
+    return true;
   }
 
   stop() {
@@ -95,6 +123,10 @@ export class VoiceIO {
         <input id="intelVoiceCommandsEnable" type="checkbox">
         <span>Voice commands via microphone (summarise · read · stop)</span>
       </label>
+      <label class="settings__field settings__field--inline">
+        <input id="intelVoiceSpeakAnswersEnable" type="checkbox">
+        <span>Speak answers aloud after you ask (on-device speech, you send each question yourself)</span>
+      </label>
       <p class="settings__hint" data-voice-support></p>
       <p class="settings__hint">
         Read-aloud uses the voices built into your device. Voice commands use your browser's speech
@@ -106,15 +138,19 @@ export class VoiceIO {
 
     const readInput = fieldset.querySelector("#intelVoiceReadAloudEnable");
     const cmdInput = fieldset.querySelector("#intelVoiceCommandsEnable");
+    const speakInput = fieldset.querySelector("#intelVoiceSpeakAnswersEnable");
     const support = fieldset.querySelector("[data-voice-support]");
 
     const snap = this.intel.snapshot();
     readInput.checked = !!snap.surfaces[VOICE_READALOUD_SURFACE];
     cmdInput.checked = !!snap.surfaces[VOICE_COMMANDS_SURFACE];
+    speakInput.checked = !!snap.surfaces[VOICE_SPEAK_ANSWERS_SURFACE];
 
     if (!this.readSupported) {
       readInput.disabled = true;
       readInput.checked = false;
+      speakInput.disabled = true;
+      speakInput.checked = false;
     }
     if (!this.commandsSupported) {
       cmdInput.disabled = true;
@@ -137,6 +173,9 @@ export class VoiceIO {
     cmdInput.addEventListener("change", () => {
       this.intel.setSurfaceEnabled(VOICE_COMMANDS_SURFACE, cmdInput.checked);
     });
+    speakInput.addEventListener("change", () => {
+      this.intel.setSurfaceEnabled(VOICE_SPEAK_ANSWERS_SURFACE, speakInput.checked);
+    });
   }
 
   #bind() {
@@ -150,15 +189,17 @@ export class VoiceIO {
   #sync() {
     const readReady = this.isReadReady();
     const cmdReady = this.isCommandsReady();
+    const speakReady = this.isSpeakAnswersReady();
     if (this.readBtn) this.readBtn.hidden = !readReady;
     if (this.micBtn) this.micBtn.hidden = !cmdReady;
-    if (this.wrapEl) this.wrapEl.hidden = !(readReady || cmdReady);
-    if (!readReady) this.#stopSpeaking();
+    if (this.wrapEl) this.wrapEl.hidden = !(readReady || cmdReady || speakReady);
+    if (this.speaking && !this.answerSpeaking && !readReady) this.#stopSpeaking();
+    if (this.speaking && this.answerSpeaking && !speakReady) this.#stopSpeaking();
     if (!cmdReady) {
       this.#stopListening();
-      this.#dismissDisclosure();
+      if (this.pendingDisclosure === "stt") this.#dismissDisclosure();
     }
-    if (!readReady && !cmdReady) this.#setStatus("", null);
+    if (!readReady && !cmdReady && !speakReady) this.#setStatus("", null);
   }
 
   #articleText() {
@@ -216,6 +257,7 @@ export class VoiceIO {
 
   #onSpeechEnd() {
     this.speaking = false;
+    this.answerSpeaking = false;
     if (this.readBtn) {
       this.readBtn.setAttribute("aria-pressed", "false");
       this.readBtn.textContent = "Read aloud";
@@ -233,6 +275,7 @@ export class VoiceIO {
       this.#startListening();
       return;
     }
+    this.pendingDisclosure = "stt";
     this.disclosureTextEl.textContent =
       "Voice commands use your browser's built-in speech recognition. In some browsers, including " +
       "Chrome and Edge, the audio is sent to the browser maker's servers to be transcribed. CODA " +
@@ -242,12 +285,27 @@ export class VoiceIO {
   }
 
   #onDisclosureConfirm() {
+    const which = this.pendingDisclosure;
+    this.pendingDisclosure = null;
+    if (which === "speak-answers") {
+      ackDisclosure(SPEAK_ANSWERS_DISCLOSURE);
+      const t = this.pendingAnswerText;
+      this.pendingAnswerText = "";
+      this.#dismissDisclosure();
+      if (t) {
+        this.answerSpeaking = true;
+        this.#startSpeaking(t);
+      }
+      return;
+    }
     ackDisclosure(STT_DISCLOSURE_HOST);
     this.#dismissDisclosure();
     this.#startListening();
   }
 
   #dismissDisclosure() {
+    this.pendingDisclosure = null;
+    this.pendingAnswerText = "";
     if (this.disclosureEl) this.disclosureEl.hidden = true;
     if (this.disclosureTextEl) this.disclosureTextEl.textContent = "";
   }

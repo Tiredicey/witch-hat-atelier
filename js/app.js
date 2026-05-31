@@ -544,6 +544,7 @@ async function boot() {
   ask = new AskSurface({
     intelligence: intelligenceCtrl,
     reader,
+    onAnswer: (text) => { if (voice) voice.speakAnswer(text); },
     providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
     wrapEl:           $("#readerAsk"),
     formEl:           $("#readerAskForm"),
