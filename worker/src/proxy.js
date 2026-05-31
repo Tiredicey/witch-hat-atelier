@@ -56,11 +56,17 @@ export async function proxyFetch(target, opts = {}) {
     ua = DEFAULT_UA,
     maxBytes = DEFAULT_MAX_BYTES,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    cookie = "",
+    extraHeaders = {},
   } = opts;
   const headers = {
     "User-Agent": ua,
     "Accept": "*/*",
   };
+  for (const [k, v] of Object.entries(extraHeaders || {})) {
+    if (v != null && String(v).trim()) headers[k] = String(v);
+  }
+  if (cookie)       headers["Cookie"]            = cookie;
   if (etag)         headers["If-None-Match"]     = etag;
   if (lastModified) headers["If-Modified-Since"] = lastModified;
 
