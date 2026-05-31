@@ -137,7 +137,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust
 
 .list__scroll {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   padding: 0 var(--gutter-l) var(--gutter-l);
@@ -326,7 +326,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust
 .reader-wrap {
   grid-column: 3;
   background: var(--surface);
-  overflow-y: auto;
+  overflow: hidden auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   position: relative;
