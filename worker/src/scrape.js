@@ -68,6 +68,13 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
     if (embedded.length >= minItems) { items = embedded; method = "embedded-json"; }
   }
 
+  if (items.length < minItems) {
+    const social = finalize(collectSocialItems(html, baseUrl), baseUrl, limit);
+    if (social.length) {
+      return { items: social, headingLevel: 0, selector, method: "social-json", confidence: confidenceOf(social) };
+    }
+  }
+
   if (items.length < minItems) return { ...empty, headingLevel };
 
   return {
@@ -153,6 +160,70 @@ function collectFromEmbeddedJson(html, baseUrl) {
     }
   }
   return out;
+}
+
+function collectSocialItems(html, baseUrl) {
+  let host;
+  try { host = new URL(baseUrl).hostname.toLowerCase(); } catch { return []; }
+  const isFb = /(^|\.)(facebook\.com|fb\.com|fb\.watch)$/.test(host);
+  const isIg = /(^|\.)(instagram\.com|instagr\.am)$/.test(host);
+  if (!isFb && !isIg) return [];
+  const scripts = String(html || "").match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) || [];
+  const out = [];
+  const seen = new Set();
+  const STR = /"((?:[^"\\]|\\.)*)"/g;
+  for (const block of scripts) {
+    const body = block.replace(/^<script\b[^>]*>/i, "").replace(/<\/script\s*>$/i, "");
+    const strings = [];
+    let m;
+    while ((m = STR.exec(body)) !== null) strings.push(decodeJsonText(m[1]));
+    for (let i = 0; i < strings.length; i++) {
+      let perma = socialPermalink(strings[i], isFb, isIg);
+      if (!perma && isIg && /^(code|shortcode|short_code)$/i.test(strings[i - 1] || "") && /^[A-Za-z0-9_-]{5,}$/.test(strings[i])) {
+        perma = `/p/${strings[i]}/`;
+      }
+      if (!perma) continue;
+      const link = resolveLink(perma, baseUrl);
+      if (!link || seen.has(link)) continue;
+      seen.add(link);
+      const title = socialTextNear(strings, i, 12, 160) || (isIg ? "Instagram post" : "Facebook post");
+      const excerpt = socialTextNear(strings, i, 24, 320);
+      out.push({ title, link, level: 0, pos: out.length, image: "", excerpt });
+    }
+  }
+  return out;
+}
+
+function socialPermalink(s, isFb, isIg) {
+  const v = String(s || "");
+  if (isFb) {
+    const post = v.match(/(\/[A-Za-z0-9.]+\/(?:posts|videos)\/(?:pfbid[A-Za-z0-9]+|\d{3,}))/i);
+    if (post) return post[1];
+    const grp = v.match(/(\/groups\/[A-Za-z0-9.]+\/permalink\/\d{3,})/i);
+    if (grp) return grp[1];
+    const sf = v.match(/story_fbid=([A-Za-z0-9]+)[^"]*?[?&]id=(\d{3,})/i);
+    if (sf) return `/permalink.php?story_fbid=${sf[1]}&id=${sf[2]}`;
+  }
+  if (isIg) {
+    const m = v.match(/\/(p|reel|tv)\/([A-Za-z0-9_-]{5,})\/?/);
+    if (m) return `/${m[1]}/${m[2]}/`;
+  }
+  return "";
+}
+
+function socialTextNear(strings, i, min, max) {
+  const order = [];
+  for (let j = i + 1; j < Math.min(strings.length, i + 9); j++) order.push(j);
+  for (let j = i - 1; j >= Math.max(0, i - 3); j--) order.push(j);
+  for (const j of order) {
+    const s = String(strings[j] || "").trim();
+    if (s.length < min || s.length > max) continue;
+    if (/^https?:\/\//i.test(s) || s.startsWith("/")) continue;
+    if (!/\s/.test(s) || !/[a-z]/i.test(s)) continue;
+    if (/^[A-Za-z0-9_.]+$/.test(s)) continue;
+    return s;
+  }
+  return "";
 }
 
 function excerptFromStrings(strings, i) {

@@ -75,6 +75,13 @@ const NO_RSS_ALTERNATIVES = {
   ],
 };
 
+const SOCIAL_SCRAPE_NOTES = {
+  "Facebook":    "Public Page posts only unless you supply your own logged-in session; friends-only and private-group posts are visible solely to the account whose session you provide.",
+  "Instagram":   "Public profiles are heavily login-walled in 2026; supply your own session for any reliable extraction. Private accounts are visible solely to the session you provide.",
+  "X (Twitter)": "Timelines require an authenticated session; supply your own. Best-effort only.",
+  "TikTok":      "Best-effort extraction of public profile JSON; no audio/video is rehosted.",
+};
+
 export function resolve(rawInput, opts = {}) {
   const trimmed = String(rawInput || "").trim();
   if (!trimmed) return { kind: "invalid", reason: "URL is empty." };
@@ -99,6 +106,16 @@ export function resolve(rawInput, opts = {}) {
   const noRss = noRssPlatform(host);
   if (noRss) {
     const platform = noRss;
+    if (opts.socialScrape) {
+      const needsSession = platform === "Facebook" || platform === "Instagram" || platform === "X (Twitter)";
+      return {
+        kind: "scrape",
+        platform,
+        pageUrl: url.toString(),
+        needsSession,
+        note: SOCIAL_SCRAPE_NOTES[platform] || "",
+      };
+    }
     const bridgeHint = buildBridgeHint(platform, url, opts.bridgeBase || "", opts.bridgeKind || "");
     return {
       kind: "refused",

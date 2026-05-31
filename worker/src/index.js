@@ -64,10 +64,10 @@ export default {
       return handleProxy(req, url, env);
     }
     if (req.method === "GET" && url.pathname === "/discover") {
-      return handleDiscover(url, env);
+      return handleDiscover(req, url, env);
     }
     if (req.method === "GET" && url.pathname === "/scrape") {
-      return handleScrape(url, env);
+      return handleScrape(req, url, env);
     }
     if (req.method === "GET" && url.pathname === "/extract") {
       return handleExtract(req, url, env);
@@ -224,11 +224,13 @@ async function handleProxy(req, url, env) {
   const gate = allowProxy(target, env.PROXY_ALLOW);
   if (!gate.ok) return jsonError(403, gate.reason);
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
+  const session = readSession(req);
   const fetched = await proxyFetch(target, {
     etag:         req.headers.get("if-none-match") || undefined,
     lastModified: req.headers.get("if-modified-since") || undefined,
-    ua:           env.UA,
+    ua:           session.ua || env.UA,
     maxBytes,
+    cookie:       session.cookie,
   });
   if (fetched.status === 304) {
     const h = { ...corsHeaders() };
@@ -279,13 +281,20 @@ async function handleExtract(req, url, env) {
   });
 }
 
-async function handleDiscover(url, env) {
+function readSession(req) {
+  const cookie = req.headers.get("x-wha-cookie") || "";
+  const ua = req.headers.get("x-wha-ua") || "";
+  return { cookie, ua };
+}
+
+async function handleDiscover(req, url, env) {
   const target = url.searchParams.get("url");
   if (!target) return jsonError(400, "missing url");
   const gate = allowProxy(target, env.PROXY_ALLOW);
   if (!gate.ok) return jsonResp({ candidates: [], probed: false, gateBlocked: true, gateReason: gate.reason }, 200);
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
-  const page = await proxyFetch(target, { ua: env.UA, maxBytes });
+  const session = readSession(req);
+  const page = await proxyFetch(target, { ua: session.ua || env.UA, maxBytes, cookie: session.cookie });
   const ok = page.status > 0 && page.status < 400;
   if (ok && looksLikeFeed(page.body, page.contentType)) {
     return jsonResp({
@@ -371,11 +380,12 @@ async function handleDiscover(url, env) {
   return jsonResp({ candidates: found, probed: true, pageRendered });
 }
 
-async function handleScrape(url, env) {
+async function handleScrape(req, url, env) {
   const target = url.searchParams.get("url");
   if (!target) return jsonError(400, "missing url");
   const gate = allowProxy(target, env.PROXY_ALLOW);
   if (!gate.ok) return jsonError(403, `proxy ${gate.reason}`);
+  const session = readSession(req);
   const structured = await fetchStructuredItems(target, env, { page: url.searchParams.get("page"), pages: url.searchParams.get("pages") });
   if (structured.length) {
     const selfUrl = `${url.origin}${url.pathname}${url.search}`;
@@ -386,7 +396,7 @@ async function handleScrape(url, env) {
     });
   }
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
-  const page = await proxyFetch(target, { ua: env.UA, maxBytes });
+  const page = await proxyFetch(target, { ua: session.ua || env.UA, maxBytes, cookie: session.cookie });
   const ok = page.status > 0 && page.status < 400;
   const html = ok ? decodeText(page.body) : "";
   const selector = url.searchParams.get("sel") || url.searchParams.get("selector") || "";

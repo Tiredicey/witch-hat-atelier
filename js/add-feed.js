@@ -26,6 +26,8 @@ import { feedRequestUrl } from "./feed-fetch.js";
 
 const BRIDGE_KEY = "coda/bridge/base";
 const BRIDGE_KIND_KEY = "coda/bridge/kind";
+const SOCIAL_KEY = "coda/social/enabled";
+const SESSION_KEY = "coda/social/sessions";
 
 function guessBridgeKind(base) {
   const b = String(base || "").toLowerCase();
@@ -151,9 +153,14 @@ export class AddFeed {
     const result = resolveUrl(raw, {
       bridgeBase: this.#loadBridge(),
       bridgeKind: this.#loadBridgeKind(),
+      socialScrape: this.#loadSocialEnabled(),
     });
     if (result.kind === "invalid") {
       this.#setStatus(result.reason, "fail");
+      return;
+    }
+    if (result.kind === "scrape") {
+      await this.#onScrape(result);
       return;
     }
     if (result.kind === "refused") {
@@ -478,6 +485,53 @@ export class AddFeed {
   #loadBridge() {
     try { return localStorage.getItem(BRIDGE_KEY) || ""; }
     catch { return ""; }
+  }
+
+  #loadSocialEnabled() {
+    try { return localStorage.getItem(SOCIAL_KEY) === "1"; }
+    catch { return false; }
+  }
+
+  #loadSession(platform) {
+    try {
+      const map = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+      return (map && typeof map === "object" && map[platform]) ? String(map[platform]) : "";
+    } catch { return ""; }
+  }
+
+  async #onScrape(result) {
+    const session = result.needsSession ? this.#loadSession(result.platform) : "";
+    if (result.needsSession && !session) {
+      this.#setStatus(
+        `${result.platform}: enable social scraping is on, but no session is saved for ${result.platform}. Paste your own logged-in session in Settings to see anything beyond public content.`,
+        "fail"
+      );
+      return;
+    }
+    this.#setStatus(`Scraping ${result.platform}\u2026`, "pending");
+    const scrapeUrl = `${this.fetchBase}/scrape?url=${encodeURIComponent(result.pageUrl)}`;
+    let res;
+    try {
+      res = await fetch(scrapeUrl, { headers: session ? { "X-WHA-Cookie": session } : {} });
+    } catch (e) {
+      this.#setStatus(`Scrape failed: ${e.message || e}`, "fail");
+      return;
+    }
+    if (!res.ok) {
+      this.#setStatus(`Scrape failed: upstream ${res.status}. ${result.note || ""}`, "fail");
+      return;
+    }
+    this.#renderCandidates([{
+      url: scrapeUrl,
+      type: "atom",
+      title: `${result.platform} (scraped)`,
+      source: "social-scrape",
+      synthetic: true,
+    }]);
+    this.#setStatus(
+      `Built a synthetic feed for ${result.platform}. ${result.note || ""} Verify the items, then add.`,
+      "ok"
+    );
   }
 
   #clearCandidates() {
