@@ -1442,6 +1442,7 @@ body[data-page="settings"] .scrim { display: none !important; }
   text-transform: uppercase;
   color: var(--ink-soft);
 }
+.reader__extract-status[data-status="info"] { color: var(--ink-soft); }
 .reader__extract-status[data-status="fail"] { color: var(--sigil-red); }
 .reader__extract-frame {
   display: block;

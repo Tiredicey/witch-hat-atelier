@@ -19,7 +19,7 @@ export class Reader {
    * @param {string=} opts.extractBase           — origin for /extract (default same-origin "")
    * @param {(url:string)=>Promise<Response>=} opts.fetchImpl — injectable for tests
    */
-  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, fetchImpl, onArticleChange }) {
+  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, extractEnabled, fetchImpl, onArticleChange }) {
     this.wrapEl = wrapEl;
     this.readerEl = readerEl;
     this.onArticleChange = typeof onArticleChange === "function" ? onArticleChange : null;
@@ -27,6 +27,7 @@ export class Reader {
     this.extractBtn      = extractBtn      || null;
     this.extractStatusEl = extractStatusEl || null;
     this.extractBase     = (extractBase != null ? extractBase : "").replace(/\/+$/, "");
+    this.extractEnabled  = extractEnabled != null ? !!extractEnabled : true;
     this.extractFetch    = fetchImpl || ((u) => fetch(u));
     this.currentArticle = null;
     this.extractActive  = false;
@@ -76,6 +77,10 @@ export class Reader {
       this.extractBtn.setAttribute("aria-pressed", "false");
       this.extractBtn.textContent = "Read clean";
       this.setExtractStatus("");
+      return;
+    }
+    if (!this.extractEnabled) {
+      this.setExtractStatus("Read clean needs the extract Worker (ROADMAP §4), which isn’t configured in this build.", "info");
       return;
     }
     this.extractBtn.disabled = true;

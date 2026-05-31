@@ -149,4 +149,49 @@ test.describe('Reader → /extract Read-clean toggle', () => {
     await expect(page.locator('#r iframe.reader__extract-frame')).toHaveCount(0);
     await expect(page.locator('#rxBtn')).toHaveAttribute('aria-pressed', 'false');
   });
+
+  test('with extract not configured, Read clean explains instead of fetching', async ({ page }, info) => {
+    test.skip(info.project.name === 'mobile-chromium',
+      'reader-wrap is display:none in mobile list view; extract toggle is desktop-only here');
+    let called = false;
+    await page.route(EXTRACT_RE, (route) => {
+      called = true;
+      route.fulfill({ status: 200, contentType: 'text/html', body: CLEAN_HTML });
+    });
+    await page.goto('/');
+    await page.evaluate(async (modUrl) => {
+      const { Reader } = await import(modUrl);
+      const host = document.createElement('div');
+      host.id = 'extract-test-host';
+      host.innerHTML = `
+        <main class="reader-wrap" id="rw"><div class="reader__actions"></div>
+          <div class="reader__extract" id="rx" hidden>
+            <button id="rxBtn" aria-pressed="false">Read clean</button>
+            <p id="rxStatus"></p>
+          </div>
+          <div class="reader" id="r"></div>
+        </main>`;
+      document.body.appendChild(host);
+      const r = new Reader({
+        wrapEl: host.querySelector('#rw'),
+        readerEl: host.querySelector('#r'),
+        extractWrapEl: host.querySelector('#rx'),
+        extractBtn: host.querySelector('#rxBtn'),
+        extractStatusEl: host.querySelector('#rxStatus'),
+        extractEnabled: false,
+      });
+      r.renderArticle({
+        id: 'y', title: 'Has link', source: 'sample', age: '1h', read: false,
+        body: ['original'], link: 'https://example.com/article',
+      });
+      window.__rr = r;
+    }, READER_MODULE);
+
+    await page.locator('#rxBtn').click();
+    await expect(page.locator('#rxStatus')).toHaveText(/extract Worker/i);
+    await expect(page.locator('#rxStatus')).toHaveAttribute('data-status', 'info');
+    await expect(page.locator('#r iframe.reader__extract-frame')).toHaveCount(0);
+    await expect(page.locator('#rxBtn')).toHaveAttribute('aria-pressed', 'false');
+    expect(called).toBe(false);
+  });
 });
