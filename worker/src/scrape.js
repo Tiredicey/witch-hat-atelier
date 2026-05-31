@@ -83,6 +83,7 @@ function finalize(raw, baseUrl, limit) {
     published: it.published || 0,
     image: it.image || "",
     excerpt: it.excerpt || "",
+    enclosure: it.enclosure || null,
   }));
 }
 
@@ -102,7 +103,7 @@ function collectByAnchorPattern(html, baseUrl) {
     const title = clean(m[2]) || clean(attrValue(m[1], "aria-label")) || clean(attrValue(m[1], "title"));
     const image = firstImageIn(m[1] + " " + m[2], baseUrl);
     if (!title && !image) continue;
-    out.push({ title, link, level: 0, pos: m.index, image, excerpt: excerptNear(html, A.lastIndex, title) });
+    out.push({ title, link, level: 0, pos: m.index, image, excerpt: excerptNear(html, A.lastIndex, title), enclosure: firstAudioIn(m[1] + " " + m[2], baseUrl) });
   }
   return out;
 }
@@ -144,6 +145,7 @@ export function buildAtom(items, meta = {}) {
     ];
     if (it.excerpt) lines.push(`    <summary>${xml(it.excerpt)}</summary>`);
     if (it.image) lines.push(`    <media:thumbnail url="${xml(it.image)}"/>`);
+    if (it.enclosure && it.enclosure.url) lines.push(`    <link rel="enclosure" href="${xml(it.enclosure.url)}" type="${xml(it.enclosure.type || "")}"/>`);
     lines.push("  </entry>");
     return lines.join("\n");
   });
@@ -175,7 +177,7 @@ function collectByHeadings(html, baseUrl) {
     if (!hh) continue;
     const link = resolveLink(href, baseUrl);
     if (!link) continue;
-    out.push({ title: clean(hh[2]), link, level: Number(hh[1]), pos: m.index, image: firstImageIn(m[2], baseUrl), excerpt: excerptNear(html, A.lastIndex, clean(hh[2])) });
+    out.push({ title: clean(hh[2]), link, level: Number(hh[1]), pos: m.index, image: firstImageIn(m[2], baseUrl), excerpt: excerptNear(html, A.lastIndex, clean(hh[2])), enclosure: firstAudioIn(m[2], baseUrl) });
   }
 
   const H = /<h([1-4])\b[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -188,7 +190,7 @@ function collectByHeadings(html, baseUrl) {
     const link = resolveLink(href, baseUrl);
     if (!link) continue;
     const title = clean(a[2]) || clean(inner);
-    out.push({ title, link, level: Number(m[1]), pos: m.index, image: firstImageIn(inner, baseUrl), excerpt: excerptNear(html, H.lastIndex, title) });
+    out.push({ title, link, level: Number(m[1]), pos: m.index, image: firstImageIn(inner, baseUrl), excerpt: excerptNear(html, H.lastIndex, title), enclosure: firstAudioIn(inner, baseUrl) });
   }
 
   out.sort((x, y) => x.pos - y.pos);
@@ -219,7 +221,7 @@ function collectBySelector(html, baseUrl, token) {
     if (!link) continue;
     const hh = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/i.exec(window);
     const title = clean(hh ? hh[2] : a[2]);
-    out.push({ title, link, level: 0, pos: matches[i].idx, image: firstImageIn(window, baseUrl), excerpt: excerptNear(window, 0, title) });
+    out.push({ title, link, level: 0, pos: matches[i].idx, image: firstImageIn(window, baseUrl), excerpt: excerptNear(window, 0, title), enclosure: firstAudioIn(window, baseUrl) });
   }
   return out;
 }
@@ -251,6 +253,7 @@ function mergeByLink(items) {
     const cur = map.get(it.link);
     if (!cur) { map.set(it.link, { ...it }); continue; }
     if (!cur.image && it.image) cur.image = it.image;
+    if (!cur.enclosure && it.enclosure) cur.enclosure = it.enclosure;
     if (!cur.published && it.published) cur.published = it.published;
     if ((it.title || "").length > (cur.title || "").length) {
       cur.title = it.title;
@@ -324,6 +327,32 @@ function decodeEntities(s) {
 function safeChar(code) {
   if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return "";
   try { return String.fromCodePoint(code); } catch { return ""; }
+}
+
+const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(?:[?#]|$)/i;
+const AUDIO_TYPE = { mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", oga: "audio/ogg", wav: "audio/wav", flac: "audio/flac" };
+
+function firstAudioIn(fragment, baseUrl) {
+  const s = String(fragment || "");
+  let cand = "";
+  const tag = /<(?:audio|source)\b[^>]*?\bsrc\s*=\s*("([^"]+)"|'([^']+)'|([^\s>]+))/i.exec(s);
+  if (tag) cand = tag[2] ?? tag[3] ?? tag[4];
+  if (!cand) {
+    const hrefs = /href\s*=\s*("([^"]+)"|'([^']+)'|([^\s>]+))/gi;
+    let h;
+    while ((h = hrefs.exec(s)) !== null) {
+      const v = h[2] ?? h[3] ?? h[4];
+      if (AUDIO_EXT.test(v)) { cand = v; break; }
+    }
+  }
+  cand = decodeEntities(String(cand || "")).trim();
+  if (!cand) return null;
+  let u;
+  try { u = new URL(cand, baseUrl); } catch { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  const ext = AUDIO_EXT.exec(u.pathname);
+  if (!ext) return null;
+  return { url: u.toString(), type: AUDIO_TYPE[ext[1].toLowerCase()] || "" };
 }
 
 const LEAD_KEYWORDS = "lead|excerpt|summary|dek|teaser|standfirst|description|desc|snippet|subtitle|subhead";
