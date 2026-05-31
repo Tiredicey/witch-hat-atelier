@@ -416,7 +416,7 @@
     <section class="settings__section settings__add-feed">
       <h2 class="settings__section-title">Add a feed by URL</h2>
       <p class="settings__note">
-        Paste any site URL. CODA resolves documented patterns (YouTube channel / playlist, Reddit subreddit, Mastodon profile, GitHub releases) directly; for everything else it asks the &sect;4 Worker&rsquo;s <code>/discover</code> endpoint to scan the page for <code>&lt;link rel=&quot;alternate&quot;&gt;</code> tags and probe common feed paths.
+        Paste any site URL. CODA resolves documented patterns (YouTube channel / playlist, Reddit subreddit, Mastodon profile, GitHub releases) directly; for everything else it asks the &sect;4 Worker&rsquo;s <code>/discover</code> endpoint to scan the page for <code>&lt;link rel=&quot;alternate&quot;&gt;</code> tags and probe common feed paths. When a site publishes nothing feed-shaped (many newsrooms, including GMA Network), the Worker scans the page for its repeating headline-link pattern and offers a synthesized Atom feed; refine it with a CSS class selector if auto-detection misses.
       </p>
       <p class="settings__hint">
         Facebook, Instagram, X (Twitter), and TikTok do not publish public RSS feeds in 2026. CODA refuses those URLs with an explanation; if you run your own RSSHub or RSS-Bridge instance, configure its base URL below and CODA will build a ready-to-add candidate feed. CODA will never silently route your URLs through a public bridge instance.

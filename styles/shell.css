@@ -1827,6 +1827,14 @@ body[data-page="settings"] .scrim { display: none !important; }
   border: var(--stroke-1) solid var(--line);
   padding: 2px 8px;
 }
+.add-feed__synthetic {
+  margin-top: 4px;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  line-height: 1.45;
+  color: var(--ink-faint);
+  word-break: break-word;
+}
 .add-feed__actions {
   display: flex;
   flex-direction: column;
