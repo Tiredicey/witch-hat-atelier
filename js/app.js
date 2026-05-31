@@ -669,6 +669,14 @@ async function boot() {
     bridgeKindInput: document.getElementById("add-feed-bridge-kind"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
+    socialEnableInput: document.getElementById("add-feed-social-enabled"),
+    socialSessionInputs: {
+      Facebook:  document.getElementById("add-feed-social-facebook"),
+      Instagram: document.getElementById("add-feed-social-instagram"),
+    },
+    socialSaveBtn:  document.getElementById("add-feed-social-save"),
+    socialClearBtn: document.getElementById("add-feed-social-clear"),
+    socialStatusEl: document.getElementById("add-feed-social-status"),
     subscriptions:  subs,
   });
   void addFeed;

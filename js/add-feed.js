@@ -50,6 +50,11 @@ export class AddFeed {
     this.bridgeStatusEl = opts.bridgeStatusEl;
     this.bridgeBadgeEl = opts.bridgeBadgeEl;
     this.bridgeDetailsEl = opts.bridgeDetailsEl;
+    this.socialEnableInput = opts.socialEnableInput;
+    this.socialSessionInputs = opts.socialSessionInputs || {};
+    this.socialSaveBtn = opts.socialSaveBtn;
+    this.socialClearBtn = opts.socialClearBtn;
+    this.socialStatusEl = opts.socialStatusEl;
     this.opmlInput     = opts.opmlInput;
     this.opmlImportBtn = opts.opmlImportBtn;
     this.opmlStatusEl  = opts.opmlStatusEl;
@@ -63,6 +68,7 @@ export class AddFeed {
       this.bridgeKindInput.value = this.#storedBridgeKind();
     }
     this.#updateBridgeBadge();
+    this.#initSocialUI();
 
     this.resolveBtn?.addEventListener("click", () => this.#onResolve());
     this.inputEl?.addEventListener("keydown", (e) => {
@@ -497,6 +503,69 @@ export class AddFeed {
       const map = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
       return (map && typeof map === "object" && map[platform]) ? String(map[platform]) : "";
     } catch { return ""; }
+  }
+
+  #loadSessionMap() {
+    try {
+      const m = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+      return (m && typeof m === "object") ? m : {};
+    } catch { return {}; }
+  }
+
+  #initSocialUI() {
+    if (this.socialEnableInput) {
+      this.socialEnableInput.checked = this.#loadSocialEnabled();
+      this.socialEnableInput.addEventListener("change", () => {
+        try { localStorage.setItem(SOCIAL_KEY, this.socialEnableInput.checked ? "1" : "0"); } catch {}
+        this.#setSocialStatus(
+          this.socialEnableInput.checked
+            ? "On. Paste a Facebook or Instagram link above and CODA will build a feed."
+            : "Off. Social links show the usual explanation instead.",
+          "ok"
+        );
+      });
+    }
+    const map = this.#loadSessionMap();
+    for (const [platform, el] of Object.entries(this.socialSessionInputs)) {
+      if (el && map[platform]) el.value = String(map[platform]);
+    }
+    this.socialSaveBtn?.addEventListener("click", () => this.#onSaveSocial());
+    this.socialClearBtn?.addEventListener("click", () => this.#onClearSocial());
+  }
+
+  #onSaveSocial() {
+    const map = {};
+    for (const [platform, el] of Object.entries(this.socialSessionInputs)) {
+      const v = (el?.value || "").trim();
+      if (v) map[platform] = v;
+    }
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(map));
+      if (this.socialEnableInput) {
+        localStorage.setItem(SOCIAL_KEY, this.socialEnableInput.checked ? "1" : "0");
+      }
+    } catch {}
+    const n = Object.keys(map).length;
+    this.#setSocialStatus(
+      n
+        ? `Saved. ${n} sign-in${n > 1 ? "s" : ""} kept on this device only.`
+        : "Saved. No sign-ins kept \u2014 public posts only.",
+      "ok"
+    );
+  }
+
+  #onClearSocial() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+    for (const el of Object.values(this.socialSessionInputs)) {
+      if (el) el.value = "";
+    }
+    this.#setSocialStatus("Sign-ins cleared. Public posts only from here.", "ok");
+  }
+
+  #setSocialStatus(msg, kind) {
+    if (!this.socialStatusEl) return;
+    this.socialStatusEl.textContent = msg;
+    this.socialStatusEl.dataset.kind = kind || "";
   }
 
   async #onScrape(result) {
