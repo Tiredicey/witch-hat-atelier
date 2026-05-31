@@ -23,6 +23,7 @@ import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { VoiceIO } from "./intelligence/voice.js";
 import { AskSurface } from "./intelligence/ask-surface.js";
 import { BriefingSurface } from "./intelligence/briefing-surface.js";
+import { IntelHistory } from "./intelligence/history-store.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
 import { loadFeedSnapshot } from "./feed-source.js";
 import { loadFeedFromBrowserEngine } from "./feed-engine.js";
@@ -85,7 +86,7 @@ async function boot() {
     extractWrapEl:   document.getElementById("readerExtract"),
     extractBtn:      document.getElementById("readCleanBtn"),
     extractStatusEl: document.getElementById("readerExtractStatus"),
-    onArticleChange: () => { if (voice) voice.stop(); if (ask) ask.reset(); },
+    onArticleChange: () => { if (voice) voice.stop(); if (ask) ask.reset(); if (summariseSurface) summariseSurface.refreshRestore(); },
   });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
   const mobile  = new Mobile({ appEl, backBtn });
@@ -180,7 +181,9 @@ async function boot() {
       const n = list.getIds().length;
       metaEl.textContent = n === 1 ? "1 item" : `${n} items`;
     }
+    if (briefingSurface) briefingSurface.refreshRestore();
   }
+  const currentShelf = () => railEl.querySelector('.shelf[aria-current="true"]')?.dataset?.shelf || "all";
   new Shelves({
     railEl, titleEl,
     onSwitch: (shelfId) => applyShelf(shelfId)
@@ -217,6 +220,8 @@ async function boot() {
   });
 
   let summariseSurface = null;
+  let briefingSurface = null;
+  const intelHistory = new IntelHistory();
   new Shortcuts({
     scrimEl,
     handlers: {
@@ -492,6 +497,8 @@ async function boot() {
     confirmBtn:       $("#readerSummariseConfirm"),
     cancelBtn:        $("#readerSummariseCancel"),
     outputEl:         $("#readerSummariseOutput"),
+    restoreBtn:       $("#readerSummariseRestore"),
+    history:          intelHistory,
   });
   voice = new VoiceIO({
     intelligence: intelligenceCtrl,
@@ -522,10 +529,12 @@ async function boot() {
     cancelBtn:        $("#readerAskCancel"),
     logEl:            $("#readerAskLog"),
   });
-  void new BriefingSurface({
+  briefingSurface = new BriefingSurface({
     intelligence: intelligenceCtrl,
     providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
     getUnread: () => list.getItems().filter(it => !store.isRead(it.id)),
+    getShelf: currentShelf,
+    history: intelHistory,
     wrapEl:           $("#listBriefing"),
     triggerBtn:       $("#listBriefingBtn"),
     statusEl:         $("#listBriefingStatus"),
@@ -535,6 +544,7 @@ async function boot() {
     cancelBtn:        $("#listBriefingCancel"),
     outputEl:         $("#listBriefingOutput"),
     toggleBtn:        $("#listBriefingToggle"),
+    restoreBtn:       $("#listBriefingRestore"),
   });
 
   const starsImport = new StarsImport({
