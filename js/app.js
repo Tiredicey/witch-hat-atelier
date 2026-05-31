@@ -22,6 +22,7 @@ import { CEREBRAS_PROVIDER } from "./intelligence/cerebras.js";
 import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { VoiceIO } from "./intelligence/voice.js";
 import { AskSurface } from "./intelligence/ask-surface.js";
+import { ClapListener } from "./intelligence/clap.js";
 import { BriefingSurface } from "./intelligence/briefing-surface.js";
 import { IntelHistory } from "./intelligence/history-store.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
@@ -558,6 +559,23 @@ async function boot() {
     logEl:            $("#readerAskLog"),
     toggleBtn:        $("#readerAskToggle"),
   });
+  const clap = new ClapListener({
+    intelligence: intelligenceCtrl,
+    wrapEl:       $("#readerClap"),
+    armBtn:       $("#readerClapBtn"),
+    indicatorEl:  $("#readerClapIndicator"),
+    onClap: () => {
+      const askWrap = document.getElementById("readerAsk");
+      const askInput = document.getElementById("readerAskInput");
+      if (askWrap && !askWrap.hidden && askInput) {
+        try { askInput.focus(); askInput.scrollIntoView({ block: "nearest" }); } catch {}
+        return;
+      }
+      const readBtn = document.getElementById("readerVoiceReadBtn");
+      if (readBtn && !readBtn.hidden) { try { readBtn.focus(); } catch {} }
+    },
+  });
+  void clap;
   briefingSurface = new BriefingSurface({
     intelligence: intelligenceCtrl,
     providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],

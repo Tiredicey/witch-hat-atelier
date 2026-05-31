@@ -2657,3 +2657,30 @@ body[data-page="settings"] .vault { display: none; }
   outline: 2px solid var(--sepia);
   outline-offset: 2px;
 }
+
+
+.reader__clap-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--sepia);
+}
+.reader__clap-indicator::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sigil-red);
+}
+.reader__clap-indicator[data-state="fail"] { color: var(--sigil-red); }
+.reader__clap-indicator[hidden] { display: none; }
+
+.reader__clap {
+  display: flex;
+  align-items: center;
+  gap: var(--gutter-s, 8px);
+  margin-top: var(--gutter-s, 8px);
+}
+.reader__clap[hidden] { display: none; }
