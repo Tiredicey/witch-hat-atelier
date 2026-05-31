@@ -498,6 +498,7 @@ async function boot() {
     cancelBtn:        $("#readerSummariseCancel"),
     outputEl:         $("#readerSummariseOutput"),
     restoreBtn:       $("#readerSummariseRestore"),
+    toggleBtn:        $("#readerSummariseToggle"),
     history:          intelHistory,
   });
   voice = new VoiceIO({
@@ -528,6 +529,7 @@ async function boot() {
     confirmBtn:       $("#readerAskConfirm"),
     cancelBtn:        $("#readerAskCancel"),
     logEl:            $("#readerAskLog"),
+    toggleBtn:        $("#readerAskToggle"),
   });
   briefingSurface = new BriefingSurface({
     intelligence: intelligenceCtrl,

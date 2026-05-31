@@ -184,10 +184,12 @@
         </div>
       </div>
       <button type="button" id="readerSummariseRestore" class="reader__summarise-restore" aria-controls="readerSummariseOutput" hidden>Show last summary</button>
+      <button type="button" id="readerSummariseToggle" class="intel-output-toggle" aria-controls="readerSummariseOutput" aria-expanded="true" hidden>Hide summary</button>
       <div class="reader__summarise-output" id="readerSummariseOutput" aria-live="polite" hidden></div>
     </div>
 
     <div class="reader__ask" id="readerAsk" hidden>
+      <button type="button" id="readerAskToggle" class="intel-output-toggle" aria-controls="readerAskLog" aria-expanded="true" hidden>Hide answers</button>
       <div class="reader__ask-log" id="readerAskLog" aria-live="polite" hidden></div>
       <form class="reader__ask-form" id="readerAskForm">
         <label class="reader__ask-label" for="readerAskInput">Ask about this article</label>
