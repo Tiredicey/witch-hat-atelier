@@ -164,6 +164,21 @@ because they do not publish public RSS in 2026:
 Refusing is the correct behavior. Silently calling `/discover` and
 returning "no feeds found" would obscure WHY no feed exists.
 
+#### Host coverage is suffix-based
+
+Detection matches the platform's registrable domain as a suffix, so
+every subdomain a user might paste is refused — not just the bare apex.
+This closes a class of bug where a marketing or mobile subdomain slipped
+past an exact-host list, fell through to the Mastodon `@user` pattern,
+and produced a dead `{subdomain}/@name.rss` "feed" that never existed.
+
+| Platform | Hosts refused (suffix match) |
+| --- | --- |
+| Facebook | `facebook.com` and any subdomain (`www.`, `m.`, `web.`, `business.`, `l.`, `lm.`), plus `fb.com`, `fb.watch` |
+| Instagram | `instagram.com` and any subdomain, plus `instagr.am` |
+| X (Twitter) | `twitter.com` / `x.com` and any subdomain (`www.`, `mobile.`) |
+| TikTok | `tiktok.com` and any subdomain (`www.`, `m.`, `vm.`, `vt.`) |
+
 ### Optional RSSHub bridge
 
 If you operate your own RSSHub instance (self-hosted or rented), you can
@@ -176,6 +191,27 @@ CODA never defaults to a public RSSHub instance. Public instances are
 rate-limited, often blocked by upstream platforms, and route your
 subscription list through a third party. Leaving the bridge URL blank
 keeps refused inputs as plain refusals.
+
+#### Bridge candidates are emitted only for documented route shapes
+
+CODA suggests a bridge URL only when the pasted URL matches a route
+shape RSSHub actually documents. URLs that are not a profile/page — and
+therefore have no working bridge route — surface the bridge docs message
+instead of a malformed candidate the user would have to debug:
+
+| Platform | Emits a candidate for | Returns no candidate for |
+| --- | --- | --- |
+| Facebook | vanity page slug → `{bridge}/facebook/page/{slug}` | `profile.php?id=`, `/groups/`, `/people/`, `/pages/`, `/watch/`, `/events/`, `fb.watch` share links, `l.facebook.com` redirects |
+| Instagram | username → `{bridge}/instagram/user/{handle}` | `/p/`, `/reel/`, `/reels/`, `/tv/`, `/stories/`, `/explore/` |
+| X (Twitter) | handle → `{bridge}/twitter/user/{handle}` | `/i/`, `/home`, `/search`, `/hashtag/`, any URL containing `/status/` |
+| TikTok | `@handle` → `{bridge}/tiktok/user/@{handle}` | share-shortener hosts and any path without a leading `@handle` |
+
+The RSSHub route names above (`/facebook/page/:page`, `/instagram/user/:id`,
+`/twitter/user/:id`, `/tiktok/user/:user`) are RSSHub's documented route
+namespaces. Whether a given route succeeds still depends on the bridge
+operator's configuration and the upstream platform's current defenses —
+CODA only guarantees the candidate URL is well-formed, never that the
+remote feed exists.
 
 ## Adapter compatibility
 

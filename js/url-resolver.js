@@ -29,21 +29,24 @@
 // Citations live in docs/add-feed.md so the source trail does not rot
 // inside a comment.
 
-const NO_RSS_PLATFORMS = {
-  "facebook.com":   "Facebook",
-  "www.facebook.com": "Facebook",
-  "m.facebook.com": "Facebook",
-  "fb.com":         "Facebook",
-  "instagram.com":  "Instagram",
-  "www.instagram.com": "Instagram",
-  "x.com":          "X (Twitter)",
-  "www.x.com":      "X (Twitter)",
-  "twitter.com":    "X (Twitter)",
-  "www.twitter.com":"X (Twitter)",
-  "mobile.twitter.com": "X (Twitter)",
-  "tiktok.com":     "TikTok",
-  "www.tiktok.com": "TikTok",
-};
+const NO_RSS_SUFFIXES = [
+  { suffix: "facebook.com", platform: "Facebook" },
+  { suffix: "fb.com",       platform: "Facebook" },
+  { suffix: "fb.watch",     platform: "Facebook" },
+  { suffix: "instagram.com", platform: "Instagram" },
+  { suffix: "instagr.am",   platform: "Instagram" },
+  { suffix: "twitter.com",  platform: "X (Twitter)" },
+  { suffix: "x.com",        platform: "X (Twitter)" },
+  { suffix: "tiktok.com",   platform: "TikTok" },
+];
+
+function noRssPlatform(host) {
+  const h = String(host || "").toLowerCase();
+  for (const { suffix, platform } of NO_RSS_SUFFIXES) {
+    if (h === suffix || h.endsWith("." + suffix)) return platform;
+  }
+  return "";
+}
 
 const NO_RSS_REASONS = {
   "Facebook":      "Facebook removed public page RSS feeds in 2018; there is no first-party URL to subscribe to.",
@@ -93,8 +96,9 @@ export function resolve(rawInput, opts = {}) {
   const host = url.host.toLowerCase();
   const path = url.pathname || "/";
 
-  if (NO_RSS_PLATFORMS[host]) {
-    const platform = NO_RSS_PLATFORMS[host];
+  const noRss = noRssPlatform(host);
+  if (noRss) {
+    const platform = noRss;
     const bridgeHint = buildBridgeHint(platform, url, opts.bridgeBase || "");
     return {
       kind: "refused",
@@ -287,19 +291,47 @@ function buildBridgeHint(platform, url, bridgeBase) {
   };
 }
 
+const FB_RESERVED = new Set([
+  "profile.php", "people", "pages", "groups", "watch", "events",
+  "marketplace", "gaming", "story.php", "permalink.php", "sharer",
+  "login", "help", "settings", "photo.php", "media",
+]);
+const IG_RESERVED = new Set([
+  "p", "reel", "reels", "tv", "stories", "explore", "accounts", "directory",
+]);
+const X_RESERVED = new Set([
+  "i", "home", "search", "hashtag", "explore", "notifications",
+  "messages", "settings", "compose", "intent", "share",
+]);
+
 function bridgePathFor(platform, url) {
   const segs = url.pathname.split("/").filter(Boolean);
-  if (platform === "Facebook" && segs.length >= 1) {
-    return `/facebook/page/${segs[0]}`;
+  if (!segs.length) return "";
+  const first = segs[0];
+  if (platform === "Facebook") {
+    const host = (url.host || "").toLowerCase();
+    if (host === "fb.watch" || host.startsWith("l.facebook") || host.startsWith("lm.facebook")) return "";
+    if (FB_RESERVED.has(first.toLowerCase())) return "";
+    if (!/^[A-Za-z0-9.]+$/.test(first)) return "";
+    return `/facebook/page/${first}`;
   }
-  if (platform === "Instagram" && segs.length >= 1) {
-    return `/instagram/user/${segs[0]}`;
+  if (platform === "Instagram") {
+    if (IG_RESERVED.has(first.toLowerCase())) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9._]+$/.test(handle)) return "";
+    return `/instagram/user/${handle}`;
   }
-  if (platform === "X (Twitter)" && segs.length >= 1) {
-    return `/twitter/user/${segs[0]}`;
+  if (platform === "X (Twitter)") {
+    if (X_RESERVED.has(first.toLowerCase())) return "";
+    if (segs.some((s) => s.toLowerCase() === "status")) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9_]+$/.test(handle)) return "";
+    return `/twitter/user/${handle}`;
   }
-  if (platform === "TikTok" && segs.length >= 1) {
-    const handle = segs[0].replace(/^@/, "");
+  if (platform === "TikTok") {
+    if (!first.startsWith("@")) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9._]+$/.test(handle)) return "";
     return `/tiktok/user/@${handle}`;
   }
   return "";
