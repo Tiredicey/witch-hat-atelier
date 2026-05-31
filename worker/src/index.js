@@ -33,6 +33,7 @@ import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 import { scrapeFeedItems, buildAtom } from "./scrape.js";
+import { gmaListingApi, gmaListingItems } from "./gma.js";
 import { renderHtml, rendererConfigured } from "./render.js";
 import { handleDmz } from "./dmz.js";
 
@@ -312,6 +313,24 @@ async function handleDiscover(url, env) {
     if (found.length >= 5) break;
   }
   if (found.length) return jsonResp({ candidates: found, probed: true });
+  const structured = await fetchStructuredItems(target, env);
+  if (structured.length) {
+    return jsonResp({
+      candidates: [{
+        url: `${url.origin}/scrape?url=${encodeURIComponent(target)}`,
+        type: "atom",
+        title: `${hostOf(target)} (synthesized)`,
+        synthetic: true,
+        rendered: false,
+        structured: true,
+        itemCount: structured.length,
+        confidence: "high",
+        preview: structured.slice(0, 5).map((it) => it.title),
+      }],
+      probed: true,
+      synthetic: true,
+    });
+  }
   let scraped = scrapeFeedItems(html, target);
   let rendered = false;
   if (!scraped.items.length && rendererConfigured(env)) {
@@ -345,6 +364,15 @@ async function handleScrape(url, env) {
   if (!target) return jsonError(400, "missing url");
   const gate = allowProxy(target, env.PROXY_ALLOW);
   if (!gate.ok) return jsonError(403, `proxy ${gate.reason}`);
+  const structured = await fetchStructuredItems(target, env, { page: url.searchParams.get("page") });
+  if (structured.length) {
+    const selfUrl = `${url.origin}${url.pathname}${url.search}`;
+    const atom = buildAtom(structured, { pageUrl: target, selfUrl, title: hostOf(target) });
+    return new Response(atom, {
+      status: 200,
+      headers: { "Content-Type": "application/atom+xml; charset=utf-8", ...corsHeaders() },
+    });
+  }
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
   const page = await proxyFetch(target, { ua: env.UA, maxBytes });
   if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
@@ -366,6 +394,16 @@ async function handleScrape(url, env) {
     status: 200,
     headers: { "Content-Type": "application/atom+xml; charset=utf-8", ...corsHeaders() },
   });
+}
+
+async function fetchStructuredItems(target, env, opts = {}) {
+  const api = gmaListingApi(target, opts.page || 1);
+  if (!api) return [];
+  const gate = allowProxy(api, env.PROXY_ALLOW);
+  if (!gate.ok) return [];
+  const r = await proxyFetch(api, { ua: env.UA, maxBytes: 2_000_000 });
+  if (r.status !== 200) return [];
+  return gmaListingItems(decodeText(r.body), { limit: Number(env.SCRAPE_LIMIT) || 50 });
 }
 
 function hostOf(u) {
