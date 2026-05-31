@@ -1685,6 +1685,21 @@ body[data-page="settings"] .scrim { display: none !important; }
   overscroll-behavior-y: contain;
 }
 .list__briefing-output[hidden] { display: none; }
+.list__briefing-toggle {
+  align-self: flex-start;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.list__briefing-toggle:hover { color: var(--ink); }
+.list__briefing-toggle:focus-visible { outline: 2px solid var(--sepia); outline-offset: 2px; }
+.list__briefing-toggle[hidden] { display: none; }
 
 .reader__audio {
   display: block;

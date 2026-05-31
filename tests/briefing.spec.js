@@ -92,4 +92,34 @@ test.describe('cross-article briefing (§18.3 rung 4)', () => {
     expect(groqCalls.length).toBe(1);
     expect(cerebrasCalls.length).toBe(1);
   });
+
+  test('briefing output can be hidden and shown again', async ({ page }) => {
+    await page.route(GROQ_URL, async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', choices: [{ message: { role: 'assistant', content: '- Theme one.' } }] }),
+      });
+    });
+    await page.goto('/');
+    await enableBriefing(page);
+    await page.locator('#listBriefingBtn').click();
+    await page.locator('#listBriefingConfirm').click();
+
+    const out = page.locator('#listBriefingOutput');
+    const toggle = page.locator('#listBriefingToggle');
+    await expect(out).toContainText('Theme one');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText('Hide briefing');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await toggle.click();
+    await expect(out).toBeHidden();
+    await expect(toggle).toHaveText('Show briefing');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await toggle.click();
+    await expect(out).toBeVisible();
+    await expect(out).toContainText('Theme one');
+    await expect(toggle).toHaveText('Hide briefing');
+  });
 });
