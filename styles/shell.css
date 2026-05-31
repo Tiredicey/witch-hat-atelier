@@ -2524,3 +2524,87 @@ body[data-page="settings"] .vault { display: none; }
   letter-spacing: 0;
   margin-left: 6px;
 }
+
+/* Reader-pane video player (parity with the list preview embed) */
+.reader__video {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-width: var(--reader-max-ch);
+  margin: var(--gutter-m) auto 6px;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.reader__videoPlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.reader__videoPlay:hover,
+.reader__videoPlay:focus-visible {
+  background: rgba(0, 0, 0, 0.75);
+  outline: 2px solid var(--sepia);
+  outline-offset: -2px;
+}
+.reader__videoFrame { width: 100%; height: 100%; border: 0; display: block; }
+.reader__videoFallback {
+  display: block;
+  max-width: var(--reader-max-ch);
+  margin: 0 auto var(--gutter-l);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--sepia);
+  text-decoration: none;
+}
+.reader__videoFallback:hover { text-decoration: underline; }
+.reader__videoFallback:focus-visible { outline: 2px solid var(--sepia); outline-offset: 2px; }
+
+/* Vertical framing for YouTube Shorts in either pane */
+.reader__video[data-short="true"],
+.article-row__video[data-short="true"] {
+  aspect-ratio: 9 / 16;
+  max-width: 320px;
+}
+
+/* Close affordance shared by the list preview and reader players */
+.article-row__videoClose,
+.reader__videoClose {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1;
+}
+.article-row__videoClose:hover,
+.article-row__videoClose:focus-visible,
+.reader__videoClose:hover,
+.reader__videoClose:focus-visible {
+  background: rgba(0, 0, 0, 0.8);
+  outline: 2px solid var(--sepia);
+  outline-offset: 2px;
+}

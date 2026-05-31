@@ -6,6 +6,8 @@
 //
 // Selection state toggles the watercolour-wash CSS hook on the wrapper.
 
+import { buildVideoEmbed } from "./video-embed.js";
+
 export class Reader {
   /**
    * @param {object} opts
@@ -160,6 +162,12 @@ export class Reader {
             stroke-width="0.9" stroke-opacity="0.5" stroke-linecap="round"/>
       <circle cx="60" cy="9" r="1.4" fill="currentColor" opacity="0.5"/>`;
     article.appendChild(flourish);
+
+    if (a.video && a.video.id) {
+      const { holder, fallback } = buildVideoEmbed(a.video, "reader");
+      article.appendChild(holder);
+      article.appendChild(fallback);
+    }
 
     const enc = a.enclosure;
     if (enc && enc.url && /^audio\//i.test(enc.type || "")) {

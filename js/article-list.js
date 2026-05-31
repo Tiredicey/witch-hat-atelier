@@ -5,6 +5,8 @@
 // Emits no events; callers register a row-select callback via the
 // constructor's `onSelect` argument.
 
+import { buildVideoEmbed } from "./video-embed.js";
+
 const DIVIDERS = ["a", "b", "c"];
 
 export class ArticleList {
@@ -194,42 +196,9 @@ export class ArticleList {
     }
 
     if (it.video && it.video.id) {
-      const holder = document.createElement("div");
-      holder.className = "article-row__video";
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "article-row__videoPlay";
-      btn.textContent = it.video.provider === "vimeo"
-        ? "▶ Play Vimeo video"
-        : "▶ Play YouTube video";
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const iframe = document.createElement("iframe");
-        iframe.className = "article-row__videoFrame";
-        iframe.src = it.video.provider === "vimeo"
-          ? `https://player.vimeo.com/video/${it.video.id}?dnt=1&autoplay=1`
-          : `https://www.youtube-nocookie.com/embed/${it.video.id}?autoplay=1&rel=0&modestbranding=1`;
-        iframe.allow = "encrypted-media; picture-in-picture";
-        iframe.referrerPolicy = "strict-origin-when-cross-origin";
-        iframe.loading = "lazy";
-        iframe.title = "Embedded video";
-        iframe.allowFullscreen = true;
-        holder.replaceChildren(iframe);
-      });
-      holder.appendChild(btn);
+      const { holder, fallback } = buildVideoEmbed(it.video, "article-row");
       panel.appendChild(holder);
-
-      const watchOn = document.createElement("a");
-      watchOn.className = "article-row__videoFallback";
-      watchOn.href = it.video.provider === "vimeo"
-        ? `https://vimeo.com/${it.video.id}`
-        : `https://www.youtube.com/watch?v=${it.video.id}`;
-      watchOn.target = "_blank";
-      watchOn.rel = "noopener noreferrer";
-      watchOn.textContent = it.video.provider === "vimeo"
-        ? "Watch on Vimeo ↗"
-        : "Watch on YouTube ↗";
-      panel.appendChild(watchOn);
+      panel.appendChild(fallback);
     }
 
     if (it.link) {
