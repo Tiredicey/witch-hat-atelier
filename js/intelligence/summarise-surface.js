@@ -1,6 +1,7 @@
 import { chatComplete } from "./openai-compatible.js";
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
 import { relTime } from "./history-store.js";
+import { CollapsibleOutput } from "./output-toggle.js";
 
 function pascal(id) {
   return id.split(/[-_]/).map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join("");
@@ -42,9 +43,11 @@ export class SummariseSurface {
     this.cancelBtn = opts.cancelBtn;
     this.outputEl = opts.outputEl;
     this.restoreBtn = opts.restoreBtn || null;
+    this.toggleBtn = opts.toggleBtn || null;
     this.history = opts.history || null;
     this.fetchImpl = opts.fetchImpl || null;
     this.inflight = null;
+    this.collapse = new CollapsibleOutput(this.toggleBtn, this.outputEl, { noun: "summary" });
 
     for (const provider of this.providers) {
       this.#mountFieldset(provider);
@@ -138,6 +141,7 @@ export class SummariseSurface {
     if (!saved) return;
     this.outputEl.textContent = saved.text;
     this.outputEl.hidden = false;
+    this.collapse.reveal();
     const where = saved.hostname ? ` · ${saved.hostname}` : "";
     this.#setStatus(`Saved summary${where} · ${relTime(saved.ts)}`, "ok");
   }
@@ -153,6 +157,7 @@ export class SummariseSurface {
       this.#dismissDisclosure();
       this.outputEl.hidden = true;
       this.outputEl.textContent = "";
+      this.collapse.clear();
       this.#setStatus("", null);
       if (this.restoreBtn) this.restoreBtn.hidden = true;
     }
@@ -228,6 +233,7 @@ export class SummariseSurface {
     }
     this.outputEl.hidden = true;
     this.outputEl.textContent = "";
+    this.collapse.clear();
     this.triggerBtn.disabled = true;
     const controller = new AbortController();
     this.inflight = controller;
@@ -247,6 +253,7 @@ export class SummariseSurface {
           });
           this.outputEl.textContent = summary;
           this.outputEl.hidden = false;
+          this.collapse.reveal();
           this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
           if (this.history) {
             this.history.recordSummary({ id: article.id, title: article.title, source: article.source, text: summary, hostname: provider.hostname, model });

@@ -1,5 +1,6 @@
 import { chatAsk, isTransientError } from "./openai-compatible.js";
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
+import { CollapsibleOutput } from "./output-toggle.js";
 
 export const ASK_SURFACE = "ask-qa";
 const MAX_HISTORY_TURNS = 6;
@@ -22,11 +23,13 @@ export class AskSurface {
     this.confirmBtn = opts.confirmBtn;
     this.cancelBtn = opts.cancelBtn;
     this.logEl = opts.logEl;
+    this.toggleBtn = opts.toggleBtn || null;
     this.fetchImpl = opts.fetchImpl || null;
 
     this.history = [];
     this.inflight = null;
     this.pendingQuestion = "";
+    this.collapse = new CollapsibleOutput(this.toggleBtn, this.logEl, { noun: "answers" });
 
     this.#mountSettings();
     this.#bind();
@@ -50,6 +53,7 @@ export class AskSurface {
       this.logEl.replaceChildren();
       this.logEl.hidden = true;
     }
+    if (this.collapse) this.collapse.clear();
     this.#dismissDisclosure();
     this.#setStatus("", null);
     if (this.inputEl) this.inputEl.value = "";
@@ -166,6 +170,7 @@ export class AskSurface {
     row.className = role === "user" ? "reader__ask-q" : "reader__ask-a";
     row.textContent = text;
     this.logEl.appendChild(row);
+    this.collapse.reveal();
   }
 
   async #run(article, question) {

@@ -1515,6 +1515,22 @@ body[data-page="settings"] .scrim { display: none !important; }
 .reader__summarise-restore:focus-visible { outline: 2px solid var(--sepia); outline-offset: 2px; }
 .reader__summarise-restore[hidden] { display: none; }
 
+.intel-output-toggle {
+  align-self: flex-start;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.intel-output-toggle:hover { color: var(--ink); }
+.intel-output-toggle:focus-visible { outline: 2px solid var(--sepia); outline-offset: 2px; }
+.intel-output-toggle[hidden] { display: none; }
+
 .reader__voice {
   display: flex;
   flex-wrap: wrap;
