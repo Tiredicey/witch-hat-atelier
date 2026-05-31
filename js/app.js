@@ -86,6 +86,7 @@ async function boot() {
     extractWrapEl:   document.getElementById("readerExtract"),
     extractBtn:      document.getElementById("readCleanBtn"),
     extractStatusEl: document.getElementById("readerExtractStatus"),
+    extractEnabled:  false,
     onArticleChange: () => { if (voice) voice.stop(); if (ask) ask.reset(); if (summariseSurface) summariseSurface.refreshRestore(); },
   });
   const atelier = new Atelier({ appEl, toggleEl: atelierBtn });
