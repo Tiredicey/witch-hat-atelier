@@ -60,6 +60,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust
   line-height: 1;
   pointer-events: none;
 }
+.shelf .count[hidden] { display: none; }
 .shelf .err {
   position: absolute;
   top: 2px; right: 2px;

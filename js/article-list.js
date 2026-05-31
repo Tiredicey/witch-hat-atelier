@@ -47,6 +47,7 @@ export class ArticleList {
   /** Public: id list of currently visible items (for j/k navigation). */
   getIds() { return this.items.map(x => x.id); }
   getItems() { return this.items.slice(); }
+  getAllItems() { return this.allItems.slice(); }
 
   /**
    * Public: filter the visible rows.
