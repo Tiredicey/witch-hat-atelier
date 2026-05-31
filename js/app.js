@@ -80,6 +80,8 @@ async function boot() {
 
   let voice = null;
   let ask = null;
+  let summariseSurface = null;
+  let briefingSurface = null;
   const reader  = new Reader({
     wrapEl,
     readerEl,
@@ -220,8 +222,6 @@ async function boot() {
     notes.isOpen() ? notes.close() : notes.open();
   });
 
-  let summariseSurface = null;
-  let briefingSurface = null;
   const intelHistory = new IntelHistory();
   new Shortcuts({
     scrimEl,
