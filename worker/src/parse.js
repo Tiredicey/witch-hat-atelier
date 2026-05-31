@@ -88,6 +88,8 @@ function mediaThumb(block) {
 
 function detectVideo(s) {
   if (!s) return null;
+  const short = s.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/);
+  if (short) return { provider: "youtube", id: short[1], short: true };
   const yt = s.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   if (yt) return { provider: "youtube", id: yt[1] };
   const vm = s.match(/(?:vimeo\.com\/(?:video\/)?)(\d{6,})/);
