@@ -497,6 +497,36 @@
           <p class="settings__test" id="add-feed-bridge-status" aria-live="polite"></p>
         </div>
       </details>
+
+      <details class="add-feed__social">
+        <summary>Social feeds &amp; sign-in (optional)</summary>
+        <p class="settings__hint">
+          Facebook, Instagram, X, and TikTok keep their posts behind a sign-in, so they have no open feed to subscribe to. If you&rsquo;d like CODA to build a feed from one anyway, switch this on. To include posts that only show when you&rsquo;re signed in, you can paste your own browser session below &mdash; it stays on this device, goes only to your own fetch proxy, and is never shared. Leaving it blank still tries public posts, and you can clear it any time.
+        </p>
+        <label class="settings__field settings__field--check">
+          <input id="add-feed-social-enabled" type="checkbox">
+          <span>Build a feed when I paste a social link</span>
+        </label>
+        <label class="settings__field">
+          <span>Facebook sign-in (optional)</span>
+          <textarea id="add-feed-social-facebook" rows="2" placeholder="Paste your Facebook session to include posts only you can see" autocomplete="off" spellcheck="false"></textarea>
+        </label>
+        <label class="settings__field">
+          <span>Instagram sign-in (optional)</span>
+          <textarea id="add-feed-social-instagram" rows="2" placeholder="Paste your Instagram session (optional)" autocomplete="off" spellcheck="false"></textarea>
+        </label>
+        <div class="add-feed__row">
+          <button type="button" id="add-feed-social-save" data-variant="primary">Save</button>
+          <button type="button" id="add-feed-social-clear">Clear sign-ins</button>
+          <p class="settings__test" id="add-feed-social-status" aria-live="polite"></p>
+        </div>
+        <details class="add-feed__social-help">
+          <summary>Where do I find my sign-in?</summary>
+          <p class="settings__hint">
+            Sign in to the site in another browser tab. Open your browser menu &rarr; Developer tools &rarr; Application (or Storage) &rarr; Cookies, choose the site, and copy the values you see. Paste them here as <code>name=value; name=value</code>. If that feels like a lot, you can skip it &mdash; public pages still work, and the bridge option above is the easy route.
+          </p>
+        </details>
+      </details>
     </section>
 
     <section class="settings__section settings__subs">

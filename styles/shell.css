@@ -1042,8 +1042,30 @@ body[data-page="settings"] .scrim { display: none !important; }
   color: var(--ink-faint);
 }
 .settings__field input,
-.settings__field select {
+.settings__field select,
+.settings__field textarea {
   width: 100%;
+}
+.settings__field textarea {
+  min-height: 56px;
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--size-ui-s);
+}
+.settings__field--check {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--gutter-s);
+}
+.settings__field--check input {
+  width: auto;
+  flex: 0 0 auto;
+}
+.settings__field--check > span {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--size-ui-m, var(--size-ui-s));
+  color: var(--ink-soft);
 }
 .settings__group {
   border: var(--stroke-1) solid var(--line);
