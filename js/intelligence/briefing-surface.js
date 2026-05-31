@@ -1,5 +1,6 @@
 import { chatBrief, chatBriefMerge, isTransientError } from "./openai-compatible.js";
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
+import { relTime } from "./history-store.js";
 
 export const BRIEFING_SURFACE = "briefing";
 const BATCH_SIZE = 20;
@@ -27,6 +28,9 @@ export class BriefingSurface {
     this.cancelBtn = opts.cancelBtn;
     this.outputEl = opts.outputEl;
     this.toggleBtn = opts.toggleBtn || null;
+    this.restoreBtn = opts.restoreBtn || null;
+    this.history = opts.history || null;
+    this.getShelf = typeof opts.getShelf === "function" ? opts.getShelf : () => "all";
     this.fetchImpl = opts.fetchImpl || null;
     this.inflight = null;
 
@@ -79,7 +83,23 @@ export class BriefingSurface {
     if (this.toggleBtn) this.toggleBtn.addEventListener("click", () => this.#toggleOutput());
     if (this.confirmBtn) this.confirmBtn.addEventListener("click", () => this.#onConfirm());
     if (this.cancelBtn) this.cancelBtn.addEventListener("click", () => this.#dismissDisclosure());
+    if (this.restoreBtn) this.restoreBtn.addEventListener("click", () => this.#showSaved());
     this.#sync();
+  }
+
+  refreshRestore() {
+    if (!this.restoreBtn) return;
+    const saved = this.isReady() && this.history ? this.history.latestBriefing(this.getShelf()) : null;
+    this.restoreBtn.hidden = !saved;
+  }
+
+  #showSaved() {
+    const saved = this.history ? this.history.latestBriefing(this.getShelf()) : null;
+    if (!saved) return;
+    this.#showOutput(saved.text);
+    const where = saved.hostname ? ` · ${saved.hostname}` : "";
+    const n = saved.count ? `${saved.count} unread · ` : "";
+    this.#setStatus(`Saved briefing · ${n}${relTime(saved.ts)}${where}`, "ok");
   }
 
   #sync() {
@@ -89,6 +109,9 @@ export class BriefingSurface {
       this.#dismissDisclosure();
       this.#hideOutput();
       this.#setStatus("", null);
+      if (this.restoreBtn) this.restoreBtn.hidden = true;
+    } else {
+      this.refreshRestore();
     }
   }
 
@@ -145,6 +168,7 @@ export class BriefingSurface {
     }
     this.#hideOutput();
     this.triggerBtn.disabled = true;
+    const shelf = this.getShelf();
     const controller = new AbortController();
     this.inflight = controller;
     try {
@@ -154,6 +178,7 @@ export class BriefingSurface {
         const r = await this.#briefBatch(batches[0], controller.signal);
         this.#showOutput(r.briefing);
         this.#setStatus(`Briefed ${items.length} unread · ${r.hostname} · ${r.model}`, "ok");
+        this.#record(shelf, items.length, r.briefing, r.hostname, r.model);
         return;
       }
       const partials = [];
@@ -167,6 +192,7 @@ export class BriefingSurface {
       const merged = await this.#mergeBatches(partials, controller.signal);
       this.#showOutput(merged.briefing);
       this.#setStatus(`Briefed ${items.length} unread in ${batches.length} batches · ${merged.hostname} · ${merged.model}`, "ok");
+      this.#record(shelf, items.length, merged.briefing, merged.hostname, merged.model);
     } catch (e) {
       if (controller.signal.aborted) return;
       this.#setStatus(e && e.message ? e.message : "The briefing failed.", "fail");
@@ -205,6 +231,12 @@ export class BriefingSurface {
   #mergeBatches(partials, signal) {
     return this.#callChain(signal, (provider, apiKey, s) =>
       chatBriefMerge({ provider, apiKey, partials, signal: s, fetchImpl: this.fetchImpl }));
+  }
+
+  #record(shelf, count, text, hostname, model) {
+    if (!this.history || !text) return;
+    this.history.recordBriefing({ shelf, count, text, hostname, model });
+    this.refreshRestore();
   }
 
   #showOutput(text) {

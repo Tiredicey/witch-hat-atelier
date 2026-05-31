@@ -1,5 +1,6 @@
 import { chatComplete } from "./openai-compatible.js";
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
+import { relTime } from "./history-store.js";
 
 function pascal(id) {
   return id.split(/[-_]/).map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join("");
@@ -40,6 +41,8 @@ export class SummariseSurface {
     this.confirmBtn = opts.confirmBtn;
     this.cancelBtn = opts.cancelBtn;
     this.outputEl = opts.outputEl;
+    this.restoreBtn = opts.restoreBtn || null;
+    this.history = opts.history || null;
     this.fetchImpl = opts.fetchImpl || null;
     this.inflight = null;
 
@@ -118,7 +121,25 @@ export class SummariseSurface {
     this.triggerBtn.addEventListener("click", () => this.#onTrigger());
     this.confirmBtn.addEventListener("click", () => this.#onConfirm());
     this.cancelBtn.addEventListener("click", () => this.#dismissDisclosure());
+    if (this.restoreBtn) this.restoreBtn.addEventListener("click", () => this.#showSaved());
     this.#syncVisibility();
+  }
+
+  refreshRestore() {
+    if (!this.restoreBtn) return;
+    const article = this.#articleSnapshot();
+    const saved = this.isReady() && this.history && article ? this.history.getSummary(article.id) : null;
+    this.restoreBtn.hidden = !saved;
+  }
+
+  #showSaved() {
+    const article = this.#articleSnapshot();
+    const saved = article && this.history ? this.history.getSummary(article.id) : null;
+    if (!saved) return;
+    this.outputEl.textContent = saved.text;
+    this.outputEl.hidden = false;
+    const where = saved.hostname ? ` · ${saved.hostname}` : "";
+    this.#setStatus(`Saved summary${where} · ${relTime(saved.ts)}`, "ok");
   }
 
   #syncVisibility() {
@@ -127,11 +148,13 @@ export class SummariseSurface {
     this.wrapEl.hidden = !on;
     if (on) {
       this.triggerBtn.textContent = `Summarise via ${active.label}`;
+      this.refreshRestore();
     } else {
       this.#dismissDisclosure();
       this.outputEl.hidden = true;
       this.outputEl.textContent = "";
       this.#setStatus("", null);
+      if (this.restoreBtn) this.restoreBtn.hidden = true;
     }
   }
 
@@ -225,6 +248,10 @@ export class SummariseSurface {
           this.outputEl.textContent = summary;
           this.outputEl.hidden = false;
           this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
+          if (this.history) {
+            this.history.recordSummary({ id: article.id, title: article.title, source: article.source, text: summary, hostname: provider.hostname, model });
+            this.refreshRestore();
+          }
           return;
         } catch (e) {
           if (controller.signal.aborted) return;
