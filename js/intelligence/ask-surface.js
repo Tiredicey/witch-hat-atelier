@@ -25,6 +25,7 @@ export class AskSurface {
     this.logEl = opts.logEl;
     this.toggleBtn = opts.toggleBtn || null;
     this.fetchImpl = opts.fetchImpl || null;
+    this.onAnswer = typeof opts.onAnswer === "function" ? opts.onAnswer : null;
 
     this.history = [];
     this.inflight = null;
@@ -201,6 +202,7 @@ export class AskSurface {
             fetchImpl: this.fetchImpl,
           });
           this.#appendTurn("assistant", answer);
+          if (this.onAnswer) { try { this.onAnswer(answer); } catch {} }
           this.history.push({ role: "user", content: question });
           this.history.push({ role: "assistant", content: answer });
           this.#setStatus(`Answered by ${provider.hostname} · ${model}`, "ok");
