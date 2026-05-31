@@ -2716,6 +2716,17 @@ body[data-page="settings"] .vault { display: none; }
 }
 .copilot__close:hover { color: var(--ink); border-color: var(--ink-soft); }
 .copilot__scope { margin: 0; color: var(--ink-faint); }
+.copilot__greeting {
+  border: var(--stroke-1) solid var(--line);
+  border-radius: var(--radius-s);
+  padding: var(--gutter-s);
+  background: var(--wash);
+}
+.copilot__greeting[hidden] { display: none; }
+.copilot__greeting-text { margin: 0 0 4px; white-space: pre-line; color: var(--ink); }
+.copilot__greeting-status { margin: 0; color: var(--ink-faint); }
+.copilot__greeting-status[data-status="ok"]   { color: var(--sigil-green, var(--ink-soft)); }
+.copilot__greeting-status[data-status="info"] { color: var(--ink-faint); }
 .copilot__clap[hidden] { display: none; }
 .copilot__clap-btn {
   font-family: var(--font-ui);

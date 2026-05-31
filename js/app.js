@@ -24,6 +24,7 @@ import { VoiceIO } from "./intelligence/voice.js";
 import { AskSurface } from "./intelligence/ask-surface.js";
 import { ClapListener } from "./intelligence/clap.js";
 import { CopilotSurface } from "./intelligence/copilot-surface.js";
+import { DailyFirstRitual } from "./intelligence/daily-first.js";
 import { BriefingSurface } from "./intelligence/briefing-surface.js";
 import { IntelHistory } from "./intelligence/history-store.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
@@ -83,6 +84,7 @@ async function boot() {
   let voice = null;
   let ask = null;
   let copilotSurface = null;
+  let dailyFirst = null;
   let summariseSurface = null;
   let briefingSurface = null;
   const reader  = new Reader({
@@ -584,12 +586,24 @@ async function boot() {
     confirmBtn:       $("#copilotConfirm"),
     cancelBtn:        $("#copilotCancel"),
   });
+  dailyFirst = new DailyFirstRitual({
+    intelligence: intelligenceCtrl,
+    adapter,
+    history: intelHistory,
+    voice,
+    getShelf: currentShelf,
+    onLoop: () => { if (copilotSurface) copilotSurface.open(); },
+    wrapEl:    $("#copilotGreeting"),
+    textEl:    $("#copilotGreetingText"),
+    statusEl:  $("#copilotGreetingStatus"),
+  });
+  await dailyFirst.init();
   const clap = new ClapListener({
     intelligence: intelligenceCtrl,
     wrapEl:       $("#copilotClap"),
     armBtn:       $("#copilotClapBtn"),
     indicatorEl:  $("#copilotClapIndicator"),
-    onClap: () => { if (copilotSurface) copilotSurface.open(); },
+    onClap: () => { if (dailyFirst) dailyFirst.onClap(); else if (copilotSurface) copilotSurface.open(); },
   });
   void clap;
   briefingSurface = new BriefingSurface({
