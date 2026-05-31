@@ -24,6 +24,13 @@ import { parseFeed } from "../worker/src/parse.js";
 import { parseOpml } from "./opml.js";
 
 const BRIDGE_KEY = "coda/bridge/base";
+const BRIDGE_KIND_KEY = "coda/bridge/kind";
+
+function guessBridgeKind(base) {
+  const b = String(base || "").toLowerCase();
+  if (/rss-?bridge|bridge\.php|\baction=display\b/.test(b)) return "rss-bridge";
+  return "rsshub";
+}
 
 export class AddFeed {
   constructor(opts) {
@@ -34,6 +41,7 @@ export class AddFeed {
     this.candidatesEl  = opts.candidatesEl;
     this.refusedEl     = opts.refusedEl;
     this.bridgeInput   = opts.bridgeInput;
+    this.bridgeKindInput = opts.bridgeKindInput;
     this.bridgeSaveBtn = opts.bridgeSaveBtn;
     this.bridgeClearBtn = opts.bridgeClearBtn;
     this.bridgeStatusEl = opts.bridgeStatusEl;
@@ -47,6 +55,9 @@ export class AddFeed {
 
     if (this.bridgeInput) {
       this.bridgeInput.value = this.#loadBridge();
+    }
+    if (this.bridgeKindInput) {
+      this.bridgeKindInput.value = this.#storedBridgeKind();
     }
     this.#updateBridgeBadge();
 
@@ -136,7 +147,10 @@ export class AddFeed {
     this.#clearRefused();
     this.#setStatus("Resolving\u2026", "pending");
 
-    const result = resolveUrl(raw, { bridgeBase: this.#loadBridge() });
+    const result = resolveUrl(raw, {
+      bridgeBase: this.#loadBridge(),
+      bridgeKind: this.#loadBridgeKind(),
+    });
     if (result.kind === "invalid") {
       this.#setStatus(result.reason, "fail");
       return;
@@ -374,8 +388,17 @@ export class AddFeed {
       if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("must be http(s)");
       const normalised = u.toString().replace(/\/+$/, "");
       localStorage.setItem(BRIDGE_KEY, normalised);
+      const selectedKind = (this.bridgeKindInput?.value || "").trim();
+      if (selectedKind === "rsshub" || selectedKind === "rss-bridge") {
+        localStorage.setItem(BRIDGE_KIND_KEY, selectedKind);
+      } else {
+        localStorage.removeItem(BRIDGE_KIND_KEY);
+      }
       if (this.bridgeInput) this.bridgeInput.value = normalised;
-      this.#setBridgeStatus(`Saved. Refused platforms will now suggest ${normalised} as the bridge base.`, "ok");
+      const effective = this.#loadBridgeKind();
+      const label = effective === "rss-bridge" ? "RSS-Bridge" : "RSSHub";
+      const how = selectedKind ? "" : " (auto-detected from the URL)";
+      this.#setBridgeStatus(`Saved as a ${label} instance${how}. Refused platforms will now suggest candidate URLs on ${normalised}.`, "ok");
       this.#updateBridgeBadge();
     } catch (e) {
       this.#setBridgeStatus(`Not a valid URL: ${e.message || e}`, "fail");
@@ -384,9 +407,24 @@ export class AddFeed {
 
   #onClearBridge() {
     localStorage.removeItem(BRIDGE_KEY);
+    localStorage.removeItem(BRIDGE_KIND_KEY);
     if (this.bridgeInput) this.bridgeInput.value = "";
+    if (this.bridgeKindInput) this.bridgeKindInput.value = "";
     this.#setBridgeStatus("Bridge URL cleared. Refused platforms will no longer suggest a bridge URL.", "ok");
     this.#updateBridgeBadge();
+  }
+
+  #storedBridgeKind() {
+    try {
+      const v = localStorage.getItem(BRIDGE_KIND_KEY) || "";
+      return (v === "rsshub" || v === "rss-bridge") ? v : "";
+    } catch { return ""; }
+  }
+
+  #loadBridgeKind() {
+    const stored = this.#storedBridgeKind();
+    if (stored) return stored;
+    return guessBridgeKind(this.#loadBridge());
   }
 
   #updateBridgeBadge() {
