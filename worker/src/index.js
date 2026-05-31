@@ -286,33 +286,44 @@ async function handleDiscover(url, env) {
   if (!gate.ok) return jsonResp({ candidates: [], probed: false, gateBlocked: true, gateReason: gate.reason }, 200);
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
   const page = await proxyFetch(target, { ua: env.UA, maxBytes });
-  if (page.status === 0)  return jsonResp({ candidates: [], probed: false, upstreamError: page.error || "upstream fetch failed" }, 200);
-  if (page.status >= 400) return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
-  if (looksLikeFeed(page.body, page.contentType)) {
+  const ok = page.status > 0 && page.status < 400;
+  if (ok && looksLikeFeed(page.body, page.contentType)) {
     return jsonResp({
       candidates: [{ url: target, type: classifyByBody(page.body, page.contentType), title: "" }],
       probed: false,
       direct: true,
     });
   }
-  const html = decodeText(page.body);
-  const fromHtml = extractFeedLinks(html, target);
-  if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false });
-  const probes = commonFeedPaths(target).slice(0, 8);
-  const found = [];
-  const seen = new Set();
-  for (const p of probes) {
-    const gate2 = allowProxy(p, env.PROXY_ALLOW);
-    if (!gate2.ok) continue;
-    const r = await proxyFetch(p, { ua: env.UA, maxBytes: 200_000 });
-    if (r.status !== 200) continue;
-    if (!looksLikeFeed(r.body, r.contentType)) continue;
-    if (seen.has(p)) continue;
-    seen.add(p);
-    found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
-    if (found.length >= 5) break;
+  let html = ok ? decodeText(page.body) : "";
+  let pageRendered = false;
+  const blocked = !ok;
+  if ((blocked || !html.trim()) && rendererConfigured(env)) {
+    const r = await renderHtml(target, env);
+    if (r.ok && r.html) { html = r.html; pageRendered = true; }
   }
-  if (found.length) return jsonResp({ candidates: found, probed: true });
+  if (!html.trim()) {
+    if (page.status === 0)  return jsonResp({ candidates: [], probed: false, upstreamError: page.error || "upstream fetch failed" }, 200);
+    return jsonResp({ candidates: [], probed: false, sourceStatus: page.status });
+  }
+  const fromHtml = extractFeedLinks(html, target);
+  if (fromHtml.length) return jsonResp({ candidates: fromHtml, probed: false, pageRendered });
+  const found = [];
+  if (!blocked) {
+    const probes = commonFeedPaths(target).slice(0, 12);
+    const seen = new Set();
+    for (const p of probes) {
+      const gate2 = allowProxy(p, env.PROXY_ALLOW);
+      if (!gate2.ok) continue;
+      const r = await proxyFetch(p, { ua: env.UA, maxBytes: 200_000 });
+      if (r.status !== 200) continue;
+      if (!looksLikeFeed(r.body, r.contentType)) continue;
+      if (seen.has(p)) continue;
+      seen.add(p);
+      found.push({ url: p, type: classifyByBody(r.body, r.contentType), title: "" });
+      if (found.length >= 5) break;
+    }
+    if (found.length) return jsonResp({ candidates: found, probed: true });
+  }
   const structured = await fetchStructuredItems(target, env);
   if (structured.length) {
     return jsonResp({
@@ -332,8 +343,8 @@ async function handleDiscover(url, env) {
     });
   }
   let scraped = scrapeFeedItems(html, target);
-  let rendered = false;
-  if (!scraped.items.length && rendererConfigured(env)) {
+  let rendered = pageRendered;
+  if (!scraped.items.length && !pageRendered && rendererConfigured(env)) {
     const r = await renderHtml(target, env);
     if (r.ok && r.html) {
       const viaRender = scrapeFeedItems(r.html, target);
@@ -356,7 +367,7 @@ async function handleDiscover(url, env) {
       synthetic: true,
     });
   }
-  return jsonResp({ candidates: found, probed: true });
+  return jsonResp({ candidates: found, probed: true, pageRendered });
 }
 
 async function handleScrape(url, env) {
@@ -375,18 +386,21 @@ async function handleScrape(url, env) {
   }
   const maxBytes = Number(env.MAX_BYTES) || DEFAULT_MAX_BYTES;
   const page = await proxyFetch(target, { ua: env.UA, maxBytes });
-  if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
-  if (page.status >= 400) return jsonError(page.status, `upstream ${page.status}`);
-  const html = decodeText(page.body);
+  const ok = page.status > 0 && page.status < 400;
+  const html = ok ? decodeText(page.body) : "";
   const selector = url.searchParams.get("sel") || url.searchParams.get("selector") || "";
   const limit = Number(url.searchParams.get("limit")) || undefined;
-  let { items } = scrapeFeedItems(html, target, { selector, limit });
+  let items = html ? scrapeFeedItems(html, target, { selector, limit }).items : [];
   if (!items.length && rendererConfigured(env)) {
     const r = await renderHtml(target, env, { waitForSelector: url.searchParams.get("wait") || "" });
     if (r.ok && r.html) {
       const viaRender = scrapeFeedItems(r.html, target, { selector, limit });
       if (viaRender.items.length) items = viaRender.items;
     }
+  }
+  if (!items.length) {
+    if (page.status === 0)  return jsonError(502, page.error || "upstream fetch failed");
+    if (page.status >= 400) return jsonError(page.status, `upstream ${page.status}`);
   }
   const selfUrl = `${url.origin}${url.pathname}${url.search}`;
   const atom = buildAtom(items, { pageUrl: target, selfUrl, title: hostOf(target) });

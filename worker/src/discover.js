@@ -13,9 +13,11 @@
 // do not collect every `application/json` discovery link.
 //
 // `commonFeedPaths(pageUrl)` returns the static probe list used when a
-// page has no alternate links at all. Both the host root and the
-// containing directory are probed, in case the page lives under
-// /blog/2026/post and the feed sits at /blog/2026/feed.xml.
+// page has no alternate links at all. The host root, the containing
+// directory, and the page's own path are all probed: a blog post at
+// /blog/2026/post may expose its feed at /blog/2026/feed.xml, while a
+// WordPress section at /category/movies exposes it at
+// /category/movies/feed/, so both the parent and the path itself matter.
 //
 // `looksLikeFeed(body, contentType)` is the post-fetch sniffer used to
 // keep the probe path from returning 200-but-HTML soft errors as if
@@ -79,12 +81,16 @@ export function commonFeedPaths(pageUrl) {
   try { base = new URL(pageUrl); } catch { return []; }
   const root = `${base.protocol}//${base.host}`;
   const dir = base.pathname.replace(/\/[^/]*$/, "/");
+  const full = base.pathname.replace(/\/+$/, "");
   const out = new Set();
   for (const p of COMMON_PATHS) {
     out.add(`${root}${p}`);
     if (dir && dir !== "/") {
       const trimmed = dir.replace(/\/$/, "");
       out.add(`${root}${trimmed}${p}`);
+    }
+    if (full && full !== "/") {
+      out.add(`${root}${full}${p}`);
     }
   }
   return [...out];
