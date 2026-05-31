@@ -8,6 +8,7 @@
 //   n          add note (no-op stub; real impl in v1)
 //   u          summarise (only fires when an intelligence surface is enabled)
 //   a          atelier mode
+//   c          summon the copilot (global, §18 owner directive)
 //   g g        go to All
 //   g s        go to Starred
 //   /          quick filter (no-op stub)
@@ -63,6 +64,8 @@ export class Shortcuts {
       if (e.key === "n") { e.preventDefault(); this.h.addNote(); return; }
 
       if (e.key === "u") { e.preventDefault(); if (this.h.summarise) this.h.summarise(); return; }
+
+      if (e.key === "c") { e.preventDefault(); if (this.h.openCopilot) this.h.openCopilot(); return; }
 
       // `g g` and `g s` — two-key prefix
       if (this.gPending && (e.key === "g" || e.key === "s")) {

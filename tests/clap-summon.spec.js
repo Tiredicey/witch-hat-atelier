@@ -4,9 +4,9 @@
 // no SpeechRecognition, no MediaRecorder, no audio buffer stored or sent.
 // All audio APIs are stubbed via addInitScript so the suite is deterministic
 // and the mic boundary is mocked, per the §18.8 acceptance gate. Verifies:
-// off by default, armed only by explicit opt-in, a visible indicator while
-// armed, the kill switch disarms, a clap summons the copilot, and no
-// transcription or recording primitive is ever constructed.
+// off by default, armed only by explicit opt-in, a visible armed state, the
+// kill switch disarms, a clap summons the global copilot from any view, and
+// no transcription or recording primitive is ever constructed.
 
 import { test, expect } from '@playwright/test';
 
@@ -51,11 +51,6 @@ async function enable(page, { clap = true, ask = true } = {}) {
   await page.locator('#exitSettingsBtn').click();
 }
 
-async function openArticle(page) {
-  await page.locator('.article-row').first().click();
-  await expect(page.locator('.reader article h1')).toBeVisible();
-}
-
 test.describe('clap to summon (§18.3 rung 8)', () => {
   test.beforeEach(async ({ page }) => { await stubAudio(page); });
 
@@ -68,52 +63,55 @@ test.describe('clap to summon (§18.3 rung 8)', () => {
     await expect(box).not.toBeChecked();
   });
 
-  test('arming shows a visible indicator; the kill switch disarms', async ({ page }) => {
+  test('arming shows a visible state; closing reveals the indicator; the kill switch disarms', async ({ page }) => {
     await page.goto('/');
     await enable(page, { ask: false });
-    await openArticle(page);
 
-    const arm = page.locator('#readerClapBtn');
-    const indicator = page.locator('#readerClapIndicator');
+    await page.locator('#copilotBtn').click();
+    const arm = page.locator('#copilotClapBtn');
     await expect(arm).toBeVisible();
-    await expect(indicator).toBeHidden();
 
     await arm.click();
+    await expect(arm).toHaveAttribute('aria-pressed', 'true');
+    await expect(arm).toContainText('Stop clap summon');
+
+    await page.locator('#copilotClose').click();
+    const indicator = page.locator('#copilotClapIndicator');
     await expect(indicator).toBeVisible();
     await expect(indicator).toContainText('Listening for a clap');
-    await expect(arm).toHaveAttribute('aria-pressed', 'true');
 
     await page.locator('#enterSettingsBtn').click();
     await page.locator('#intelClapSummonEnable').uncheck();
     await page.locator('#intelligenceSave').click();
     await page.locator('#exitSettingsBtn').click();
 
-    await expect(page.locator('#readerClap')).toBeHidden();
+    await expect(indicator).toBeHidden();
   });
 
-  test('a clap summons the copilot by focusing the Ask box', async ({ page }) => {
+  test('a clap summons the global copilot from the list view, no open article', async ({ page }) => {
     await page.goto('/');
     await enable(page, { clap: true, ask: true });
-    await openArticle(page);
 
-    await expect(page.locator('#readerAsk')).toBeVisible();
-    await page.locator('#readerClapBtn').click();
-    await expect(page.locator('#readerClapIndicator')).toBeVisible();
+    await page.locator('#copilotBtn').click();
+    await page.locator('#copilotClapBtn').click();
+    await page.locator('#copilotClose').click();
+    await expect(page.locator('#copilot')).toBeHidden();
 
     await page.evaluate(() => { window.__clapLevel = 1; });
-    await expect.poll(() => page.evaluate(() => document.activeElement && document.activeElement.id))
-      .toBe('readerAskInput');
+    await expect(page.locator('#copilot')).toBeVisible();
     await page.evaluate(() => { window.__clapLevel = 0; });
   });
 
   test('detection never constructs a transcriber or recorder', async ({ page }) => {
     await page.goto('/');
     await enable(page, { clap: true, ask: true });
-    await openArticle(page);
-    await page.locator('#readerClapBtn').click();
+
+    await page.locator('#copilotBtn').click();
+    await page.locator('#copilotClapBtn').click();
+    await page.locator('#copilotClose').click();
+
     await page.evaluate(() => { window.__clapLevel = 1; });
-    await expect.poll(() => page.evaluate(() => document.activeElement && document.activeElement.id))
-      .toBe('readerAskInput');
+    await expect(page.locator('#copilot')).toBeVisible();
 
     expect(await page.evaluate(() => window.__sttCount)).toBe(0);
     expect(await page.evaluate(() => window.__recCount)).toBe(0);

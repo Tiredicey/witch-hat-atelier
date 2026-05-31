@@ -81,6 +81,14 @@
 
     <div class="rail__spacer"></div>
 
+    <button class="shelf shelf--copilot" id="copilotBtn" aria-label="Copilot" hidden>
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 5 L 20 5 L 20 15 L 11 15 L 6 19 L 6 15 L 4 15 Z"/>
+        <path d="M9 10 L 9 10.1 M 12 10 L 12 10.1 M 15 10 L 15 10.1"/>
+      </svg>
+      <span class="shelf__label">Copilot</span>
+    </button>
+
     <button class="shelf shelf--dmz" id="enterDmzBtn" aria-label="DMZ — shared board">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 21 L 5 9 Q 12 3, 19 9 L 19 21"/>
@@ -221,11 +229,6 @@
       </div>
     </div>
 
-    <div class="reader__clap" id="readerClap" hidden>
-      <button type="button" id="readerClapBtn" class="reader__voice-btn" aria-pressed="false">Arm clap summon</button>
-      <span class="reader__clap-indicator" id="readerClapIndicator" role="status" aria-live="polite" hidden></span>
-    </div>
-
     <div class="reader" id="reader"></div>
 
     <section class="notes" id="notesPanel" aria-label="Notes" data-open="false">
@@ -246,6 +249,37 @@
     </section>
   </main>
 </div>
+
+<div class="copilot" id="copilot" hidden role="dialog" aria-modal="false" aria-label="Copilot">
+  <div class="copilot__panel">
+    <header class="copilot__header">
+      <h2 class="copilot__title">Copilot</h2>
+      <button type="button" class="copilot__close" id="copilotClose" aria-label="Close copilot">Close</button>
+    </header>
+    <p class="copilot__scope smallcaps" id="copilotScope" aria-live="polite"></p>
+    <div class="copilot__clap" id="copilotClap" hidden>
+      <button type="button" id="copilotClapBtn" class="copilot__clap-btn" aria-pressed="false">Arm clap summon</button>
+    </div>
+    <button type="button" id="copilotToggle" class="intel-output-toggle" aria-controls="copilotLog" aria-expanded="true" hidden>Hide answers</button>
+    <div class="copilot__log" id="copilotLog" aria-live="polite" hidden></div>
+    <form class="copilot__form" id="copilotForm">
+      <label class="copilot__label" for="copilotInput">Ask the copilot</label>
+      <div class="copilot__row">
+        <input type="text" id="copilotInput" class="copilot__input" autocomplete="off" placeholder="Ask about what you are reading, or your unread feed&hellip;">
+        <button type="submit" id="copilotSend" class="copilot__send">Ask</button>
+      </div>
+    </form>
+    <p class="copilot__status" id="copilotStatus" aria-live="polite"></p>
+    <div class="copilot__disclosure" id="copilotDisclosure" role="alertdialog" aria-live="assertive" hidden>
+      <p id="copilotDisclosureText"></p>
+      <div class="copilot__disclosure-actions">
+        <button type="button" id="copilotConfirm" class="copilot__confirm">Send</button>
+        <button type="button" id="copilotCancel" class="copilot__cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="copilot-clap-indicator" id="copilotClapIndicator" role="status" aria-live="polite" hidden></div>
 
 <main class="dmz" id="dmzPage" aria-label="DMZ — shared board">
   <header class="dmz__header">

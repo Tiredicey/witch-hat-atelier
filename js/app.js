@@ -23,6 +23,7 @@ import { GEMINI_PROVIDER } from "./intelligence/gemini.js";
 import { VoiceIO } from "./intelligence/voice.js";
 import { AskSurface } from "./intelligence/ask-surface.js";
 import { ClapListener } from "./intelligence/clap.js";
+import { CopilotSurface } from "./intelligence/copilot-surface.js";
 import { BriefingSurface } from "./intelligence/briefing-surface.js";
 import { IntelHistory } from "./intelligence/history-store.js";
 import { loadSettings, makeAdapter } from "./adapters/index.js";
@@ -81,6 +82,7 @@ async function boot() {
 
   let voice = null;
   let ask = null;
+  let copilotSurface = null;
   let summariseSurface = null;
   let briefingSurface = null;
   const reader  = new Reader({
@@ -253,7 +255,7 @@ async function boot() {
     scrimEl,
     handlers: {
       openHelp:   () => help.open(),
-      closeHelp:  () => { help.close(); notes.close(); },
+      closeHelp:  () => { help.close(); notes.close(); if (copilotSurface) copilotSurface.close(); },
       toggleAtelier: () => atelier.toggle(),
       selectNext: () => {
         const ids = list.getIds();
@@ -292,7 +294,8 @@ async function boot() {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();
       },
-      summarise: () => { if (summariseSurface) summariseSurface.trigger(); }
+      summarise: () => { if (summariseSurface) summariseSurface.trigger(); },
+      openCopilot: () => { if (copilotSurface) copilotSurface.toggle(); }
     }
   });
 
@@ -559,21 +562,34 @@ async function boot() {
     logEl:            $("#readerAskLog"),
     toggleBtn:        $("#readerAskToggle"),
   });
+  copilotSurface = new CopilotSurface({
+    intelligence: intelligenceCtrl,
+    reader,
+    providers: [GROQ_PROVIDER, CEREBRAS_PROVIDER, GEMINI_PROVIDER],
+    getUnread: () => list.getItems().filter(it => !store.isRead(it.id)),
+    getShelf: currentShelf,
+    onAnswer: (text) => { if (voice) voice.speakAnswer(text); },
+    wrapEl:           $("#copilot"),
+    scopeEl:          $("#copilotScope"),
+    closeBtn:         $("#copilotClose"),
+    railBtn:          $("#copilotBtn"),
+    formEl:           $("#copilotForm"),
+    inputEl:          $("#copilotInput"),
+    sendBtn:          $("#copilotSend"),
+    statusEl:         $("#copilotStatus"),
+    logEl:            $("#copilotLog"),
+    toggleBtn:        $("#copilotToggle"),
+    disclosureEl:     $("#copilotDisclosure"),
+    disclosureTextEl: $("#copilotDisclosureText"),
+    confirmBtn:       $("#copilotConfirm"),
+    cancelBtn:        $("#copilotCancel"),
+  });
   const clap = new ClapListener({
     intelligence: intelligenceCtrl,
-    wrapEl:       $("#readerClap"),
-    armBtn:       $("#readerClapBtn"),
-    indicatorEl:  $("#readerClapIndicator"),
-    onClap: () => {
-      const askWrap = document.getElementById("readerAsk");
-      const askInput = document.getElementById("readerAskInput");
-      if (askWrap && !askWrap.hidden && askInput) {
-        try { askInput.focus(); askInput.scrollIntoView({ block: "nearest" }); } catch {}
-        return;
-      }
-      const readBtn = document.getElementById("readerVoiceReadBtn");
-      if (readBtn && !readBtn.hidden) { try { readBtn.focus(); } catch {} }
-    },
+    wrapEl:       $("#copilotClap"),
+    armBtn:       $("#copilotClapBtn"),
+    indicatorEl:  $("#copilotClapIndicator"),
+    onClap: () => { if (copilotSurface) copilotSurface.open(); },
   });
   void clap;
   briefingSurface = new BriefingSurface({
