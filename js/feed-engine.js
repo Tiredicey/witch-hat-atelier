@@ -33,6 +33,7 @@
 //   module does NOT call passesQuality \u2014 every parseable feed contributes.
 
 import { parseFeed, isBridgeErrorEntry } from "../worker/src/parse.js";
+import { feedRequestUrl } from "./feed-fetch.js";
 
 const SUBS_KEY = "coda/subs/subscriptions.json";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -93,7 +94,7 @@ async function fetchAndParseOne(sub, { fetchBase, signal, timeoutMs }) {
     else signal.addEventListener("abort", () => controller.abort(), { once: true });
   }
   try {
-    const url = `${fetchBase}/fetch?url=${encodeURIComponent(sub.url)}`;
+    const url = feedRequestUrl(sub.url, fetchBase);
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return [];
     const ct = res.headers.get("content-type") || "";
