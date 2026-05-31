@@ -636,6 +636,7 @@ async function boot() {
     candidatesEl:   document.getElementById("add-feed-candidates"),
     refusedEl:      document.getElementById("add-feed-refused"),
     bridgeInput:    document.getElementById("add-feed-bridge"),
+    bridgeKindInput: document.getElementById("add-feed-bridge-kind"),
     bridgeSaveBtn:  document.getElementById("add-feed-bridge-save"),
     bridgeStatusEl: document.getElementById("add-feed-bridge-status"),
     subscriptions:  subs,

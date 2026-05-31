@@ -99,7 +99,7 @@ export function resolve(rawInput, opts = {}) {
   const noRss = noRssPlatform(host);
   if (noRss) {
     const platform = noRss;
-    const bridgeHint = buildBridgeHint(platform, url, opts.bridgeBase || "");
+    const bridgeHint = buildBridgeHint(platform, url, opts.bridgeBase || "", opts.bridgeKind || "");
     return {
       kind: "refused",
       platform,
@@ -261,34 +261,91 @@ function resolveYouTube(url) {
   return null;
 }
 
-function buildBridgeHint(platform, url, bridgeBase) {
+function normaliseKind(bridgeKind) {
+  return bridgeKind === "rss-bridge" ? "rss-bridge" : "rsshub";
+}
+
+function buildBridgeHint(platform, url, bridgeBase, bridgeKind) {
   if (!bridgeBase) {
     return {
       configured: false,
       message:
-        `Configure an RSSHub bridge URL in Settings if you want CODA to ` +
-        `route ${platform} URLs through your own bridge. CODA will not ` +
-        `default to a public bridge instance.`,
+        `Configure a bridge URL in Settings if you want CODA to ` +
+        `route ${platform} URLs through your own RSSHub or RSS-Bridge ` +
+        `instance. CODA will not default to a public bridge instance.`,
     };
   }
+  const kind = normaliseKind(bridgeKind);
   const base = String(bridgeBase).replace(/\/+$/, "");
-  const path = bridgePathFor(platform, url);
-  if (!path) {
+  const label = kind === "rss-bridge" ? "RSS-Bridge" : "RSSHub";
+  const candidateUrl =
+    kind === "rss-bridge"
+      ? rssBridgeUrlFor(platform, url, base)
+      : (bridgePathFor(platform, url) ? `${base}${bridgePathFor(platform, url)}` : "");
+  if (!candidateUrl) {
     return {
       configured: true,
+      kind,
       message:
-        `Your configured bridge ${base} does not have a documented route ` +
-        `pattern for ${platform} URLs of this shape. Open the bridge's docs ` +
-        `for the exact route, then paste the bridge URL directly.`,
+        `Your configured ${label} instance ${base} has no documented ` +
+        `route for ${platform} URLs of this shape. Open a profile/page URL ` +
+        `for that account, or paste the bridge feed URL directly.`,
     };
   }
   return {
     configured: true,
-    candidateUrl: `${base}${path}`,
+    kind,
+    candidateUrl,
     message:
-      `Candidate bridge URL: ${base}${path}. Verify the bridge has this ` +
+      `Candidate ${label} URL: ${candidateUrl}. Verify the bridge has this ` +
       `route enabled before adding.`,
   };
+}
+
+function rssBridgeUrlFor(platform, url, base) {
+  const root = String(base).replace(/\/+$/, "");
+  const segs = url.pathname.split("/").filter(Boolean);
+  const build = (bridge, context, params) => {
+    const sp = new URLSearchParams();
+    sp.set("action", "display");
+    sp.set("bridge", bridge);
+    sp.set("context", context);
+    for (const [k, v] of Object.entries(params)) sp.set(k, v);
+    sp.set("format", "Atom");
+    return `${root}/?${sp.toString()}`;
+  };
+  if (!segs.length) return "";
+  const first = segs[0];
+  if (platform === "Facebook") {
+    const host = (url.host || "").toLowerCase();
+    if (host === "fb.watch" || host.startsWith("l.facebook") || host.startsWith("lm.facebook")) return "";
+    if (first.toLowerCase() === "groups" && segs[1]) {
+      return build("FacebookBridge", "Group", { g: segs[1] });
+    }
+    if (FB_RESERVED.has(first.toLowerCase())) return "";
+    if (!/^[A-Za-z0-9.]+$/.test(first)) return "";
+    return build("FacebookBridge", "User", { u: first });
+  }
+  if (platform === "Instagram") {
+    if (IG_RESERVED.has(first.toLowerCase())) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9._]+$/.test(handle)) return "";
+    return build("InstagramBridge", "Username", { u: handle });
+  }
+  if (platform === "X (Twitter)") {
+    if (X_RESERVED.has(first.toLowerCase())) return "";
+    if (segs.some((s) => s.toLowerCase() === "status")) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9_]+$/.test(handle)) return "";
+    return build("TwitterBridge", "By username", { u: handle });
+  }
+  if (platform === "TikTok") {
+    if (!first.startsWith("@")) return "";
+    const handle = first.replace(/^@/, "");
+    if (!/^[A-Za-z0-9._]+$/.test(handle)) return "";
+    return build("TikTokBridge", "By user", { username: handle });
+  }
+  return "";
 }
 
 const FB_RESERVED = new Set([
