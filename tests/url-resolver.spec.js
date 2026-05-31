@@ -315,3 +315,61 @@ test.describe('url-resolver — bridge route shapes (documented routes only)', (
     expect(r.bridgeHint.candidateUrl).toBeUndefined();
   });
 });
+
+test.describe('url-resolver — RSS-Bridge backend (bridgeKind: rss-bridge)', () => {
+  const rb = { bridgeBase: 'https://rss-bridge-sop0.onrender.com', bridgeKind: 'rss-bridge' };
+
+  test('facebook user page → FacebookBridge User context with u=', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/docalvinfrancisco', rb);
+    expect(r.kind).toBe('refused');
+    expect(r.bridgeHint.kind).toBe('rss-bridge');
+    expect(r.bridgeHint.candidateUrl).toBe(
+      'https://rss-bridge-sop0.onrender.com/?action=display&bridge=FacebookBridge&context=User&u=docalvinfrancisco&format=Atom'
+    );
+  });
+
+  test('facebook /groups/{id} → FacebookBridge Group context with g=', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/groups/123456', rb);
+    expect(r.bridgeHint.candidateUrl).toContain('bridge=FacebookBridge');
+    expect(r.bridgeHint.candidateUrl).toContain('context=Group');
+    expect(r.bridgeHint.candidateUrl).toContain('g=123456');
+  });
+
+  test('facebook profile.php?id= → no candidate on RSS-Bridge either', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/profile.php?id=100064', rb);
+    expect(r.bridgeHint.candidateUrl).toBeUndefined();
+    expect(r.bridgeHint.message).toMatch(/no documented/i);
+  });
+
+  test('instagram user → InstagramBridge Username context', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://instagr.am/natgeo', rb);
+    expect(r.bridgeHint.candidateUrl).toContain('bridge=InstagramBridge');
+    expect(r.bridgeHint.candidateUrl).toContain('u=natgeo');
+  });
+
+  test('x handle → TwitterBridge By username context', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://x.com/jack', rb);
+    expect(r.bridgeHint.candidateUrl).toContain('bridge=TwitterBridge');
+    expect(r.bridgeHint.candidateUrl).toContain('u=jack');
+  });
+
+  test('tiktok @handle → TikTokBridge By user context with username=', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.tiktok.com/@charlidamelio', rb);
+    expect(r.bridgeHint.candidateUrl).toContain('bridge=TikTokBridge');
+    expect(r.bridgeHint.candidateUrl).toContain('username=charlidamelio');
+  });
+
+  test('default kind (no bridgeKind) keeps RSSHub path routes', async ({ page }) => {
+    await page.goto('/');
+    const r = await resolveIn(page, 'https://www.facebook.com/nasa', {
+      bridgeBase: 'https://my-rsshub.example.com',
+    });
+    expect(r.bridgeHint.candidateUrl).toBe('https://my-rsshub.example.com/facebook/page/nasa');
+  });
+});

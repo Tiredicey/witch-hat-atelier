@@ -213,6 +213,33 @@ operator's configuration and the upstream platform's current defenses —
 CODA only guarantees the candidate URL is well-formed, never that the
 remote feed exists.
 
+#### Two bridge backends: RSSHub and RSS-Bridge
+
+CODA supports both self-hosted bridge families. The **Bridge type**
+selector defaults to **Auto-detect from URL**: a base URL containing
+`rsshub` resolves as RSSHub (path routes); one containing `rss-bridge`,
+`bridge.php`, or `action=display` resolves as RSS-Bridge
+(`?action=display&bridge=…`). Pick the type explicitly to override the
+guess. The detected backend is stored at `coda/bridge/kind` alongside the
+base URL at `coda/bridge/base`.
+
+RSS-Bridge candidate URLs use the verified bridge/context/parameter names
+from the upstream bridges (confirmed against a live instance):
+
+| Platform | RSS-Bridge route |
+| --- | --- |
+| Facebook (user/page) | `?action=display&bridge=FacebookBridge&context=User&u={slug}&format=Atom` |
+| Facebook group | `?action=display&bridge=FacebookBridge&context=Group&g={id}&format=Atom` |
+| Instagram | `?action=display&bridge=InstagramBridge&context=Username&u={handle}&format=Atom` |
+| X (Twitter) | `?action=display&bridge=TwitterBridge&context=By username&u={handle}&format=Atom` |
+| TikTok | `?action=display&bridge=TikTokBridge&context=By user&username={handle}&format=Atom` |
+
+The same shape guards apply to both backends: non-profile URLs
+(`profile.php?id=`, `/p/`, `/status/`, share-shortener hosts) produce the
+bridge-docs message, not a malformed candidate. For the candidate to
+resolve through `/discover`, the Worker's `PROXY_ALLOW` must permit the
+bridge host.
+
 ## Adapter compatibility
 
 The Add-by-URL flow writes through the active adapter's generic
