@@ -82,6 +82,10 @@ export class VoiceIO {
     return this.readSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_SPEAK_ANSWERS_SURFACE);
   }
 
+  speakAnswersConsented() {
+    return isDisclosureAcked(SPEAK_ANSWERS_DISCLOSURE);
+  }
+
   speakAnswer(text) {
     const t = String(text || "").trim();
     if (!t || !this.isSpeakAnswersReady()) return false;
