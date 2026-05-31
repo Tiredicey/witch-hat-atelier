@@ -46,31 +46,77 @@ export function scrapeFeedItems(html, baseUrl, opts = {}) {
   if (typeof html !== "string" || !html) return empty;
 
   const cleaned = stripNoise(html);
-  const raw = selector
-    ? collectBySelector(cleaned, baseUrl, selector)
-    : collectByHeadings(cleaned, baseUrl);
 
-  if (!raw.length) return empty;
+  if (selector) {
+    const items = finalize(collectBySelector(cleaned, baseUrl, selector), baseUrl, limit);
+    if (items.length < minItems) return empty;
+    return { items, headingLevel: 0, selector, method: "selector", confidence: confidenceOf(items) };
+  }
 
-  const headingLevel = selector ? 0 : modalLevel(raw);
-  const filtered = raw
-    .filter((it) => (selector || !headingLevel || it.level === headingLevel))
-    .filter((it) => acceptable(it, baseUrl));
+  const headingRaw = collectByHeadings(cleaned, baseUrl);
+  const headingLevel = modalLevel(headingRaw);
+  let items = finalize(headingRaw.filter((it) => !headingLevel || it.level === headingLevel), baseUrl, limit);
+  let method = "headings";
 
-  const items = dedupeByLink(filtered).slice(0, limit).map((it) => ({
-    title: it.title,
-    link: it.link,
-    published: it.published || 0,
-  }));
+  if (items.length < minItems) {
+    const anchorItems = finalize(collectByAnchorPattern(cleaned, baseUrl), baseUrl, limit);
+    if (anchorItems.length >= minItems) { items = anchorItems; method = "anchor-pattern"; }
+  }
 
   if (items.length < minItems) return { ...empty, headingLevel };
 
   return {
     items,
-    headingLevel,
+    headingLevel: method === "headings" ? headingLevel : 0,
     selector,
-    confidence: items.length >= 8 ? "high" : "medium",
+    method,
+    confidence: confidenceOf(items),
   };
+}
+
+function finalize(raw, baseUrl, limit) {
+  const filtered = raw.filter((it) => acceptable(it, baseUrl));
+  return dedupeByLink(filtered).slice(0, limit).map((it) => ({
+    title: it.title,
+    link: it.link,
+    published: it.published || 0,
+  }));
+}
+
+function confidenceOf(items) {
+  return items.length >= 8 ? "high" : "medium";
+}
+
+function collectByAnchorPattern(html, baseUrl) {
+  const out = [];
+  const A = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = A.exec(html)) !== null) {
+    const href = attrValue(m[1], "href");
+    if (!href) continue;
+    const link = resolveLink(href, baseUrl);
+    if (!link || !articleLike(link, baseUrl)) continue;
+    const title = clean(m[2]) || clean(attrValue(m[1], "aria-label")) || clean(attrValue(m[1], "title"));
+    if (!title) continue;
+    out.push({ title, link, level: 0, pos: m.index });
+  }
+  return out;
+}
+
+function articleLike(link, baseUrl) {
+  let a, b;
+  try { a = new URL(link); b = new URL(baseUrl); } catch { return false; }
+  if (a.origin !== b.origin) return false;
+  const path = a.pathname.replace(/\/+$/, "");
+  if (/\/\d{3,}(?:\/|$)/.test(path)) return true;
+  if (/\/story\b|\/article\b|\/news\/[^/]+\/[^/]+/.test(path)) return true;
+  const segs = path.split("/").filter(Boolean);
+  if (segs.length >= 2) {
+    const last = segs[segs.length - 1];
+    const hyphens = (last.match(/-/g) || []).length;
+    if (last.length > 15 && hyphens >= 2) return true;
+  }
+  return false;
 }
 
 export function buildAtom(items, meta = {}) {

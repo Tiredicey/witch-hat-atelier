@@ -245,6 +245,7 @@ export class AddFeed {
       note.textContent =
         `Synthesized from page layout \u00b7 ${n} item${n === 1 ? "" : "s"}` +
         `${cand.confidence ? ` \u00b7 ${cand.confidence} confidence` : ""}` +
+        `${cand.rendered ? " \u00b7 via headless render" : ""}` +
         `${head ? ` \u2014 ${head}` : ""}`;
       meta.appendChild(note);
     }

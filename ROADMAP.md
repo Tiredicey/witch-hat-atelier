@@ -341,6 +341,43 @@ The whole thing should be a single SvelteKit app + one Worker. If it grows past 
 
 ---
 
+## 14a · Headless-render tier for JS-only sites (owner-authorised, 2026-05-31)
+
+This amendment supersedes the §14 minimalism line ("a single SvelteKit app
++ one Worker ... if it grows past two services and a bucket, something is
+wrong") for one bounded case, on explicit owner authorisation. The
+synthetic-feed fallback (§8 amendment) reads only the server response, so
+client-rendered listing pages (GMA's `/lifestyle/*` single-page app, and any
+SPA whose article list is injected by JavaScript) return zero items. Static
+scanning cannot recover JS-injected content with any tool.
+
+The Worker now has an optional headless-render tier (`worker/src/render.js`):
+
+- It fires **only after** the static fetch + scrape returns nothing, so
+  server-rendered sites (including GMA `/news/`, verified at 16 items) never
+  pay for a browser.
+- The default backend is **Cloudflare Browser Rendering's REST `/content`
+  endpoint, included on the Workers FREE plan** (10 minutes of browser time
+  per day, 3 concurrent browsers, ~6 REST calls/min). On the Free plan,
+  exceeding those limits returns HTTP 429 and renders nothing more that day;
+  **it never bills.** Staying on the Free plan is a hard no-charge guarantee.
+  `render.js` treats 429 as a soft "quota reached" and degrades to no feed.
+- To stretch the free daily budget, every render rejects images, fonts,
+  stylesheets, and media, so a page costs the minimum browser time.
+- A generic `RENDER_URL` backend (Browserless-style `POST /content`) is also
+  supported for a self-hosted or alternative free renderer.
+- With no renderer configured, behaviour is identical to before this tier:
+  no synthetic feed for JS-only pages.
+
+The honest scope note (§13): this does not make CODA a universal scraper for
+*every* site. It clears JS-rendered listing pages that expose a repeating
+headline-link or article-card pattern after hydration. Sites that gate
+content behind logins, infinite-scroll-only APIs with no anchors, or
+aggressive bot challenges may still yield nothing, and the panel says so
+plainly rather than pretending.
+
+---
+
 ## 15 · DMZ — the shared free space (v1.1 extension)
 
 A second, intentionally open area of the app, sitting alongside the private reader. The product owner asked for it on 2026-05-28 and the constraint is explicit: **"free space for everyone."** No accounts, no passphrase, no per-member profiles. One shared board.
