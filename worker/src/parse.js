@@ -53,6 +53,17 @@ export function normaliseEntry(raw, feedTitle) {
   };
 }
 
+// RSS-Bridge wraps scrape failures into valid Atom documents with entries
+// whose titles follow the pattern "Bridge returned error N! (code)". These
+// parse successfully but contain zero real posts. This function lets callers
+// flag or filter them instead of treating the error as content.
+const BRIDGE_ERROR_TITLE_RE = /^Bridge returned error \d+/i;
+
+export function isBridgeErrorEntry(entry) {
+  if (!entry || typeof entry.title !== "string") return false;
+  return BRIDGE_ERROR_TITLE_RE.test(entry.title.trim());
+}
+
 function firstImage(html) {
   if (!html) return "";
   const stripped = unwrapCdata(decodeEntities(html));
