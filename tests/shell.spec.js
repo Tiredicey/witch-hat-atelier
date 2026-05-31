@@ -24,7 +24,7 @@ test.describe('three-pane shell', () => {
 
   test('article rows render with title, source, age', async ({ page }) => {
     const rows = page.locator('.article-row');
-    await expect(rows).toHaveCount(6);
+    await expect(rows).toHaveCount(7);
     const first = rows.first();
     await expect(first.locator('.article-row__title')).not.toBeEmpty();
     await expect(first.locator('.article-row__source')).not.toBeEmpty();
