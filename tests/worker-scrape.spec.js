@@ -125,3 +125,51 @@ test.describe('worker scrape.js — buildAtom serialisation', () => {
     expect(atom).not.toContain('<summary>');
   });
 });
+
+const PODCAST = `<!doctype html><html><body><main>
+  <article>
+    <a href="/episodes/12345/episode-twelve-the-deep-dive/story">
+      <img src="https://cdn.example.com/e12.jpg">
+      <audio src="https://cdn.example.com/ep12.mp3"></audio>
+      <h3>Episode twelve the deep dive</h3>
+    </a>
+    <p class="card-lead">A preview of episode twelve, long enough to keep around.</p>
+  </article>
+  <article>
+    <a href="/episodes/12346/episode-thirteen-the-sequel/story">
+      <img src="https://cdn.example.com/e13.jpg">Episode thirteen the sequel
+    </a>
+    <p class="card-lead">A preview of episode thirteen with no audio attached here.</p>
+  </article>
+  <article>
+    <a href="/episodes/12347/episode-fourteen-the-finale/story">
+      <img src="https://cdn.example.com/e14.jpg">Episode fourteen the finale
+    </a>
+  </article>
+</main></body></html>`;
+
+test.describe('worker scrape.js — audio enclosures', () => {
+  test('captures an audio file inside a card link as an enclosure', async ({ page }) => {
+    await page.goto('/');
+    const items = await page.evaluate(async ([mu, html, base]) => {
+      const { scrapeFeedItems } = await import(mu);
+      return scrapeFeedItems(html, base).items;
+    }, [MODULE_URL, PODCAST, 'https://pod.example.com/episodes']);
+    expect(items[0].enclosure).toEqual({ url: 'https://cdn.example.com/ep12.mp3', type: 'audio/mpeg' });
+    expect(items[1].enclosure).toBe(null);
+    expect(items[2].enclosure).toBe(null);
+  });
+
+  test('serialises the enclosure and parses it back as an audio enclosure', async ({ page }) => {
+    await page.goto('/');
+    const enclosures = await page.evaluate(async ([smu, pmu, html, base]) => {
+      const { scrapeFeedItems, buildAtom } = await import(smu);
+      const { parseFeed } = await import(pmu);
+      const { items } = scrapeFeedItems(html, base);
+      const atom = buildAtom(items, { pageUrl: base });
+      return parseFeed(atom, 'application/atom+xml').entries.map((e) => e.enclosure);
+    }, [MODULE_URL, '/worker/src/parse.js', PODCAST, 'https://pod.example.com/episodes']);
+    expect(enclosures[0]).toMatchObject({ url: 'https://cdn.example.com/ep12.mp3', type: 'audio/mpeg' });
+    expect(enclosures[1]).toBe(null);
+  });
+});
