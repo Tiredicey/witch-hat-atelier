@@ -85,6 +85,46 @@ test.describe('reader pane video', () => {
     expect(playing.iframeSrc).toContain('player.vimeo.com/video/123456789');
   });
 
+  test('TikTok entry renders the TikTok player and a username watch link', async ({ page }) => {
+    await page.goto('/');
+    const { initial, playing } = await renderVideoArticle(
+      page, { provider: 'tiktok', id: '6718335390845095173', user: 'scout2015' });
+
+    expect(initial.playText).toContain('TikTok');
+    expect(initial.iframeSrc).toBe(null);
+    expect(initial.fallbackHref).toBe('https://www.tiktok.com/@scout2015/video/6718335390845095173');
+
+    expect(playing.iframeSrc).toContain('tiktok.com/player/v1/6718335390845095173');
+    expect(playing.hasClose).toBe(true);
+  });
+
+  test('TikTok detected without a username still builds a watch link', async ({ page }) => {
+    await page.goto('/');
+    const { initial } = await renderVideoArticle(
+      page, { provider: 'tiktok', id: '6718335390845095173' });
+    expect(initial.fallbackHref).toBe('https://www.tiktok.com/@/video/6718335390845095173');
+  });
+
+  test('parse.js detects a TikTok video URL with provider, id, and user', async ({ page }) => {
+    await page.goto('/');
+    const video = await page.evaluate(async () => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      const text = `<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>S</title>
+  <entry>
+    <title>TT</title>
+    <link href="https://www.tiktok.com/@scout2015/video/6718335390845095173"/>
+    <id>t1</id>
+    <published>2026-05-01T00:00:00Z</published>
+    <summary>Watch.</summary>
+  </entry>
+</feed>`;
+      return parseFeed(text, 'application/atom+xml').entries[0].video;
+    });
+    expect(video).toEqual({ provider: 'tiktok', id: '6718335390845095173', user: 'scout2015' });
+  });
+
   test('parse.js detects a Shorts URL with the short flag', async ({ page }) => {
     await page.goto('/');
     const video = await page.evaluate(async () => {

@@ -3,6 +3,7 @@
 // preview pane and the reader pane so playback behaves identically.
 
 function embedSrc(video) {
+  if (video.provider === "tiktok") return `https://www.tiktok.com/player/v1/${video.id}?music_info=1&description=1`;
   return video.provider === "vimeo"
     ? `https://player.vimeo.com/video/${video.id}?dnt=1&autoplay=1`
     : `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1`;
@@ -10,17 +11,21 @@ function embedSrc(video) {
 
 function watchUrl(video) {
   if (video.provider === "vimeo") return `https://vimeo.com/${video.id}`;
+  if (video.provider === "tiktok") return `https://www.tiktok.com/@${video.user || ""}/video/${video.id}`;
   if (video.short) return `https://www.youtube.com/shorts/${video.id}`;
   return `https://www.youtube.com/watch?v=${video.id}`;
 }
 
 function playLabel(video) {
   if (video.provider === "vimeo") return "\u25b6 Play Vimeo video";
+  if (video.provider === "tiktok") return "\u25b6 Play TikTok video";
   return video.short ? "\u25b6 Play YouTube Short" : "\u25b6 Play YouTube video";
 }
 
 function watchLabel(video) {
-  return video.provider === "vimeo" ? "Watch on Vimeo \u2197" : "Watch on YouTube \u2197";
+  if (video.provider === "vimeo") return "Watch on Vimeo \u2197";
+  if (video.provider === "tiktok") return "Watch on TikTok \u2197";
+  return "Watch on YouTube \u2197";
 }
 
 export function buildVideoEmbed(video, prefix) {
@@ -38,7 +43,7 @@ export function buildVideoEmbed(video, prefix) {
     const iframe = document.createElement("iframe");
     iframe.className = `${prefix}__videoFrame`;
     iframe.src = embedSrc(video);
-    iframe.allow = "encrypted-media; picture-in-picture";
+    iframe.allow = "encrypted-media; picture-in-picture; fullscreen";
     iframe.referrerPolicy = "strict-origin-when-cross-origin";
     iframe.loading = "lazy";
     iframe.title = "Embedded video";

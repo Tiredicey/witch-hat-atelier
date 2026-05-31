@@ -105,6 +105,12 @@ function detectVideo(s) {
   if (yt) return { provider: "youtube", id: yt[1] };
   const vm = s.match(/(?:vimeo\.com\/(?:video\/)?)(\d{6,})/);
   if (vm) return { provider: "vimeo", id: vm[1] };
+  const tt = s.match(/tiktok\.com\/@([\w.-]+)\/video\/(\d{6,})/i);
+  if (tt) return { provider: "tiktok", id: tt[2], user: tt[1] };
+  const tte = s.match(/tiktok\.com\/(?:player\/v1|embed(?:\/v2)?)\/(\d{6,})/i);
+  if (tte) return { provider: "tiktok", id: tte[1] };
+  const ttm = s.match(/m\.tiktok\.com\/v\/(\d{6,})/i);
+  if (ttm) return { provider: "tiktok", id: ttm[1] };
   return null;
 }
 
