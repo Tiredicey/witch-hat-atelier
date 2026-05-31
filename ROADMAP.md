@@ -591,6 +591,7 @@ Every §18 rung inherits the five §17.1 clauses verbatim (no product key, pre-s
 9. **No autonomy.** Restates §17.1.3 for emphasis: the copilot never acts between gestures.
 10. **Voice honesty (rung 6).** Read-aloud runs on-device via `speechSynthesis` and sends nothing off the device. Microphone input via `SpeechRecognition` is not guaranteed on-device: Chrome and Edge transcribe audio on the browser maker's servers, so a one-time-per-session disclosure must state this before the microphone starts. Recognised speech is constrained to a fixed command allowlist (summarise · read · stop) per §18.2.7. When the rung 2 Q&A surface is enabled, a non-command utterance is dictated into the Ask box for the user to review and send manually; it is never auto-sent and never executed as an action. With Q&A disabled, free-form utterances are rejected. Both surfaces are feature-detected, off by default, and carry their own §17.1.4 kill switch. The on-device STT path (`whisper.cpp`, issue #62) and free-form voice Q&A (rung 2) remain follow-ups.
 11. **Spoken-answer consent (rung 7).** Auto-speaking a Q&A answer back is off by default and gated by its own §17.1.4 kill switch, separate from read-aloud. Enabling it discloses, once per session, that answers will be voiced through `speechSynthesis` (on-device, no audio leaves the device per §18.2.10) and that every turn stays push-to-talk, never always-on. The loop never chains turns on its own: after it speaks an answer it returns to idle and waits for the next explicit gesture (§17.1.3, §18.2.9). A spoken answer carries the same pre-send provider disclosure (§17.1.2) and host/model line (§18.2.8) as the typed Q&A surface.
+12. **Acoustic-trigger honesty (rung 8).** The clap detector reads only a local energy envelope frame by frame and discards it; it runs no speech recognition and sends no audio anywhere, so it is not the always-on STT mic that §18.0 and §18.5 forbid. It does hold an open microphone stream while armed, so it is off by default, opt-in per session, shows a persistent in-app "listening for clap" indicator on top of the browser's own mic indicator, and carries its own §17.1.4 kill switch. Disarming it, navigating away, or a per-session timeout closes the stream. The trigger only opens the copilot — it never sends a query, speaks, or acts on its own (§17.1.3, §18.2.9).
 
 ### 18.3 · Capability ladder (each rung is a future PR, ordered by dependency)
 
@@ -601,6 +602,7 @@ Every §18 rung inherits the five §17.1 clauses verbatim (no product key, pre-s
 5. **Guarded tool use.** The copilot calls allowlisted CODA actions (star, mark read, add feed, filter subscriptions) via a code-defined registry, each confirmed or reversible (§18.2.7).
 6. **Voice I/O.** Speech-to-text (Web Speech API, or the on-device Whisper.cpp path queued as issue #62) plus read-aloud TTS (§17.7). Lets you summon, ask, and listen without the keyboard. Partially shipped: on-device read-aloud, allowlisted voice commands (summarise · read · stop) behind the §18.2.10 disclosure, and voice dictation that fills the rung 2 Q&A box for review-before-send. On-device Whisper STT (#62) remains open.
 7. **Closed conversational loop (the literal "talks back" turn).** Builds on rungs 2 and 6: one gesture starts a turn, `SpeechRecognition` transcribes the spoken question, the rung 2 Q&A chain answers it grounded in the open article, and that answer is spoken straight back through `speechSynthesis` (§17.7) so a full ask-and-hear turn finishes without the keyboard — mic in, speaker out, like the JARVIS feel named in §18.0. Bounded by every §18.2 clause: each turn is still gesture-initiated (no always-on mic, §17.1.3), the speak-the-answer path is an explicit opt-in with its own §17.1.4 kill switch (§18.2.11), and a free-form utterance still never fires an allowlisted action (§18.2.7) — it only feeds the Q&A surface. This is the rung that differs from rung 6's shipped state, where dictation fills the Ask box for manual send and TTS only reads on a separate gesture; here the loop closes so a single voice turn yields a spoken reply. The article-only Q&A path can ship first; speaking grounded live-search answers (rung 3) waits on that rung. Multi-turn history stays memory-only per §18.7.
+8. **Acoustic summon and the daily-first ritual.** An on-device, envelope-only clap detector (Web Audio `AnalyserNode`, energy/transient threshold — no transcription, no recording, no audio off the device) becomes a hands-free way to open the copilot. The first armed clap of a calendar day greets you and speaks a short briefing of the day's unread, reusing rung 4's batched briefing and voicing it through rung 7's `speechSynthesis` path; every clap after that, the same day, opens the rung 7 conversational loop instead of repeating the greeting. The greeting line and persona are user-set text in CODA's own voice, never an impersonation of a trademarked character (§18.5). This rung amends §18.5's blanket no-always-on-mic ban and is scoped in §18.8; it does not ship until that amendment's gates pass.
 
 ### 18.4 · "Adaptable to any environmental conditions" (scoped honestly)
 
@@ -613,7 +615,7 @@ Environmental adaptability here means graceful degradation, not world control:
 
 ### 18.5 · What §18 does NOT promise (per §13, §17.6)
 
-- No autonomous or background operation. No always-on microphone.
+- No autonomous or background operation, and no always-on microphone that transcribes or records. Per the §18.8 amendment, an on-device, envelope-only clap trigger that captures no audio is permitted only while explicitly armed, with a visible indicator and a kill switch.
 - No control of the operating system, files outside the sandbox, or hardware.
 - No guarantee of factual accuracy. Grounding cites sources; it does not validate them.
 - No conversation data leaving the device beyond the user's chosen storage adapter and the provider hosts they explicitly configured.
@@ -634,3 +636,24 @@ Podcast/audio support starts with the data model, not the transcriber. The §4 W
 - Conversation state: where multi-turn history lives (memory only vs the storage adapter), and its §17.1 disclosure.
 - Token-budget management for rungs 4 and 6 so a briefing does not silently exhaust a free tier.
 - Turn-taking for rung 7: whether a fresh push-to-talk gesture barges in on an in-progress `speechSynthesis` reply, and how `SpeechRecognition` and `speechSynthesis` are sequenced so the mic does not capture CODA's own spoken answer (echo/feedback).
+- Daily-first state for rung 8 (§18.8): where "last greeted on date D" lives — memory only resets the ritual on every reload, the storage adapter persists it across sessions — plus its §17.1 disclosure and the battery/CPU cost of a continuously armed `AnalyserNode` on mobile.
+
+### 18.8 · Acoustic summon and the daily-first ritual (owner-requested amendment, 2026-05-31)
+
+The owner asked for a clap-to-summon copilot with a once-a-day cinematic opening: the first clap of the day says a short welcome and speaks the day's recent items, and every clap afterward is the plain two-way loop (rung 7). This subsection scopes that honestly and records what it changes.
+
+**Why it needs an amendment.** §18.0 and §18.5 ban an always-on microphone because an always-listening *transcribing* mic is a privacy hazard. A clap trigger does not need transcription: a Web Audio `AnalyserNode` can detect the short broadband transient of a clap from a local energy envelope, never recording a buffer and never sending audio off the device. That is a genuinely narrower capability than always-on STT, so §18.5 is amended to permit it under strict conditions rather than left as a flat ban. The microphone stream is still open while armed, and the browser's own recording indicator stays lit, so the user is never unaware it is live.
+
+**Conditions (all required).**
+- Off by default; armed only by an explicit per-session opt-in, with its own §17.1.4 kill switch (§18.2.12).
+- On-device envelope detection only: no `SpeechRecognition`, no recorded buffer, no audio leaves the device.
+- A persistent in-app "listening for clap" indicator while armed, on top of the browser mic indicator.
+- The trigger only opens the copilot. It never sends a query, speaks, or acts on its own.
+
+**The daily-first ritual.**
+- First armed clap of a calendar day: greet, then speak a briefing of the unread set, reusing rung 4 (shipped batched briefing) and voicing it through rung 7's `speechSynthesis` path under §18.2.11 consent.
+- Every clap after that, same day: open the rung 7 conversational loop, no greeting.
+- The greeting text and the assistant persona are user-configured strings in CODA's own voice. No emulation of a trademarked character's voice or persona (§18.5).
+- "First of the day" needs persisted state (see §18.7): memory-only resets on reload, the storage adapter persists across sessions.
+
+**Acceptance gates (in addition to §18.6).** Ships only when the detector is provably transcription-free and recording-free (no `MediaRecorder`, no STT on the clap path); the armed indicator and kill switch are present and Playwright-covered with the mic boundary mocked; the daily-first state and its disclosure are defined; and the greeting persona is user-set, not a trademarked impersonation. Until all pass, rung 8 stays a vision item like the rest of unshipped §18.
