@@ -17,13 +17,14 @@ export class ArticleList {
    * @param {Array}       opts.items     — array of sample data items
    * @param {(id:string)=>void} opts.onSelect — fired when a row is activated
    */
-  constructor({ listEl, rowsEl, items, onSelect }) {
+  constructor({ listEl, rowsEl, items, onSelect, onTrash }) {
     this.listEl = listEl;
     this.rowsEl = rowsEl;
     this.allItems = items;
     this.items = items;            // currently-visible (post-filter)
     this.filterFn = () => true;
     this.onSelect = onSelect;
+    this.onTrash = onTrash;
     this.selectedId = null;
 
     this.#renderRows();
@@ -131,6 +132,16 @@ export class ArticleList {
       div.querySelector(".article-row__title").textContent   = it.title;
       div.querySelector(".article-row__excerpt").textContent = it.excerpt;
       this.#renderPreview(div.querySelector(".article-row__preview"), it);
+
+      const trash = document.createElement("button");
+      trash.type = "button";
+      trash.className = "article-row__trash";
+      trash.setAttribute("aria-label", "Trash or restore this item");
+      trash.title = "Trash / restore";
+      trash.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 7 L 19 7 M 10 7 L 10 5 L 14 5 L 14 7 M 6.5 7 L 7.5 20 L 16.5 20 L 17.5 7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      trash.addEventListener("click", (e) => { e.stopPropagation(); this.onTrash?.(it.id); });
+      trash.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); } });
+      div.querySelector(".article-row__top").appendChild(trash);
 
       const activate = () => {
         this.setSelected(it.id);

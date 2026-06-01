@@ -180,7 +180,8 @@ async function boot() {
         reader.renderEmpty();
         notes.unbind();
       }
-    }
+    },
+    onTrash: (id) => trashById(id)
   });
 
   const metaEl = document.getElementById("shelf-meta");
@@ -261,21 +262,24 @@ async function boot() {
     notes.isOpen() ? notes.close() : notes.open();
   });
 
-  function trashSelected() {
-    const id = list.getSelectedId();
+  function trashById(id) {
     if (!id) return;
+    const wasSelected = list.getSelectedId() === id;
     store.toggleTrashed(id);
     applyShelf(currentShelf());
-    const ids = list.getIds();
-    if (ids.length) {
-      const nextId = ids[0];
-      list.setSelected(nextId);
-      const a = list.find(nextId);
-      if (a) { reader.renderArticle(a); notes.bind(nextId); syncToolbar(nextId); }
-    } else {
-      reader.renderEmpty();
+    if (wasSelected) {
+      const ids = list.getIds();
+      if (ids.length) {
+        const nextId = ids[0];
+        list.setSelected(nextId);
+        const a = list.find(nextId);
+        if (a) { reader.renderArticle(a); notes.bind(nextId); syncToolbar(nextId); }
+      } else {
+        reader.renderEmpty();
+      }
     }
   }
+  function trashSelected() { trashById(list.getSelectedId()); }
   trashBtn.addEventListener("click", () => trashSelected());
 
   const intelHistory = new IntelHistory();

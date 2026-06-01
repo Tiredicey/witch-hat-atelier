@@ -170,6 +170,25 @@ html, body { margin: 0; height: 100%; overflow: hidden; -webkit-text-size-adjust
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   margin-bottom: 4px;
 }
+.article-row__trash {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--ink-faint);
+  opacity: 0.55;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.article-row:hover .article-row__trash,
+.article-row:focus-within .article-row__trash { opacity: 0.9; }
+.article-row__trash:hover,
+.article-row__trash:focus-visible { color: var(--sigil-red); opacity: 1; outline: none; }
+.article-row__trash:focus-visible { outline: 2px solid var(--sepia); outline-offset: 2px; }
 .article-row__source {
   font-family: var(--font-ui);
   font-size: var(--size-ui-s);
