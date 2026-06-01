@@ -120,6 +120,15 @@ export class CopilotSurface {
     return true;
   }
 
+  submitQuestion(text) {
+    const q = String(text || "").trim();
+    if (!q || !this.intel.isEnabled() || !this.inputEl) return false;
+    if (!this.isOpen()) this.open();
+    this.inputEl.value = q;
+    this.#onSubmit();
+    return true;
+  }
+
   #syncAvailability() {
     const on = this.intel.isEnabled();
     if (this.railBtn) this.railBtn.hidden = !on;
