@@ -2771,6 +2771,14 @@ body[data-page="settings"] .vault { display: none; }
 }
 .copilot__close:hover { color: var(--ink); border-color: var(--ink-soft); }
 .copilot__scope { margin: 0; color: var(--ink-faint); }
+.copilot__legal {
+  margin: 0.4rem 0 0;
+  color: var(--ink-faint);
+  opacity: 0.8;
+}
+.copilot__legal a { color: var(--sepia); text-decoration: none; }
+.copilot__legal a:hover,
+.copilot__legal a:focus-visible { text-decoration: underline; }
 .copilot__general {
   display: flex;
   align-items: center;
