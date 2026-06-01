@@ -121,3 +121,21 @@ export function extractArticle(html, originUrl) {
   out = ensureBase(out, originUrl);
   return out;
 }
+
+export function extractOgImage(html) {
+  if (typeof html !== "string" || !html) return "";
+  const metas = html.match(/<meta\b[^>]*>/gi) || [];
+  const pick = (key) => {
+    for (const tag of metas) {
+      const k = tag.match(/\b(?:property|name)\s*=\s*("([^"]+)"|'([^']+)')/i);
+      const keyVal = k ? (k[2] || k[3] || "").toLowerCase() : "";
+      if (keyVal !== key) continue;
+      const c = tag.match(/\bcontent\s*=\s*("([^"]+)"|'([^']+)')/i);
+      const content = c ? (c[2] || c[3] || "").trim() : "";
+      if (content) return content;
+    }
+    return "";
+  };
+  return pick("og:image") || pick("og:image:url") || pick("og:image:secure_url")
+    || pick("twitter:image") || pick("twitter:image:src") || "";
+}

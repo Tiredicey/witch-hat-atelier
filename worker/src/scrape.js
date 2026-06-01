@@ -195,10 +195,24 @@ function collectSocialItems(html, baseUrl) {
       seen.add(link);
       const title = socialTextNear(strings, i, 12, 160) || (isIg ? "Instagram post" : "Facebook post");
       const excerpt = socialTextNear(strings, i, 24, 320);
-      out.push({ title, link, level: 0, pos: out.length, image: "", excerpt });
+      const image = socialImageNear(strings, i);
+      out.push({ title, link, level: 0, pos: out.length, image, excerpt });
     }
   }
   return out;
+}
+
+function socialImageNear(strings, i) {
+  const lo = Math.max(0, i - 8);
+  const hi = Math.min(strings.length, i + 16);
+  for (let j = lo; j < hi; j++) {
+    const m = String(strings[j] || "").match(/https?:\/\/[^\s"']*?(?:fbcdn\.net|cdninstagram\.com)\/[^\s"']*/i);
+    if (m) {
+      const u = m[0];
+      if (/\.(?:jpe?g|png|webp)(?:[?&]|$)/i.test(u) || /\/v\/t\d/.test(u) || /[?&]stp=/.test(u)) return u;
+    }
+  }
+  return "";
 }
 
 function socialPermalink(s, isFb, isIg) {
