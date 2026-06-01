@@ -96,6 +96,15 @@ scrape, and the difference is exactly the non-compliant part.
 | Friends' posts / home timeline | No | No Graph permission grants this; the read-stream permission was retired in 2015 |
 | Another person's private profile | No | Not available to any compliant method |
 
+The default login scope is `public_profile,user_posts` only, because those
+are the permissions a freshly created Facebook Login app can grant for
+testing without business verification. The Page permissions
+(`pages_show_list`, `pages_read_engagement`) live in a separate Pages use
+case that requires business verification; until that is enabled, requesting
+them returns "Invalid Scopes". A caller that has enabled the Pages use case
+can pass `?scope=` to `/fb/login` to request them, and `/fb/feed` still
+serves `kind=page:<id>` once the grant exists.
+
 `user_friends` returns only friends who have also authorised the same app,
 not a friends feed. There is no compliant way to read the home timeline.
 A reader who needs friends-only content must use the BYO-session tier and

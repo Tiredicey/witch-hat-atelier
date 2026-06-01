@@ -123,7 +123,7 @@ function notConfiguredPopup() {
 export async function handleFbLogin(req, url, env) {
   if (!isConfigured(env)) return notConfiguredPopup();
   const requested = (url.searchParams.get("scope") || "").trim();
-  const scope = requested || "public_profile,user_posts,pages_show_list,pages_read_engagement";
+  const scope = requested || "public_profile,user_posts";
   const state = await signState(env.FB_APP_SECRET);
   const dialog = new URL(`https://www.facebook.com/${graphVersion(env)}/dialog/oauth`);
   dialog.searchParams.set("client_id", env.FB_APP_ID);
