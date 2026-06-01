@@ -34,6 +34,7 @@ import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
 import { FbConnect } from "./fb-connect.js";
+import { detectVideo, looksLikeImage } from "./video-embed.js";
 import { attachSwipe, attachLongPress } from "./touch-gestures.js";
 import { Welcome, isOnboarded } from "./welcome.js";
 
@@ -157,6 +158,8 @@ async function boot() {
         body: [],
         link,
         orphan: true,
+        video: detectVideo(link) || undefined,
+        image: looksLikeImage(link) ? link : undefined,
       });
     }
     if (!orphans.length) return base;
