@@ -5,6 +5,7 @@ export const VOICE_READALOUD_SURFACE = "voice-readaloud";
 export const VOICE_COMMANDS_SURFACE = "voice-commands";
 export const VOICE_SPEAK_ANSWERS_SURFACE = "voice-speak-answers";
 export const VOICE_ONDEVICE_SURFACE = "voice-ondevice-stt";
+export const VOICE_LOOP_SURFACE = "voice-loop";
 const STT_DISCLOSURE_HOST = "browser-speech-recognition";
 const ONDEVICE_DISCLOSURE = "voice-ondevice-stt";
 const SPEAK_ANSWERS_DISCLOSURE = "voice-speak-answers";
@@ -45,6 +46,7 @@ export class VoiceIO {
     this.reader = opts.reader;
     this.onCommand = typeof opts.onCommand === "function" ? opts.onCommand : () => {};
     this.onDictation = typeof opts.onDictation === "function" ? opts.onDictation : null;
+    this.onLoopQuestion = typeof opts.onLoopQuestion === "function" ? opts.onLoopQuestion : null;
     this.wrapEl = opts.wrapEl;
     this.readBtn = opts.readBtn;
     this.micBtn = opts.micBtn;
@@ -87,6 +89,10 @@ export class VoiceIO {
 
   isOnDeviceReady() {
     return this.onDeviceSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_ONDEVICE_SURFACE);
+  }
+
+  isLoopReady() {
+    return this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_LOOP_SURFACE);
   }
 
   isSpeakAnswersReady() {
@@ -146,6 +152,10 @@ export class VoiceIO {
         <input id="intelVoiceOnDeviceEnable" type="checkbox">
         <span>Transcribe on-device with Whisper (no audio leaves your device; first use downloads a model)</span>
       </label>
+      <label class="settings__field settings__field--inline">
+        <input id="intelVoiceLoopEnable" type="checkbox">
+        <span>Hands-free voice loop: send my spoken question automatically and speak the answer (no review step)</span>
+      </label>
       <p class="settings__hint" data-voice-support></p>
       <p class="settings__hint">
         Read-aloud uses the voices built into your device. Voice commands use your browser's speech
@@ -159,6 +169,7 @@ export class VoiceIO {
     const cmdInput = fieldset.querySelector("#intelVoiceCommandsEnable");
     const speakInput = fieldset.querySelector("#intelVoiceSpeakAnswersEnable");
     const onDeviceInput = fieldset.querySelector("#intelVoiceOnDeviceEnable");
+    const loopInput = fieldset.querySelector("#intelVoiceLoopEnable");
     const support = fieldset.querySelector("[data-voice-support]");
 
     const snap = this.intel.snapshot();
@@ -166,6 +177,7 @@ export class VoiceIO {
     cmdInput.checked = !!snap.surfaces[VOICE_COMMANDS_SURFACE];
     speakInput.checked = !!snap.surfaces[VOICE_SPEAK_ANSWERS_SURFACE];
     onDeviceInput.checked = !!snap.surfaces[VOICE_ONDEVICE_SURFACE];
+    loopInput.checked = !!snap.surfaces[VOICE_LOOP_SURFACE];
 
     if (!this.readSupported) {
       readInput.disabled = true;
@@ -204,6 +216,9 @@ export class VoiceIO {
     });
     onDeviceInput.addEventListener("change", () => {
       this.intel.setSurfaceEnabled(VOICE_ONDEVICE_SURFACE, onDeviceInput.checked);
+    });
+    loopInput.addEventListener("change", () => {
+      this.intel.setSurfaceEnabled(VOICE_LOOP_SURFACE, loopInput.checked);
     });
   }
 
@@ -418,8 +433,13 @@ export class VoiceIO {
   #handleTranscript(transcript) {
     const command = matchCommand(transcript);
     if (!command) {
-      if (this.onDictation && transcript && this.onDictation(transcript.trim())) {
-        this.#setStatus(`Heard your question: "${transcript.trim()}".`, "ok");
+      const q = transcript ? transcript.trim() : "";
+      if (q && this.isLoopReady() && this.onLoopQuestion && this.onLoopQuestion(q)) {
+        this.#setStatus(`Asking: "${q}"`, "ok");
+        return;
+      }
+      if (this.onDictation && q && this.onDictation(q)) {
+        this.#setStatus(`Heard your question: "${q}".`, "ok");
         return;
       }
       const heard = transcript ? ` Heard "${transcript.trim()}".` : "";

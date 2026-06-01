@@ -568,6 +568,7 @@ async function boot() {
       if (copilotSurface && copilotSurface.isOpen()) return copilotSurface.fillQuestion(text);
       return ask ? ask.fillQuestion(text) : false;
     },
+    onLoopQuestion: (text) => (copilotSurface ? copilotSurface.submitQuestion(text) : false),
     wrapEl:           $("#readerVoice"),
     readBtn:          $("#readerVoiceReadBtn"),
     micBtn:           $("#readerVoiceMicBtn"),
