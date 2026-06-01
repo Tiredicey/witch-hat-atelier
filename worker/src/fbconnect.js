@@ -175,6 +175,31 @@ function kindToGraphPath(kind) {
   return null;
 }
 
+function requiredScopesFor(kind) {
+  if (kind && kind.startsWith("page:")) return ["pages_show_list", "pages_read_engagement"];
+  if (kind && kind.startsWith("group:")) return [];
+  return ["user_posts"];
+}
+
+async function permissionDiagnostic(token, version, kind) {
+  const need = requiredScopesFor(kind);
+  if (!need.length) return "";
+  try {
+    const u = new URL(`https://graph.facebook.com/${version}/me/permissions`);
+    u.searchParams.set("access_token", token);
+    const res = await fetch(u.toString());
+    const data = await res.json();
+    const rows = Array.isArray(data && data.data) ? data.data : [];
+    if (!rows.length) return "";
+    const granted = rows.filter((r) => r && r.status === "granted").map((r) => r.permission);
+    const missing = need.filter((p) => !granted.includes(p));
+    if (!missing.length) return "";
+    return `The connection is missing ${missing.join(", ")}. Click Disconnect, connect again, and keep that permission enabled in the Facebook dialog.`;
+  } catch {
+    return "";
+  }
+}
+
 function graphItemsToFeed(data, kind) {
   const rows = Array.isArray(data && data.data) ? data.data : [];
   const items = rows.map((row) => {
@@ -211,8 +236,9 @@ export async function handleFbFeed(req, url, env) {
     const res = await fetch(graphUrl.toString());
     data = await res.json();
     if (!res.ok || (data && data.error)) {
-      const msg = (data && data.error && data.error.message) || `Graph request failed (${res.status}).`;
-      return jsonResp({ error: msg }, 502);
+      const baseMsg = (data && data.error && data.error.message) || `Graph request failed (${res.status}).`;
+      const diag = await permissionDiagnostic(token, graphVersion(env), kind);
+      return jsonResp({ error: diag ? `${baseMsg} ${diag}` : baseMsg }, 502);
     }
   } catch (e) {
     return jsonResp({ error: `Graph request error: ${String((e && e.message) || e)}` }, 502);
