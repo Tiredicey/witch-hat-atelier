@@ -2756,6 +2756,15 @@ body[data-page="settings"] .vault { display: none; }
 }
 .copilot__close:hover { color: var(--ink); border-color: var(--ink-soft); }
 .copilot__scope { margin: 0; color: var(--ink-faint); }
+.copilot__general {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.copilot__general input { margin: 0; }
 .copilot__greeting {
   border: var(--stroke-1) solid var(--line);
   border-radius: var(--radius-s);

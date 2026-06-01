@@ -4,8 +4,9 @@ import { ASK_SURFACE } from "./ask-surface.js";
 import { CollapsibleOutput } from "./output-toggle.js";
 
 const MAX_HISTORY_TURNS = 6;
-const DIGEST_ITEM_CAP = 20;
-const DIGEST_EXCERPT_CHARS = 280;
+const DIGEST_CHAR_BUDGET = 12000;
+const DIGEST_MAX_ITEMS = 200;
+const DIGEST_EXCERPT_CHARS = 200;
 
 function excerptOf(item) {
   if (!item) return "";
@@ -31,6 +32,8 @@ export class CopilotSurface {
     this.getShelf = typeof opts.getShelf === "function" ? opts.getShelf : () => "all";
     this.onAnswer = typeof opts.onAnswer === "function" ? opts.onAnswer : null;
     this.fetchImpl = opts.fetchImpl || null;
+    this.scopeToggleEl = opts.scopeToggleEl || null;
+    this.generalMode = false;
 
     this.wrapEl = opts.wrapEl;
     this.scopeEl = opts.scopeEl;
@@ -98,7 +101,23 @@ export class CopilotSurface {
     }
     if (this.confirmBtn) this.confirmBtn.addEventListener("click", () => this.#onConfirm());
     if (this.cancelBtn) this.cancelBtn.addEventListener("click", () => this.#dismissDisclosure());
+    if (this.scopeToggleEl) {
+      this.scopeToggleEl.addEventListener("change", () => {
+        this.generalMode = !!this.scopeToggleEl.checked;
+        this.#refreshScope();
+      });
+    }
     this.#syncAvailability();
+  }
+
+  fillQuestion(text) {
+    const q = String(text || "").trim();
+    if (!q || !this.intel.isEnabled() || !this.inputEl) return false;
+    if (!this.isOpen()) this.open();
+    this.inputEl.value = q;
+    try { this.inputEl.focus(); } catch {}
+    this.#setStatus("Question ready from voice. Review, then press Ask.", "info");
+    return true;
   }
 
   #syncAvailability() {
@@ -110,7 +129,7 @@ export class CopilotSurface {
 
   #resolveScope() {
     const a = this.reader && this.reader.currentArticle;
-    if (a) {
+    if (a && !this.generalMode) {
       return {
         id: `article:${a.id}`,
         label: "Grounded in this article",
@@ -123,23 +142,38 @@ export class CopilotSurface {
       };
     }
     const shelf = this.getShelf() || "all";
-    const unread = this.getUnread().slice(0, DIGEST_ITEM_CAP);
+    const unread = this.getUnread() || [];
     if (!unread.length) {
       return {
-        id: "empty",
-        label: "No open article, nothing unread",
+        id: this.generalMode ? `unread:${shelf}` : "empty",
+        label: this.generalMode
+          ? `Nothing unread on the ${shelf} shelf`
+          : "No open article, nothing unread",
         article: null,
       };
     }
-    const lines = unread.map((it, i) => {
+    const lines = [];
+    let used = 0;
+    let included = 0;
+    for (const it of unread) {
+      if (included >= DIGEST_MAX_ITEMS) break;
       const title = it.title || "(untitled)";
       const src = it.source || it.feed || "(unknown source)";
       const ex = truncate(excerptOf(it), DIGEST_EXCERPT_CHARS);
-      return `${i + 1}. ${title} \u2014 ${src}${ex ? `: ${ex}` : ""}`;
-    });
+      const line = `${included + 1}. ${title} \u2014 ${src}${ex ? `: ${ex}` : ""}`;
+      if (included > 0 && used + line.length > DIGEST_CHAR_BUDGET) break;
+      lines.push(line);
+      used += line.length + 1;
+      included += 1;
+    }
+    const remaining = unread.length - included;
+    if (remaining > 0) lines.push(`(+${remaining} more unread not shown, to fit the model's context.)`);
+    const label = remaining > 0
+      ? `Grounded in ${included} of ${unread.length} unread on the ${shelf} shelf`
+      : `Grounded in ${included} unread item${included === 1 ? "" : "s"} on the ${shelf} shelf`;
     return {
       id: `unread:${shelf}`,
-      label: `Grounded in ${unread.length} unread item${unread.length === 1 ? "" : "s"} on the ${shelf} shelf`,
+      label,
       article: {
         id: `unread-${shelf}`,
         title: `Unread digest \u2014 ${shelf} shelf`,
