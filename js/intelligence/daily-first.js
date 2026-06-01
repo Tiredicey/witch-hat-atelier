@@ -79,13 +79,18 @@ export class DailyFirstRitual {
 
     this.#showGreeting(spoken);
 
-    const canSpeak = this.voice && this.voice.isSpeakAnswersReady && this.voice.isSpeakAnswersReady()
-      && this.voice.speakAnswersConsented && this.voice.speakAnswersConsented();
-    if (canSpeak) {
+    const speakReady = this.voice && typeof this.voice.isSpeakAnswersReady === "function" && this.voice.isSpeakAnswersReady();
+    if (speakReady) {
+      const consented = !!(this.voice.speakAnswersConsented && this.voice.speakAnswersConsented());
       this.voice.speakAnswer(spoken);
-      this.#status(briefing ? "Reading your greeting and briefing aloud." : "Reading your greeting aloud.", "ok");
+      this.#status(
+        consented
+          ? (briefing ? "Reading your greeting and briefing aloud." : "Reading your greeting aloud.")
+          : "Confirm \u201cSpeak answers aloud\u201d to hear this greeting.",
+        "ok",
+      );
     } else if (briefing) {
-      this.#status("Enable and consent to \u201cSpeak answers aloud\u201d to hear this.", "info");
+      this.#status("Turn on \u201cSpeak answers aloud\u201d in Settings to hear this.", "info");
     } else {
       this.#status("Run \u201cBrief unread\u201d once to hear a briefing here next time.", "info");
     }
