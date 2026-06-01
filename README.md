@@ -148,6 +148,7 @@ Settings → Subscriptions now supports **OPML 2.0 import and export** — you n
 | WebSub subscriber                   | §8.10           | not built |
 | AI summarisation                    | explicitly punted (§8 "does NOT ship") | won't build in v1 |
 | The full 24-sigil set               | §14 step 4      | 8 of 24 included as stand-ins |
+| Compliant Facebook connector (OAuth)| §19             | **design only** in `docs/facebook-connect.md`; connector PR queued |
 
 ## License
 
