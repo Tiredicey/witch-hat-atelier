@@ -1368,6 +1368,21 @@ body[data-page="settings"] .scrim { display: none !important; }
   color: var(--ink-faint);
   word-break: break-all;
 }
+.opml-triage__badge {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-family: var(--font-ui);
+  font-size: var(--size-ui-s);
+  letter-spacing: var(--tracking-smallcaps);
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: var(--stroke-1) solid var(--line);
+  color: var(--ink-faint);
+}
+.opml-triage__badge[data-state="dormant"] { color: var(--sigil-red); border-color: var(--sigil-red); }
+.opml-triage__badge[data-state="dead"] { color: var(--sigil-red); border-color: var(--sigil-red); opacity: 0.85; }
+.opml-triage__badge[data-state="fresh"] { color: var(--sepia); border-color: var(--sepia); }
 .opml-triage__actions {
   display: flex;
   justify-content: flex-end;

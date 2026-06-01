@@ -23,8 +23,12 @@
 //   flows into this list as a pre-unchecked default.
 
 import { parseOpml, serializeOpml, subscriptionsFromOpml } from "./opml.js";
+import { feedRequestUrl } from "./feed-fetch.js";
+import { parseFeed } from "../worker/src/parse.js";
 
 const SUBS_KEY = "coda/subs/subscriptions.json";
+const DORMANT_DAYS = 365;
+const PROBE_CONCURRENCY = 6;
 
 function makeSlugId(title, url, suffix) {
   const t = (title || "").toLowerCase()
@@ -73,6 +77,13 @@ export class Subscriptions {
     this.subsListEl       = opts.subsListEl   || null;
     this.subsEmptyEl      = opts.subsEmptyEl  || null;
     this.adapter          = opts.adapter;
+
+    this.fetchBase  = opts.fetchBase != null ? opts.fetchBase : "";
+    this.fetchImpl  = opts.fetchImpl || ((u) => fetch(u));
+    this.now        = typeof opts.now === "function" ? opts.now : () => Date.now();
+    this.autoProbe  = opts.autoProbe != null ? !!opts.autoProbe : true;
+    this.rows       = new Map();
+    this.probeGen   = 0;
 
     this.pendingFeeds = [];
     this.pendingTitle = "";
@@ -137,6 +148,7 @@ export class Subscriptions {
   #renderTriage() {
     if (!this.triageListEl || !this.triageEl) return;
     this.triageListEl.innerHTML = "";
+    this.rows = new Map();
 
     // Group by shelf for readability; "all" group (root-level feeds) goes last.
     const groups = new Map();
@@ -169,6 +181,10 @@ export class Subscriptions {
 
     this.triageEl.hidden = false;
     this.#syncCommit();
+    if (this.autoProbe && this.pendingFeeds.length) {
+      this.probeGen += 1;
+      this.#probeFreshness(this.probeGen);
+    }
   }
 
   #renderRow(feed, idx) {
@@ -196,8 +212,14 @@ export class Subscriptions {
     url.textContent = feed.url;
     meta.appendChild(url);
 
+    const badge = document.createElement("span");
+    badge.className = "opml-triage__badge";
+    badge.hidden = true;
+    meta.appendChild(badge);
+
     label.appendChild(meta);
     li.appendChild(label);
+    this.rows.set(idx, { cb, badge });
     return li;
   }
 
@@ -230,6 +252,88 @@ export class Subscriptions {
         ? `Import ${selected} of ${total}`
         : `Import (none selected)`;
       this.commitBtn.disabled = selected === 0;
+    }
+  }
+
+  async #probeFreshness(gen) {
+    const feeds = this.pendingFeeds;
+    let next = 0;
+    let done = 0;
+    let flagged = 0;
+    let unknown = 0;
+    const runOne = async () => {
+      while (true) {
+        const idx = next++;
+        if (idx >= feeds.length) return;
+        const result = await this.#probeOne(feeds[idx].url);
+        if (this.probeGen !== gen) return;
+        done += 1;
+        this.#applyProbe(idx, result);
+        if (result.state === "dormant" || result.state === "dead") flagged += 1;
+        else if (result.state === "unknown") unknown += 1;
+        this.#setStatus(`Checking feeds for freshness\u2026 ${done}/${feeds.length}`, "pending");
+      }
+    };
+    const pool = [];
+    const width = Math.min(PROBE_CONCURRENCY, feeds.length);
+    for (let i = 0; i < width; i++) pool.push(runOne());
+    await Promise.all(pool);
+    if (this.probeGen !== gen) return;
+    this.#syncCommit();
+    const parts = [];
+    if (flagged) parts.push(`unchecked ${flagged} dormant or dead feed${flagged === 1 ? "" : "s"} for you`);
+    if (unknown) parts.push(`${unknown} couldn't be checked and stay selected`);
+    this.#setStatus(
+      parts.length
+        ? `Freshness check done \u2014 ${parts.join("; ")}. Review, then commit.`
+        : "Freshness check done \u2014 every feed looks active. Review, then commit.",
+      "ok",
+    );
+  }
+
+  async #probeOne(url) {
+    try {
+      const res = await this.fetchImpl(feedRequestUrl(url, this.fetchBase));
+      if (!res || !res.ok) return { state: "unknown" };
+      const text = await res.text();
+      const ct = (res.headers && typeof res.headers.get === "function") ? (res.headers.get("content-type") || "") : "";
+      const parsed = parseFeed(text, ct);
+      const entries = (parsed && Array.isArray(parsed.entries)) ? parsed.entries : [];
+      if (!entries.length) return { state: "dead" };
+      let latest = 0;
+      for (const e of entries) { const p = Number(e.published) || 0; if (p > latest) latest = p; }
+      if (!latest) return { state: "unknown" };
+      const ageDays = Math.floor((this.now() - latest) / 86400000);
+      if (ageDays > DORMANT_DAYS) return { state: "dormant", ageDays };
+      return { state: "fresh", ageDays };
+    } catch {
+      return { state: "unknown" };
+    }
+  }
+
+  #applyProbe(idx, result) {
+    const row = this.rows.get(idx);
+    if (!row) return;
+    const { cb, badge } = row;
+    if (result.state === "dead") {
+      cb.checked = false;
+      badge.textContent = "dead \u00b7 no items";
+      badge.dataset.state = "dead";
+      badge.hidden = false;
+    } else if (result.state === "dormant") {
+      cb.checked = false;
+      const yrs = Math.floor(result.ageDays / 365);
+      badge.textContent = yrs >= 1 ? `dormant \u00b7 ${yrs}y+ since last post` : "dormant";
+      badge.dataset.state = "dormant";
+      badge.hidden = false;
+    } else if (result.state === "fresh") {
+      badge.textContent = "active";
+      badge.dataset.state = "fresh";
+      badge.hidden = false;
+    } else {
+      badge.textContent = "couldn't check";
+      badge.dataset.state = "unknown";
+      badge.hidden = false;
     }
   }
 
@@ -278,6 +382,8 @@ export class Subscriptions {
   #hideTriage() {
     if (this.triageEl) this.triageEl.hidden = true;
     if (this.triageListEl) this.triageListEl.innerHTML = "";
+    this.probeGen += 1;
+    this.rows = new Map();
     this.pendingFeeds = [];
     this.pendingTitle = "";
     this.pendingFileName = "";
