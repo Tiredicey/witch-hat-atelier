@@ -105,6 +105,14 @@
       <span class="shelf__label">Starred</span>
     </button>
 
+    <button class="shelf shelf--trash" data-shelf="trash" aria-label="Trash">
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 7 L 19 7 M 10 7 L 10 5 L 14 5 L 14 7 M 6.5 7 L 7.5 20 L 16.5 20 L 17.5 7"/>
+      </svg>
+      <span class="count" hidden></span>
+      <span class="shelf__label">Trash</span>
+    </button>
+
     <button class="shelf shelf--vault" id="enterVaultBtn" aria-label="Vault — file storage">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 19 L 3 7 L 9 7 L 11 9 L 21 9 L 21 19 Z"/>
@@ -172,6 +180,7 @@
       <button id="markBtn" title="Mark read/unread (m)">Mark read</button>
       <button id="starBtn" title="Star (s)">Star</button>
       <button id="noteBtn" title="Note (n)">Note</button>
+      <button id="trashBtn" title="Trash this article (x)">Trash</button>
       <button id="atelierBtn" title="Atelier mode (a)">Atelier</button>
       <button id="helpBtn" title="Shortcuts (?)">?</button>
     </div>

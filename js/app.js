@@ -59,6 +59,7 @@ async function boot() {
   const markBtn   = $("#markBtn");
   const starBtn   = $("#starBtn");
   const noteBtn   = $("#noteBtn");
+  const trashBtn  = $("#trashBtn");
   const backBtn   = $("#mobileBack");
 
   const notesPanel = $("#notesPanel");
@@ -184,9 +185,12 @@ async function boot() {
 
   const metaEl = document.getElementById("shelf-meta");
   function shelfPredicate(shelfId) {
-    if (shelfId === "all")     return () => true;
-    if (shelfId === "starred") return (it) => store.isStarred(it.id);
-    return (it) => it.shelf === shelfId;
+    if (shelfId === "trash") return (it) => store.isTrashed(it.id);
+    const base =
+      shelfId === "all" ? () => true
+      : shelfId === "starred" ? (it) => store.isStarred(it.id)
+      : (it) => it.shelf === shelfId;
+    return (it) => !store.isTrashed(it.id) && base(it);
   }
   function unreadInShelf(shelfId) {
     const pred = shelfPredicate(shelfId);
@@ -231,6 +235,7 @@ async function boot() {
     starBtn.setAttribute("aria-pressed", String(starred));
     markBtn.textContent = read ? "Mark unread" : "Mark read";
     markBtn.setAttribute("aria-pressed", String(read));
+    if (trashBtn) trashBtn.textContent = store.isTrashed(id) ? "Restore" : "Trash";
   }
 
   store.subscribe(() => {
@@ -255,6 +260,23 @@ async function boot() {
     if (!list.getSelectedId()) return;
     notes.isOpen() ? notes.close() : notes.open();
   });
+
+  function trashSelected() {
+    const id = list.getSelectedId();
+    if (!id) return;
+    store.toggleTrashed(id);
+    applyShelf(currentShelf());
+    const ids = list.getIds();
+    if (ids.length) {
+      const nextId = ids[0];
+      list.setSelected(nextId);
+      const a = list.find(nextId);
+      if (a) { reader.renderArticle(a); notes.bind(nextId); syncToolbar(nextId); }
+    } else {
+      reader.renderEmpty();
+    }
+  }
+  trashBtn.addEventListener("click", () => trashSelected());
 
   const intelHistory = new IntelHistory();
   new Shortcuts({
@@ -296,6 +318,7 @@ async function boot() {
         if (!list.getSelectedId()) return;
         notes.open();
       },
+      trashToggle: () => trashSelected(),
       goShelf: (id) => {
         const shelf = railEl.querySelector(`.shelf[data-shelf="${id}"]`);
         shelf?.click();

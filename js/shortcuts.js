@@ -63,6 +63,8 @@ export class Shortcuts {
 
       if (e.key === "n") { e.preventDefault(); this.h.addNote(); return; }
 
+      if (e.key === "x") { e.preventDefault(); if (this.h.trashToggle) this.h.trashToggle(); return; }
+
       if (e.key === "u") { e.preventDefault(); if (this.h.summarise) this.h.summarise(); return; }
 
       if (e.key === "c") { e.preventDefault(); if (this.h.openCopilot) this.h.openCopilot(); return; }
