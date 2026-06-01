@@ -33,6 +33,7 @@ import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
+import { FbConnect } from "./fb-connect.js";
 import { attachSwipe, attachLongPress } from "./touch-gestures.js";
 import { Welcome, isOnboarded } from "./welcome.js";
 
@@ -680,6 +681,18 @@ async function boot() {
     subscriptions:  subs,
   });
   void addFeed;
+
+  const fbConnect = new FbConnect({
+    connectBtn:     document.getElementById("fb-connect-btn"),
+    disconnectBtn:  document.getElementById("fb-disconnect-btn"),
+    previewBtn:     document.getElementById("fb-preview-btn"),
+    statusEl:       document.getElementById("fb-connect-status"),
+    previewEl:      document.getElementById("fb-connect-preview"),
+    shelfInput:     document.getElementById("add-feed-shelf"),
+    subscriptions:  subs,
+  });
+  fbConnect.init();
+  void fbConnect;
 
   const welcomeScrim = document.getElementById("welcomeScrim");
   if (welcomeScrim) {

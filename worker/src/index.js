@@ -33,6 +33,7 @@ import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
 import { extractArticle } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 import { scrapeFeedItems, buildAtom } from "./scrape.js";
+import { handleFbLogin, handleFbCallback, handleFbFeed } from "./fbconnect.js";
 import { gmaListingApi, gmaListingItems } from "./gma.js";
 import { renderHtml, rendererConfigured } from "./render.js";
 import { handleDmz } from "./dmz.js";
@@ -71,6 +72,15 @@ export default {
     }
     if (req.method === "GET" && url.pathname === "/extract") {
       return handleExtract(req, url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/fb/login") {
+      return handleFbLogin(req, url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/fb/callback") {
+      return handleFbCallback(req, url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/fb/feed") {
+      return handleFbFeed(req, url, env);
     }
     if (req.method === "POST" && url.pathname === "/parse") {
       const { url: feedUrl, etag, lastModified } = await safeJson(req);

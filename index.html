@@ -527,6 +527,20 @@
           </p>
         </details>
       </details>
+
+      <details class="add-feed__social">
+        <summary>Connect Facebook with sign-in (official, no cookies)</summary>
+        <p class="settings__hint">
+          The sanctioned alternative to pasting a session above. You sign in through Facebook&rsquo;s own dialog and CODA receives a scoped, revocable access token, never your password and never a cookie. This reaches <strong>your own posts</strong>, and Pages you manage. It does <strong>not</strong> reach friends&rsquo; posts or your home timeline &mdash; no official permission grants that, so for friends-only content use the session paste above instead. Requires a Facebook app configured on your Worker (see <code>docs/facebook-connect.md</code>).
+        </p>
+        <div class="add-feed__row">
+          <button type="button" id="fb-connect-btn" data-variant="primary">Connect Facebook</button>
+          <button type="button" id="fb-preview-btn" hidden>Preview my posts</button>
+          <button type="button" id="fb-disconnect-btn" hidden>Disconnect</button>
+        </div>
+        <p class="settings__test" id="fb-connect-status" aria-live="polite"></p>
+        <div id="fb-connect-preview" class="add-feed__candidates" hidden></div>
+      </details>
     </section>
 
     <section class="settings__section settings__subs">

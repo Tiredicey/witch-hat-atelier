@@ -72,3 +72,16 @@ PREFIX = "coda/feeds"
 #   DMZ_NSFW_MODEL = "<an image-classification model id your account can run>"
 #   DMZ_NSFW_THRESHOLD = 0.6      # reject when a nsfw/explicit label scores >= this
 #   DMZ_NSFW_FAILCLOSED = "false" # "true" rejects images when the classifier errors
+
+# Compliant Facebook connector (§19, docs/facebook-connect.md).
+# Enables /fb/login, /fb/callback, /fb/feed. Without these the routes return
+# a plain "not configured" message and the Settings button says setup is needed.
+#   wrangler secret put FB_APP_SECRET   # Meta app secret; server-only, never sent to the browser
+# Public-ish config:
+#   FB_APP_ID        : your Meta app id
+#   FB_REDIRECT_URI  : <worker-or-pages-origin>/fb/callback, registered in the app's Valid OAuth Redirect URIs
+#   FB_GRAPH_VERSION : optional Graph API version override (e.g. "v21.0")
+# [vars]
+# FB_APP_ID       = "your-meta-app-id"
+# FB_REDIRECT_URI = "https://witch-hat-atelier.pages.dev/fb/callback"
+# FB_GRAPH_VERSION = "v21.0"
