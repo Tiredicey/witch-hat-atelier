@@ -95,6 +95,13 @@ export class VoiceIO {
     return this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_LOOP_SURFACE);
   }
 
+  startTurn() {
+    if (this.whisperActive || this.listening) return false;
+    if (!this.isOnDeviceReady() && !this.isCommandsReady()) return false;
+    this.#onMicClick();
+    return true;
+  }
+
   isSpeakAnswersReady() {
     return this.readSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_SPEAK_ANSWERS_SURFACE);
   }

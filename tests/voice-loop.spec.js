@@ -94,4 +94,44 @@ test.describe('hands-free voice loop (§18.2.13)', () => {
     expect(r.question).toContain('summarise the day for me');
     expect(r.answers).toEqual(['Spoken answer.']);
   });
+
+  test('startTurn begins a listen turn when an STT is ready, and no-ops without one', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(async () => {
+      const { VoiceIO } = await import('/js/intelligence/voice.js');
+      const { ackDisclosure } = await import('/js/intelligence/index.js');
+      ackDisclosure('voice-ondevice-stt');
+      document.body.innerHTML = `
+        <div id="mount"></div>
+        <div id="wrap" hidden><button id="read"></button><button id="mic"></button><span id="status"></span>
+          <div id="disc" hidden><span id="dtext"></span><button id="ok"></button><button id="no"></button></div></div>`;
+      const surfaces = { 'voice-ondevice-stt': true, 'voice-loop': true };
+      const intel = {
+        isEnabled: () => true, isSurfaceEnabled: (s) => !!surfaces[s], setSurfaceEnabled: (s, v) => { surfaces[s] = v; },
+        mountTarget: () => document.getElementById('mount'), snapshot: () => ({ surfaces }), subscribe: () => {},
+      };
+      let starts = 0;
+      const whisperFactory = () => ({ start: async () => { starts += 1; return true; }, stop: async () => {}, abort: () => {} });
+      const make = (intelObj) => new VoiceIO({
+        intelligence: intelObj, reader: { currentArticle: null }, whisperFactory,
+        wrapEl: document.getElementById('wrap'), readBtn: document.getElementById('read'), micBtn: document.getElementById('mic'),
+        statusEl: document.getElementById('status'), disclosureEl: document.getElementById('disc'),
+        disclosureTextEl: document.getElementById('dtext'), confirmBtn: document.getElementById('ok'), cancelBtn: document.getElementById('no'),
+      });
+
+      const v = make(intel);
+      const ret = v.startTurn();
+      await new Promise(r => setTimeout(r, 20));
+
+      const offSurfaces = {};
+      const offIntel = { isEnabled: () => true, isSurfaceEnabled: (s) => !!offSurfaces[s], setSurfaceEnabled: () => {}, mountTarget: () => document.getElementById('mount'), snapshot: () => ({ surfaces: offSurfaces }), subscribe: () => {} };
+      const vOff = make(offIntel);
+      const retOff = vOff.startTurn();
+
+      return { ret, starts, retOff };
+    });
+    expect(r.ret).toBe(true);
+    expect(r.starts).toBe(1);
+    expect(r.retOff).toBe(false);
+  });
 });
