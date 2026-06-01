@@ -541,7 +541,10 @@ async function boot() {
     intelligence: intelligenceCtrl,
     reader,
     onCommand: (cmd) => { if (cmd === "summarise" && summariseSurface) summariseSurface.trigger(); },
-    onDictation: (text) => (ask ? ask.fillQuestion(text) : false),
+    onDictation: (text) => {
+      if (copilotSurface && copilotSurface.isOpen()) return copilotSurface.fillQuestion(text);
+      return ask ? ask.fillQuestion(text) : false;
+    },
     wrapEl:           $("#readerVoice"),
     readBtn:          $("#readerVoiceReadBtn"),
     micBtn:           $("#readerVoiceMicBtn"),
@@ -577,6 +580,7 @@ async function boot() {
     onAnswer: (text) => { if (voice) voice.speakAnswer(text); },
     wrapEl:           $("#copilot"),
     scopeEl:          $("#copilotScope"),
+    scopeToggleEl:    $("#copilotGeneral"),
     closeBtn:         $("#copilotClose"),
     railBtn:          $("#copilotBtn"),
     formEl:           $("#copilotForm"),
