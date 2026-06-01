@@ -113,8 +113,15 @@ function postMessageHtml(payload) {
   return new Response(body, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
+function notConfiguredPopup() {
+  return postMessageHtml({
+    ok: false,
+    error: "Facebook connect is not set up on this Worker yet. The site owner needs to set FB_APP_ID, FB_APP_SECRET, and FB_REDIRECT_URI (see docs/facebook-connect.md).",
+  });
+}
+
 export async function handleFbLogin(req, url, env) {
-  if (!isConfigured(env)) return notConfigured();
+  if (!isConfigured(env)) return notConfiguredPopup();
   const requested = (url.searchParams.get("scope") || "").trim();
   const scope = requested || "public_profile,user_posts,pages_show_list,pages_read_engagement";
   const state = await signState(env.FB_APP_SECRET);
@@ -128,7 +135,7 @@ export async function handleFbLogin(req, url, env) {
 }
 
 export async function handleFbCallback(req, url, env) {
-  if (!isConfigured(env)) return notConfigured();
+  if (!isConfigured(env)) return notConfiguredPopup();
   const err = url.searchParams.get("error");
   if (err) {
     return postMessageHtml({ ok: false, error: url.searchParams.get("error_description") || err });
