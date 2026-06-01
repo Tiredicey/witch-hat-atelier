@@ -730,13 +730,18 @@ no-renderer behaviour. The user access token lives in the reader's own
 browser (`coda/social/fb-token`), exchanged by the reader's own Worker; no
 server-side persistence (§5).
 
-**Honest scope.** Reaches the reader's own posts (`user_posts`, App Review
-required), Pages they manage (`pages_show_list`, `pages_read_engagement`),
-and Groups only where the app is installed in the group. It does NOT reach
-friends' posts or the home timeline; no Graph permission grants that, and
-the read-stream permission was retired in 2015. A reader who needs
-friends-only content stays on the BYO-session tier and accepts its
-cookie trade-off. This connector does not pretend to replace it.
+**Honest scope (corrected 2026-06-01 against Meta's `me/posts` reference).**
+The `me/posts` edge returns ONLY posts created through the app or ones the
+user is tagged in, NOT their existing timeline (per
+https://developers.facebook.com/docs/graph-api/reference/user/posts), so for
+a normal account it is effectively empty. Pages the reader manages
+(`pages_show_list`, `pages_read_engagement`) are reachable but require the
+Pages use case plus business verification. The connector does NOT reach the
+reader's existing personal posts, their home timeline, or friends' posts; no
+Graph permission grants those, and the read-stream permission was retired in
+2015. A reader who needs personal-feed or friends content stays on the
+BYO-session tier and accepts its cookie trade-off. This connector does not
+pretend to replace it; its honest value is identity sign-in and Page feeds.
 
 **Trust contract (inherits §17.1).** Off by default; one-line disclosure
 before the first `/fb/feed` call; a Disconnect kill switch (§17.1.4) that

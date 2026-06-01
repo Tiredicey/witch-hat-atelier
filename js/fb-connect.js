@@ -145,7 +145,7 @@ export class FbConnect {
     count.dataset.kind = titles.length ? "ok" : "fail";
     count.textContent = titles.length
       ? `${titles.length} post${titles.length > 1 ? "s" : ""} found. Preview:`
-      : "No posts returned for this account.";
+      : "No posts returned. Meta's API only returns posts created through this app or ones you're tagged in, not your existing timeline.";
     this.previewEl.append(count);
     if (titles.length) {
       const ul = document.createElement("ul");
