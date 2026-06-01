@@ -90,7 +90,7 @@ scrape, and the difference is exactly the non-compliant part.
 
 | Surface | Reachable | Requirement |
 |---|---|---|
-| Your own posts (`me/posts`) | Yes | `user_posts` permission; App Review for non-test users |
+| Your own posts (`me/posts`) | Partial | `user_posts`; per Meta's reference this edge returns ONLY posts created through the app or ones you're tagged in, NOT your existing timeline |
 | Pages you manage (`me/accounts`, `<page>/feed`) | Yes | `pages_show_list`, `pages_read_engagement` |
 | Groups | Conditional | Groups API is heavily restricted; the app generally must be installed in the group by an admin |
 | Friends' posts / home timeline | No | No Graph permission grants this; the read-stream permission was retired in 2015 |

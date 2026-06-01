@@ -118,4 +118,15 @@ test.describe('Facebook connect — compliant OAuth surface', () => {
     await expect(block).toContainText("friends");
     await expect(block).toContainText('home timeline');
   });
+
+  test('empty feed explains the me/posts timeline limitation', async ({ page }) => {
+    const EMPTY = `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>My Facebook posts</title><id>urn:coda:fb</id><updated>2026-06-01T00:00:00Z</updated></feed>`;
+    await page.route('**/fb/feed?**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/atom+xml', body: EMPTY }));
+    await seedConnected(page);
+    await openConnect(page);
+    await page.locator('#fb-preview-btn').click();
+    await page.locator('#fb-preview-continue').click();
+    await expect(page.locator('#fb-connect-preview')).toContainText('only returns posts created through this app');
+  });
 });
