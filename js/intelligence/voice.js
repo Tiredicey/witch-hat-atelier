@@ -1,9 +1,12 @@
 import { isDisclosureAcked, ackDisclosure } from "./index.js";
+import { WhisperSTT, isWhisperSupported } from "./whisper-stt.js";
 
 export const VOICE_READALOUD_SURFACE = "voice-readaloud";
 export const VOICE_COMMANDS_SURFACE = "voice-commands";
 export const VOICE_SPEAK_ANSWERS_SURFACE = "voice-speak-answers";
+export const VOICE_ONDEVICE_SURFACE = "voice-ondevice-stt";
 const STT_DISCLOSURE_HOST = "browser-speech-recognition";
+const ONDEVICE_DISCLOSURE = "voice-ondevice-stt";
 const SPEAK_ANSWERS_DISCLOSURE = "voice-speak-answers";
 
 const COMMAND_RULES = [
@@ -64,6 +67,10 @@ export class VoiceIO {
 
     this.readSupported = !!(this.synth && this.UtteranceCtor);
     this.commandsSupported = !!this.RecognitionCtor;
+    this.onDeviceSupported = typeof opts.whisperFactory === "function" ? true : isWhisperSupported();
+    this.whisperFactory = typeof opts.whisperFactory === "function" ? opts.whisperFactory : (o) => new WhisperSTT(o);
+    this.whisper = null;
+    this.whisperActive = false;
 
     this.#mountSettings();
     this.#bind();
@@ -76,6 +83,10 @@ export class VoiceIO {
 
   isCommandsReady() {
     return this.commandsSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_COMMANDS_SURFACE);
+  }
+
+  isOnDeviceReady() {
+    return this.onDeviceSupported && this.intel.isEnabled() && this.intel.isSurfaceEnabled(VOICE_ONDEVICE_SURFACE);
   }
 
   isSpeakAnswersReady() {
@@ -131,6 +142,10 @@ export class VoiceIO {
         <input id="intelVoiceSpeakAnswersEnable" type="checkbox">
         <span>Speak answers aloud after you ask (on-device speech, you send each question yourself)</span>
       </label>
+      <label class="settings__field settings__field--inline">
+        <input id="intelVoiceOnDeviceEnable" type="checkbox">
+        <span>Transcribe on-device with Whisper (no audio leaves your device; first use downloads a model)</span>
+      </label>
       <p class="settings__hint" data-voice-support></p>
       <p class="settings__hint">
         Read-aloud uses the voices built into your device. Voice commands use your browser's speech
@@ -143,12 +158,14 @@ export class VoiceIO {
     const readInput = fieldset.querySelector("#intelVoiceReadAloudEnable");
     const cmdInput = fieldset.querySelector("#intelVoiceCommandsEnable");
     const speakInput = fieldset.querySelector("#intelVoiceSpeakAnswersEnable");
+    const onDeviceInput = fieldset.querySelector("#intelVoiceOnDeviceEnable");
     const support = fieldset.querySelector("[data-voice-support]");
 
     const snap = this.intel.snapshot();
     readInput.checked = !!snap.surfaces[VOICE_READALOUD_SURFACE];
     cmdInput.checked = !!snap.surfaces[VOICE_COMMANDS_SURFACE];
     speakInput.checked = !!snap.surfaces[VOICE_SPEAK_ANSWERS_SURFACE];
+    onDeviceInput.checked = !!snap.surfaces[VOICE_ONDEVICE_SURFACE];
 
     if (!this.readSupported) {
       readInput.disabled = true;
@@ -160,10 +177,15 @@ export class VoiceIO {
       cmdInput.disabled = true;
       cmdInput.checked = false;
     }
+    if (!this.onDeviceSupported) {
+      onDeviceInput.disabled = true;
+      onDeviceInput.checked = false;
+    }
 
     const notes = [];
     if (!this.readSupported) notes.push("Read-aloud is not available in this browser.");
     if (!this.commandsSupported) notes.push("Voice commands are not available in this browser.");
+    if (!this.onDeviceSupported) notes.push("On-device transcription is not available in this browser.");
     if (notes.length) {
       support.textContent = notes.join(" ");
       support.dataset.status = "fail";
@@ -180,6 +202,9 @@ export class VoiceIO {
     speakInput.addEventListener("change", () => {
       this.intel.setSurfaceEnabled(VOICE_SPEAK_ANSWERS_SURFACE, speakInput.checked);
     });
+    onDeviceInput.addEventListener("change", () => {
+      this.intel.setSurfaceEnabled(VOICE_ONDEVICE_SURFACE, onDeviceInput.checked);
+    });
   }
 
   #bind() {
@@ -194,16 +219,22 @@ export class VoiceIO {
     const readReady = this.isReadReady();
     const cmdReady = this.isCommandsReady();
     const speakReady = this.isSpeakAnswersReady();
+    const onDeviceReady = this.isOnDeviceReady();
+    const micReady = cmdReady || onDeviceReady;
     if (this.readBtn) this.readBtn.hidden = !readReady;
-    if (this.micBtn) this.micBtn.hidden = !cmdReady;
-    if (this.wrapEl) this.wrapEl.hidden = !(readReady || cmdReady || speakReady);
+    if (this.micBtn) this.micBtn.hidden = !micReady;
+    if (this.wrapEl) this.wrapEl.hidden = !(readReady || micReady || speakReady);
     if (this.speaking && !this.answerSpeaking && !readReady) this.#stopSpeaking();
     if (this.speaking && this.answerSpeaking && !speakReady) this.#stopSpeaking();
     if (!cmdReady) {
       this.#stopListening();
       if (this.pendingDisclosure === "stt") this.#dismissDisclosure();
     }
-    if (!readReady && !cmdReady && !speakReady) this.#setStatus("", null);
+    if (!onDeviceReady) {
+      this.#abortWhisper();
+      if (this.pendingDisclosure === "ondevice") this.#dismissDisclosure();
+    }
+    if (!readReady && !micReady && !speakReady) this.#setStatus("", null);
   }
 
   #articleText() {
@@ -270,6 +301,7 @@ export class VoiceIO {
   }
 
   #onMicClick() {
+    if (this.isOnDeviceReady()) { this.#onMicClickWhisper(); return; }
     if (!this.isCommandsReady()) return;
     if (this.listening) {
       this.#stopListening();
@@ -300,6 +332,12 @@ export class VoiceIO {
         this.answerSpeaking = true;
         this.#startSpeaking(t);
       }
+      return;
+    }
+    if (which === "ondevice") {
+      ackDisclosure(ONDEVICE_DISCLOSURE);
+      this.#dismissDisclosure();
+      this.#startWhisper();
       return;
     }
     ackDisclosure(STT_DISCLOSURE_HOST);
@@ -374,6 +412,10 @@ export class VoiceIO {
     } catch {
       transcript = "";
     }
+    this.#handleTranscript(transcript);
+  }
+
+  #handleTranscript(transcript) {
     const command = matchCommand(transcript);
     if (!command) {
       if (this.onDictation && transcript && this.onDictation(transcript.trim())) {
@@ -401,6 +443,55 @@ export class VoiceIO {
     if (command === "summarise") {
       this.#setStatus("Command: summarise.", "ok");
       this.onCommand("summarise");
+    }
+  }
+
+  #onMicClickWhisper() {
+    if (this.whisperActive) { this.#stopWhisper(); return; }
+    if (isDisclosureAcked(ONDEVICE_DISCLOSURE)) { this.#startWhisper(); return; }
+    this.pendingDisclosure = "ondevice";
+    this.disclosureTextEl.textContent =
+      "On-device transcription runs Whisper inside your browser, so your audio never leaves this device. " +
+      "The first use downloads a speech model (tens of megabytes), cached for later. Start listening?";
+    this.disclosureEl.hidden = false;
+    this.confirmBtn.focus();
+  }
+
+  async #startWhisper() {
+    if (this.whisperActive) return;
+    this.#stopSpeaking();
+    if (!this.whisper) {
+      this.whisper = this.whisperFactory({
+        onResult: (t) => this.#handleTranscript(t),
+        onStatus: (m, s) => this.#setStatus(m, s),
+      });
+    }
+    let ok = false;
+    try { ok = await this.whisper.start(); } catch { ok = false; }
+    if (!ok) { this.whisperActive = false; return; }
+    this.whisperActive = true;
+    if (this.micBtn) {
+      this.micBtn.setAttribute("aria-pressed", "true");
+      this.micBtn.textContent = "Listening\u2026 (tap to transcribe)";
+    }
+  }
+
+  async #stopWhisper() {
+    if (!this.whisperActive || !this.whisper) return;
+    this.whisperActive = false;
+    if (this.micBtn) {
+      this.micBtn.setAttribute("aria-pressed", "false");
+      this.micBtn.textContent = "Voice command";
+    }
+    try { await this.whisper.stop(); } catch {}
+  }
+
+  #abortWhisper() {
+    if (this.whisper) { try { this.whisper.abort(); } catch {} }
+    this.whisperActive = false;
+    if (this.micBtn && !this.isCommandsReady()) {
+      this.micBtn.setAttribute("aria-pressed", "false");
+      this.micBtn.textContent = "Voice command";
     }
   }
 
