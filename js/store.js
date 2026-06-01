@@ -3,7 +3,7 @@ import { LocalAdapter } from "./storage.js";
 const COMPACT_THRESHOLD = 256;
 
 function blankItem(id) {
-  return { id, read: false, starred: false, notes: [], title: "", link: "" };
+  return { id, read: false, starred: false, trashed: false, notes: [], title: "", link: "" };
 }
 
 function blankSnapshot() {
@@ -13,7 +13,7 @@ function blankSnapshot() {
 export function materialise(base, events) {
   const items = new Map();
   for (const it of base?.items || []) {
-    items.set(it.id, { id: it.id, read: !!it.read, starred: !!it.starred, notes: (it.notes || []).map(n => ({ ...n })), title: it.title || "", link: it.link || "" });
+    items.set(it.id, { id: it.id, read: !!it.read, starred: !!it.starred, trashed: !!it.trashed, notes: (it.notes || []).map(n => ({ ...n })), title: it.title || "", link: it.link || "" });
   }
   const ensure = (id) => {
     if (!items.has(id)) items.set(id, blankItem(id));
@@ -23,6 +23,8 @@ export function materialise(base, events) {
     switch (ev.t) {
       case "item.read":   ensure(ev.itemId).read = true; break;
       case "item.unread": ensure(ev.itemId).read = false; break;
+      case "item.trash":   ensure(ev.itemId).trashed = true; break;
+      case "item.untrash": ensure(ev.itemId).trashed = false; break;
       case "item.star": {
         const it = ensure(ev.itemId);
         it.starred = !!ev.on;
@@ -71,6 +73,7 @@ export class Store {
 
   isRead(id)    { return this.itemFor(id).read; }
   isStarred(id) { return this.itemFor(id).starred; }
+  isTrashed(id) { return this.itemFor(id).trashed; }
   notesFor(id)  { return this.itemFor(id).notes.map(n => ({ ...n })); }
 
   setRead(id, read) {
@@ -87,6 +90,14 @@ export class Store {
 
   toggleStarred(id) {
     return this.setStarred(id, !this.isStarred(id));
+  }
+
+  setTrashed(id, on) {
+    return this.#append({ t: on ? "item.trash" : "item.untrash", itemId: id, at: Date.now() });
+  }
+
+  toggleTrashed(id) {
+    return this.setTrashed(id, !this.isTrashed(id));
   }
 
   async addNote(id, body, name = "") {
