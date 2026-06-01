@@ -138,7 +138,7 @@ export class CopilotSurface {
       return `${i + 1}. ${title} \u2014 ${src}${ex ? `: ${ex}` : ""}`;
     });
     return {
-      id: `unread:${shelf}:${unread.length}`,
+      id: `unread:${shelf}`,
       label: `Grounded in ${unread.length} unread item${unread.length === 1 ? "" : "s"} on the ${shelf} shelf`,
       article: {
         id: `unread-${shelf}`,
