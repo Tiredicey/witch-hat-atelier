@@ -76,4 +76,33 @@ test.describe('fbconnect worker handlers — no-network branches', () => {
     expect(badKind.status).toBe(400);
     expect(JSON.parse(badKind.body).error).toBe('unknown kind');
   });
+
+  test('/fb/feed names the missing permission when Graph denies posts', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(async ([mu, u, e]) => {
+      const realFetch = window.fetch;
+      window.fetch = async (input) => {
+        const s = String(input);
+        if (s.includes('/me/permissions')) {
+          return new Response(JSON.stringify({ data: [
+            { permission: 'public_profile', status: 'granted' },
+            { permission: 'user_posts', status: 'declined' },
+          ] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ error: { message: '(#200) Permissions error', code: 200 } }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } });
+      };
+      try {
+        const mod = await import(mu);
+        const res = await mod.handleFbFeed({}, new URL(u), e);
+        return { status: res.status, body: await res.text() };
+      } finally {
+        window.fetch = realFetch;
+      }
+    }, [MODULE_URL, 'https://app.example/fb/feed?kind=posts&token=T', CONFIGURED]);
+    expect(r.status).toBe(502);
+    const err = JSON.parse(r.body).error;
+    expect(err).toContain('user_posts');
+    expect(err).toContain('Disconnect');
+  });
 });
