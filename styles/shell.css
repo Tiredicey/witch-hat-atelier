@@ -1763,6 +1763,24 @@ body[data-page="settings"] .scrim { display: none !important; }
   max-width: var(--reader-max-ch);
   margin: var(--gutter-m) auto var(--gutter-l);
 }
+.reader__image {
+  display: block;
+  width: 100%;
+  max-width: var(--reader-max-ch);
+  max-height: 460px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin: var(--gutter-m) auto var(--gutter-l);
+  background: var(--surface-2, #f3efe5);
+}
+.reader__enclosureVideo {
+  display: block;
+  width: 100%;
+  max-width: var(--reader-max-ch);
+  margin: var(--gutter-m) auto var(--gutter-l);
+  border-radius: 4px;
+  background: #000;
+}
 .article-row__badge {
   font-family: var(--font-ui);
   font-size: var(--size-ui-s);

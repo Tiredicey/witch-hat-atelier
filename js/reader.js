@@ -168,6 +168,17 @@ export class Reader {
       <circle cx="60" cy="9" r="1.4" fill="currentColor" opacity="0.5"/>`;
     article.appendChild(flourish);
 
+    if (a.image && !(a.video && a.video.id)) {
+      const img = document.createElement("img");
+      img.className = "reader__image";
+      img.src = a.image;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      article.appendChild(img);
+    }
+
     if (a.video && a.video.id) {
       const { holder, fallback } = buildVideoEmbed(a.video, "reader");
       article.appendChild(holder);
@@ -175,13 +186,32 @@ export class Reader {
     }
 
     const enc = a.enclosure;
-    if (enc && enc.url && /^audio\//i.test(enc.type || "")) {
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.preload = "none";
-      audio.src = enc.url;
-      audio.className = "reader__audio";
-      article.appendChild(audio);
+    if (enc && enc.url) {
+      const encType = enc.type || "";
+      if (/^audio\//i.test(encType)) {
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.preload = "none";
+        audio.src = enc.url;
+        audio.className = "reader__audio";
+        article.appendChild(audio);
+      } else if (/^video\//i.test(encType)) {
+        const video = document.createElement("video");
+        video.controls = true;
+        video.preload = "none";
+        video.src = enc.url;
+        video.className = "reader__enclosureVideo";
+        article.appendChild(video);
+      } else if (/^image\//i.test(encType)) {
+        const img = document.createElement("img");
+        img.className = "reader__image";
+        img.src = enc.url;
+        img.alt = "";
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.referrerPolicy = "no-referrer";
+        article.appendChild(img);
+      }
     }
 
     for (const para of a.body) {

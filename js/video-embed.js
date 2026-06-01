@@ -75,3 +75,26 @@ export function buildVideoEmbed(video, prefix) {
 
   return { holder, fallback };
 }
+
+const IMAGE_URL = /\.(?:apng|avif|gif|jpe?g|png|webp|bmp|svg)(?:[?#].*)?$/i;
+
+export function looksLikeImage(url) {
+  return typeof url === "string" && IMAGE_URL.test(url);
+}
+
+export function detectVideo(s) {
+  if (!s) return null;
+  const short = s.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/);
+  if (short) return { provider: "youtube", id: short[1], short: true };
+  const yt = s.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (yt) return { provider: "youtube", id: yt[1] };
+  const vm = s.match(/(?:vimeo\.com\/(?:video\/)?)(\d{6,})/);
+  if (vm) return { provider: "vimeo", id: vm[1] };
+  const tt = s.match(/tiktok\.com\/@([\w.-]+)\/video\/(\d{6,})/i);
+  if (tt) return { provider: "tiktok", id: tt[2], user: tt[1] };
+  const tte = s.match(/tiktok\.com\/(?:player\/v1|embed(?:\/v2)?)\/(\d{6,})/i);
+  if (tte) return { provider: "tiktok", id: tte[1] };
+  const ttm = s.match(/m\.tiktok\.com\/v\/(\d{6,})/i);
+  if (ttm) return { provider: "tiktok", id: ttm[1] };
+  return null;
+}
