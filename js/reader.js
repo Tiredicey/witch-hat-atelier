@@ -19,7 +19,7 @@ export class Reader {
    * @param {string=} opts.extractBase           — origin for /extract (default same-origin "")
    * @param {(url:string)=>Promise<Response>=} opts.fetchImpl — injectable for tests
    */
-  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, extractEnabled, fetchImpl, onArticleChange }) {
+  constructor({ wrapEl, readerEl, extractWrapEl, extractBtn, extractStatusEl, extractBase, extractEnabled, fetchImpl, onArticleChange, enrichImages }) {
     this.wrapEl = wrapEl;
     this.readerEl = readerEl;
     this.onArticleChange = typeof onArticleChange === "function" ? onArticleChange : null;
@@ -29,6 +29,7 @@ export class Reader {
     this.extractBase     = (extractBase != null ? extractBase : "").replace(/\/+$/, "");
     this.extractEnabled  = extractEnabled != null ? !!extractEnabled : true;
     this.extractFetch    = fetchImpl || ((u) => fetch(u));
+    this.enrichImages    = enrichImages != null ? !!enrichImages : true;
     this.currentArticle = null;
     this.extractActive  = false;
     this.savedBody      = null;
@@ -177,6 +178,8 @@ export class Reader {
       img.decoding = "async";
       img.referrerPolicy = "no-referrer";
       article.appendChild(img);
+    } else if (a.link && !(a.video && a.video.id) && this.enrichImages) {
+      this.#enrichImage(a, flourish);
     }
 
     if (a.video && a.video.id) {
@@ -244,5 +247,27 @@ export class Reader {
     this.readerEl.appendChild(article);
     this.wrapEl.classList.add("has-selection");
     this.readerEl.scrollTop = 0;
+  }
+
+  async #enrichImage(a, afterEl) {
+    if (!a || !a.link) return;
+    let image = "";
+    try {
+      const res = await this.extractFetch(`${this.extractBase}/ogimage?url=${encodeURIComponent(a.link)}`);
+      if (res && res.ok) {
+        const data = await res.json();
+        image = data && data.image ? String(data.image) : "";
+      }
+    } catch { return; }
+    if (!image || this.currentArticle !== a) return;
+    a.image = image;
+    const img = document.createElement("img");
+    img.className = "reader__image";
+    img.src = image;
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+    if (afterEl && afterEl.insertAdjacentElement) afterEl.insertAdjacentElement("afterend", img);
   }
 }

@@ -30,7 +30,7 @@ import { fetchFeed } from "./fetch-feed.js";
 import { parseFeed } from "./parse.js";
 import { scoreFeed, passesQuality } from "./quality.js";
 import { allowProxy, proxyFetch, DEFAULT_MAX_BYTES } from "./proxy.js";
-import { extractArticle } from "./extract.js";
+import { extractArticle, extractOgImage } from "./extract.js";
 import { extractFeedLinks, commonFeedPaths, looksLikeFeed, classifyByBody } from "./discover.js";
 import { scrapeFeedItems, buildAtom } from "./scrape.js";
 import { handleFbLogin, handleFbCallback, handleFbFeed } from "./fbconnect.js";
@@ -72,6 +72,9 @@ export default {
     }
     if (req.method === "GET" && url.pathname === "/extract") {
       return handleExtract(req, url, env);
+    }
+    if (req.method === "GET" && url.pathname === "/ogimage") {
+      return handleOgImage(req, url, env);
     }
     if (req.method === "GET" && url.pathname === "/fb/login") {
       return handleFbLogin(req, url, env);
@@ -295,6 +298,19 @@ function readSession(req) {
   const cookie = req.headers.get("x-wha-cookie") || "";
   const ua = req.headers.get("x-wha-ua") || "";
   return { cookie, ua };
+}
+
+async function handleOgImage(req, url, env) {
+  const target = url.searchParams.get("url");
+  if (!target) return jsonError(400, "missing url");
+  const gate = allowProxy(target, env.PROXY_ALLOW);
+  if (!gate.ok) return jsonError(403, gate.reason);
+  const fetched = await proxyFetch(target, { ua: env.UA, maxBytes: 300000 });
+  if (fetched.status === 0 || !fetched.body) return jsonResp({ image: "" });
+  const ct = (fetched.contentType || "").toLowerCase();
+  if (!ct.includes("html") && !ct.includes("xml")) return jsonResp({ image: "" });
+  const raw = new TextDecoder("utf-8").decode(fetched.body);
+  return jsonResp({ image: extractOgImage(raw) });
 }
 
 async function handleDiscover(req, url, env) {
