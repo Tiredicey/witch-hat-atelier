@@ -695,3 +695,58 @@ The owner asked for a clap-to-summon copilot with a once-a-day cinematic opening
 - "First of the day" needs persisted state (see §18.7): memory-only resets on reload, the storage adapter persists across sessions.
 
 **Acceptance gates (in addition to §18.6).** Ships only when the detector is provably transcription-free and recording-free (no `MediaRecorder`, no STT on the clap path); the armed indicator and kill switch are present and Playwright-covered with the mic boundary mocked; the daily-first state and its disclosure are defined; and the greeting persona is user-set, not a trademarked impersonation. Until all pass, rung 8 stays a vision item like the rest of unshipped §18.
+
+---
+
+## 19 · Compliant Facebook connector — Graph API + OAuth (owner-authorised, 2026-06-01)
+
+A sanctioned alternative to the §13/`docs/social-feeds.md` BYO-session
+scrape, for readers who want the path Meta itself supports rather than
+forwarding a session cookie. Full design: `docs/facebook-connect.md`.
+
+**Driver.** The BYO-session tier forwards the reader's own cookie to an
+authenticated fetch of `facebook.com`. Meta's Automated Data Collection
+Terms (https://www.facebook.com/legal/automated_data_collection_terms)
+sanction programmatic access only through the Graph API at
+`graph.facebook.com`. This connector takes that route: Facebook Login
+(OAuth) for consent, Graph API for content.
+
+**Rejected: a cookie-capture browser extension.** Reading the httpOnly
+`c_user`/`xs` cookies and shipping them to CODA was requested and is not
+adopted. It cannot be made compliant with the Terms above (its only point
+is to fetch content outside the Platform APIs); a click-once auto-send is
+the silent transmission §4 (line 485) forbids; and the Chrome Web Store
+policies (https://developer.chrome.com/docs/webstore/program-policies/policies)
+require pre-install disclosure and informed consent for reading auth
+cookies, which an auto-signup flow defeats. The BYO-session tier already
+serves readers who accept the cookie trade-off knowingly.
+
+**Shape.** Worker gains `/fb/login`, `/fb/callback`, `/fb/feed`; the client
+gains a Settings "Connect Facebook" action. `FB_APP_ID` is a Worker var,
+`FB_APP_SECRET` a `wrangler secret` (never in source, never sent to the
+browser), `FB_REDIRECT_URI` the callback origin. With no app configured the
+routes return a plain "not configured" message, identical to the §14a
+no-renderer behaviour. The user access token lives in the reader's own
+browser (`coda/social/fb-token`), exchanged by the reader's own Worker; no
+server-side persistence (§5).
+
+**Honest scope.** Reaches the reader's own posts (`user_posts`, App Review
+required), Pages they manage (`pages_show_list`, `pages_read_engagement`),
+and Groups only where the app is installed in the group. It does NOT reach
+friends' posts or the home timeline; no Graph permission grants that, and
+the read-stream permission was retired in 2015. A reader who needs
+friends-only content stays on the BYO-session tier and accepts its
+cookie trade-off. This connector does not pretend to replace it.
+
+**Trust contract (inherits §17.1).** Off by default; one-line disclosure
+before the first `/fb/feed` call; a Disconnect kill switch (§17.1.4) that
+deletes the stored token; OAuth token not password, scoped and revocable at
+facebook.com.
+
+**Acceptance gate (mirrors §17.5/§18.6).** Ships only when: the OAuth state
+parameter is verified on callback; the app secret never reaches client code
+(grep-proven); the no-config path returns a clear message instead of
+erroring; the disclosure and Disconnect kill switch are present and
+Playwright-covered with the Graph/OAuth boundary mocked; and the scope
+table above is reflected verbatim in the Settings copy so the friends-feed
+limit is stated, not hidden.
