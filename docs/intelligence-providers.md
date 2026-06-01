@@ -71,3 +71,24 @@ When both the microphone (rung 6) and the Ask surface (rung 2) are enabled, a sp
 ## §18.3 rung 4 — Brief my unread (cross-article briefing)
 
 A list-pane control that summarises the unread articles in the current shelf into one briefing, grouped by feed or theme. Reuses the §17.8 providers and ordered failover; one independent Settings kill switch (`#intelBriefingEnable`, off by default). One request sends up to 20 unread titles and ~500-character excerpts from the current shelf to the provider, after the §17.1.2 disclosure (which names the count and host). Each item is wrapped between `<<<ARTICLES>>>` and `<<<END ARTICLES>>>` and the system prompt forbids following instructions inside that block (§18.2.6). The 20-item / per-item-snippet caps are the token-budget control called for in §18.3 rung 4.
+
+## §18.3 rung 6 — On-device Whisper STT (issue #62, foundation)
+
+`js/intelligence/whisper-stt.js` transcribes speech entirely in the browser:
+microphone capture (Web Audio) and inference (Transformers.js Whisper over
+WASM/ONNX) both run locally, so no audio leaves the device — unlike the Web
+Speech API, which Chrome and Edge transcribe on the browser maker's servers.
+
+- **Engine / model:** loaded from a configurable URL (`libUrl`, default a
+  pinned `@huggingface/transformers` CDN build; `model`, default
+  `Xenova/whisper-tiny.en`). BYO / self-hosted per §17.10.
+- **First-run download:** the model is tens of MB and downloads on first use.
+  The caller MUST disclose this before starting, per §17.11 item 7.
+- **Pipeline:** capture Float32 frames → merge → resample to 16 kHz mono →
+  `engine.transcribe(pcm)` → text. The resampler, frame merge, and engine
+  contract are unit-tested with a fake engine (`tests/whisper-stt.spec.js`);
+  the live mic and model load are feature-detected at runtime.
+- **Status (this PR):** foundation module only. Wiring it into the voice
+  Settings surface (consent, §17.1.4 kill switch, replacing Web Speech
+  dictation) and the closed voice loop are follow-ups. The module opens the
+  mic only when `start()` is called by that integration.
