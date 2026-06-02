@@ -20,7 +20,9 @@ export async function loadFeedSnapshot(settings, adapter) {
     if (!raw) return null;
     const snap = JSON.parse(raw);
     if (!snap || !Array.isArray(snap.entries)) return null;
-    return snap.entries;
+    return snap.entries
+      .slice()
+      .sort((a, b) => (b.published || 0) - (a.published || 0));
   } catch (e) {
     console.warn("feed-source: snapshot load failed", e);
     return null;

@@ -6,6 +6,7 @@
 // constructor's `onSelect` argument.
 
 import { buildVideoEmbed } from "./video-embed.js";
+import { formatAge } from "./age.js";
 
 const DIVIDERS = ["a", "b", "c"];
 
@@ -29,6 +30,23 @@ export class ArticleList {
 
     this.#renderRows();
     this.#bindDensity();
+    this.#startAgeTicker();
+  }
+
+  #startAgeTicker() {
+    this.#refreshAges();
+    this._ageTimer = setInterval(() => this.#refreshAges(), 60_000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) this.#refreshAges();
+    });
+  }
+
+  #refreshAges() {
+    const now = Date.now();
+    this.rowsEl.querySelectorAll(".article-row__age[data-published]").forEach(el => {
+      const ts = Number(el.dataset.published);
+      if (Number.isFinite(ts) && ts > 0) el.textContent = formatAge(ts, now);
+    });
   }
 
   /** Public: which article id is currently selected (or null). */
@@ -122,7 +140,13 @@ export class ArticleList {
         <div class="article-row__preview" hidden></div>
       `;
       div.querySelector(".article-row__source").textContent  = it.source;
-      div.querySelector(".article-row__age").textContent     = it.age;
+      const ageEl = div.querySelector(".article-row__age");
+      if (Number.isFinite(it.published) && it.published > 0) {
+        ageEl.dataset.published = String(it.published);
+        ageEl.textContent = formatAge(it.published);
+      } else {
+        ageEl.textContent = it.age;
+      }
       const badge = div.querySelector(".article-row__badge");
       if (it.enclosure && it.enclosure.url && /^audio\//i.test(it.enclosure.type || "")) {
         badge.textContent = "Audio";
