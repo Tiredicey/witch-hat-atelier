@@ -33,6 +33,7 @@ import { loadFeedFromBrowserEngine } from "./feed-engine.js";
 import { StarsImport } from "./inoreader-import.js";
 import { Subscriptions } from "./subscriptions.js";
 import { AddFeed } from "./add-feed.js";
+import { FollowTopic, isTopicFeedUrl } from "./follow-topic.js";
 import { FbConnect } from "./fb-connect.js";
 import { detectVideo, looksLikeImage } from "./video-embed.js";
 import { attachSwipe, attachLongPress } from "./touch-gestures.js";
@@ -136,7 +137,7 @@ async function boot() {
     console.warn("app: feed load failed, using SAMPLE", e);
   }
 
-  const baseFeedItems = items;
+  let baseFeedItems = items;
   items = mergeStarOrphans(baseFeedItems, store);
 
   function mergeStarOrphans(base, st) {
@@ -222,11 +223,46 @@ async function boot() {
     if (briefingSurface) briefingSurface.refreshRestore();
   }
   const currentShelf = () => railEl.querySelector('.shelf[aria-current="true"]')?.dataset?.shelf || "all";
-  new Shelves({
+  const shelves = new Shelves({
     railEl, titleEl,
     onSwitch: (shelfId) => applyShelf(shelfId)
   });
   applyShelf("all"); // align the list-header meta with the actual sample-item count
+
+  function ensureTopicShelf(shelf, label) {
+    if (!shelf) return null;
+    const existing = railEl.querySelector(`.shelf[data-shelf="${CSS.escape(shelf)}"]`);
+    if (existing) return existing;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "shelf shelf--topic";
+    btn.dataset.shelf = shelf;
+    btn.setAttribute("aria-label", label || shelf);
+    btn.innerHTML = `
+      <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5 L13 5 L19 11 L11 19 L5 13 Z"/><circle cx="9" cy="9" r="1.4"/></svg>
+      <span class="count" hidden></span>
+      <span class="shelf__label"></span>`;
+    btn.querySelector(".shelf__label").textContent = label || shelf;
+    const anchor = railEl.querySelector(`.shelf[data-shelf="starred"]`);
+    if (anchor) railEl.insertBefore(btn, anchor); else railEl.appendChild(btn);
+    shelves.register(btn);
+    return btn;
+  }
+
+  async function reloadFeed(targetShelf) {
+    try {
+      const fresh = await loadFeedFromBrowserEngine({ adapter });
+      if (fresh && fresh.length > 0) {
+        baseFeedItems = fresh;
+        list.setItems(mergeStarOrphans(baseFeedItems, store));
+        list.refreshFromStore(store);
+      }
+    } catch (e) {
+      console.warn("reloadFeed failed", e);
+    }
+    if (targetShelf) shelves.switchTo(targetShelf);
+    renderCounts();
+  }
 
   function syncToolbar(id) {
     const starred = store.isStarred(id);
@@ -698,6 +734,16 @@ async function boot() {
   window.codaSubs = subs;
   subs.renderSubsList().catch(err => console.warn("subs render failed", err));
 
+  subs.listFeeds().then(feeds => {
+    const seen = new Set();
+    for (const f of feeds) {
+      if (!isTopicFeedUrl(f.url) || seen.has(f.shelf)) continue;
+      seen.add(f.shelf);
+      ensureTopicShelf(f.shelf, f.title || f.shelf);
+    }
+    if (seen.size) renderCounts();
+  }).catch(err => console.warn("topic shelves bootstrap failed", err));
+
   const addFeed = new AddFeed({
     inputEl:        document.getElementById("add-feed-input"),
     resolveBtn:     document.getElementById("add-feed-resolve"),
@@ -720,6 +766,19 @@ async function boot() {
     subscriptions:  subs,
   });
   void addFeed;
+
+  const followTopic = new FollowTopic({
+    inputEl:       document.getElementById("follow-topic-input"),
+    followBtn:     document.getElementById("follow-topic-follow"),
+    headlinesBtn:  document.getElementById("follow-topic-headlines"),
+    statusEl:      document.getElementById("follow-topic-status"),
+    subscriptions: subs,
+    onFollowed: async (shelf, label) => {
+      ensureTopicShelf(shelf, label);
+      await reloadFeed(shelf);
+    },
+  });
+  void followTopic;
 
   const fbConnect = new FbConnect({
     connectBtn:     document.getElementById("fb-connect-btn"),
