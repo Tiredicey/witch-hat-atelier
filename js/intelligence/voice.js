@@ -491,6 +491,7 @@ export class VoiceIO {
       this.whisper = this.whisperFactory({
         onResult: (t) => this.#handleTranscript(t),
         onStatus: (m, s) => this.#setStatus(m, s),
+        onAutoStop: () => this.#onWhisperAutoStop(),
       });
     }
     let ok = false;
@@ -499,7 +500,15 @@ export class VoiceIO {
     this.whisperActive = true;
     if (this.micBtn) {
       this.micBtn.setAttribute("aria-pressed", "true");
-      this.micBtn.textContent = "Listening\u2026 (tap to transcribe)";
+      this.micBtn.textContent = "Listening\u2026 (tap to stop)";
+    }
+  }
+
+  #onWhisperAutoStop() {
+    this.whisperActive = false;
+    if (this.micBtn) {
+      this.micBtn.setAttribute("aria-pressed", "false");
+      this.micBtn.textContent = "Voice command";
     }
   }
 
