@@ -74,6 +74,15 @@ export class WhisperSTT {
     this.audioContextCtor = opts.audioContextCtor || null;
     this.onResult = typeof opts.onResult === "function" ? opts.onResult : () => {};
     this.onStatus = typeof opts.onStatus === "function" ? opts.onStatus : () => {};
+    this.onAutoStop = typeof opts.onAutoStop === "function" ? opts.onAutoStop : () => {};
+    this.autoStop = opts.autoStop !== false;
+    this.silenceMs = Number(opts.silenceMs) > 0 ? Number(opts.silenceMs) : 1200;
+    this.maxMs = Number(opts.maxMs) > 0 ? Number(opts.maxMs) : 15000;
+    this.speechThreshold = Number(opts.speechThreshold) > 0 ? Number(opts.speechThreshold) : 0.012;
+    this.heardSpeech = false;
+    this.finalizing = false;
+    this.startedAt = 0;
+    this.lastVoiceAt = 0;
     this.engine = null;
     this.recording = false;
     this.frames = [];
@@ -128,6 +137,7 @@ export class WhisperSTT {
       node.onaudioprocess = (e) => {
         const ch = e.inputBuffer.getChannelData(0);
         this.frames.push(Float32Array.from(ch));
+        if (this.autoStop && this.recording) this.#detectSilence(ch);
       };
       source.connect(node);
       node.connect(ctx.destination);
@@ -138,8 +148,28 @@ export class WhisperSTT {
       return false;
     }
     this.recording = true;
-    this.#status("Listening\u2026 speak, then stop to transcribe.", "pending");
+    this.finalizing = false;
+    this.heardSpeech = false;
+    this.startedAt = Date.now();
+    this.lastVoiceAt = this.startedAt;
+    this.#status(this.autoStop ? "Listening\u2026 speak, then pause." : "Listening\u2026 speak, then stop to transcribe.", "pending");
     return true;
+  }
+
+  #detectSilence(ch) {
+    if (this.finalizing) return;
+    let sum = 0;
+    for (let i = 0; i < ch.length; i++) sum += ch[i] * ch[i];
+    const rms = Math.sqrt(sum / (ch.length || 1));
+    const now = Date.now();
+    if (rms >= this.speechThreshold) { this.heardSpeech = true; this.lastVoiceAt = now; }
+    const quiet = now - this.lastVoiceAt;
+    const elapsed = now - this.startedAt;
+    if ((this.heardSpeech && quiet >= this.silenceMs) || elapsed >= this.maxMs) {
+      this.finalizing = true;
+      try { this.onAutoStop(); } catch {}
+      Promise.resolve().then(() => this.stop());
+    }
   }
 
   async stop() {
