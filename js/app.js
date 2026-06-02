@@ -639,7 +639,11 @@ async function boot() {
     wrapEl:       $("#copilotClap"),
     armBtn:       $("#copilotClapBtn"),
     indicatorEl:  $("#copilotClapIndicator"),
-    onClap: () => { if (dailyFirst) dailyFirst.onClap(); else if (copilotSurface) copilotSurface.open(); },
+    onClap: () => {
+      if (!dailyFirst) { if (copilotSurface) copilotSurface.open(); return; }
+      const greeted = dailyFirst.onClap();
+      if (!greeted && voice && voice.isLoopReady() && voice.startTurn) voice.startTurn();
+    },
   });
   void clap;
   briefingSurface = new BriefingSurface({
