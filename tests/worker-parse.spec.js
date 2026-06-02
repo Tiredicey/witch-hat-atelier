@@ -237,4 +237,20 @@ test.describe('parse.js — media extraction', () => {
     expect(e.image).toBe('https://example.test/banner.png');
     expect(e.enclosure).toEqual({ url: 'https://example.test/a.mp3', type: 'audio/mpeg', length: '9999' });
   });
+
+  test('recovers CEST and epoch pubDates so fresh items keep a real published ts', async ({ page }) => {
+    await page.goto('/');
+    const FEED = `<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Z</title><link>http://z.test/</link><description>d</description>
+  <item><title>European zone</title><link>http://z.test/eu</link><guid>eu</guid><pubDate>Mon, 02 Jun 2026 14:00:00 CEST</pubDate><description>a</description></item>
+  <item><title>Unix epoch</title><link>http://z.test/ep</link><guid>ep</guid><pubDate>1780408800</pubDate><description>b</description></item>
+</channel></rss>`;
+    const entries = (await page.evaluate(async ({ text }) => {
+      const { parseFeed } = await import('/worker/src/parse.js');
+      return parseFeed(text, 'application/rss+xml');
+    }, { text: FEED })).entries;
+    const byId = Object.fromEntries(entries.map(e => [e.id, e.published]));
+    expect(byId['eu']).toBeGreaterThan(0);
+    expect(byId['ep']).toBe(1780408800000);
+  });
 });

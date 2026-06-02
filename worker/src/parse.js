@@ -255,11 +255,25 @@ function paragraphs(html) {
     .filter(Boolean);
 }
 
+const TZ_OFFSETS = { CET: "+0100", CEST: "+0200", EET: "+0200", EEST: "+0300", WET: "+0000", WEST: "+0100", MSK: "+0300", JST: "+0900" };
+
 function tsOrZero(s) {
   if (!s) return 0;
   if (typeof s === "number") return s;
-  const t = Date.parse(s);
-  return Number.isFinite(t) ? t : 0;
+  const str = String(s).trim();
+  if (!str) return 0;
+  if (/^\d{9,13}$/.test(str)) {
+    const n = Number(str);
+    return str.length <= 10 ? n * 1000 : n;
+  }
+  let t = Date.parse(str);
+  if (Number.isFinite(t)) return t;
+  const m = str.match(/\b([A-Z]{2,5})\s*$/);
+  if (m && TZ_OFFSETS[m[1]] !== undefined) {
+    t = Date.parse(str.slice(0, m.index) + TZ_OFFSETS[m[1]]);
+    if (Number.isFinite(t)) return t;
+  }
+  return 0;
 }
 
 function formatAge(ts) {
