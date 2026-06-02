@@ -468,6 +468,22 @@
       </div>
     </section>
 
+    <section class="settings__section settings__follow-topic">
+      <h2 class="settings__section-title">Follow a topic</h2>
+      <p class="settings__hint">
+        Type something you care about &mdash; <em>gardening</em>, <em>Gilas Pilipinas</em>, your town&rsquo;s name. CODA gathers news about it into its own shelf and keeps it current. No account, no setup. Or tap <em>What&rsquo;s happening</em> for today&rsquo;s headlines.
+      </p>
+      <label class="settings__field">
+        <span>Topic</span>
+        <input id="follow-topic-input" type="text" placeholder="gardening" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="add-feed__row">
+        <button type="button" id="follow-topic-follow" data-variant="primary">Follow this topic</button>
+        <button type="button" id="follow-topic-headlines">What&rsquo;s happening</button>
+        <p class="settings__test" id="follow-topic-status" aria-live="polite"></p>
+      </div>
+    </section>
+
     <section class="settings__section settings__add-feed">
       <h2 class="settings__section-title">Add a feed by URL</h2>
       <p class="settings__note">

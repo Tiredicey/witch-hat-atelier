@@ -26,15 +26,23 @@ export class Shelves {
     if (target) target.click();
   }
 
+  register(button) {
+    if (!button || this.buttons.includes(button)) return;
+    this.buttons.push(button);
+    this.#bindOne(button);
+  }
+
   #bind() {
-    this.buttons.forEach(b => {
-      b.addEventListener("click", () => {
-        this.buttons.forEach(x => x.setAttribute("aria-current", "false"));
-        b.setAttribute("aria-current", "true");
-        const label = b.querySelector(".shelf__label")?.textContent || b.getAttribute("aria-label") || "Shelf";
-        this.titleEl.textContent = label;
-        this.onSwitch?.(b.dataset.shelf);
-      });
+    this.buttons.forEach(b => this.#bindOne(b));
+  }
+
+  #bindOne(b) {
+    b.addEventListener("click", () => {
+      this.buttons.forEach(x => x.setAttribute("aria-current", "false"));
+      b.setAttribute("aria-current", "true");
+      const label = b.querySelector(".shelf__label")?.textContent || b.getAttribute("aria-label") || "Shelf";
+      this.titleEl.textContent = label;
+      this.onSwitch?.(b.dataset.shelf);
     });
   }
 }
