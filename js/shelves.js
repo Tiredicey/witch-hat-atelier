@@ -32,6 +32,11 @@ export class Shelves {
     this.#bindOne(button);
   }
 
+  unregister(button) {
+    const i = this.buttons.indexOf(button);
+    if (i >= 0) this.buttons.splice(i, 1);
+  }
+
   #bind() {
     this.buttons.forEach(b => this.#bindOne(b));
   }

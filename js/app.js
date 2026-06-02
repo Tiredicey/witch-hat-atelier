@@ -772,10 +772,18 @@ async function boot() {
     followBtn:     document.getElementById("follow-topic-follow"),
     headlinesBtn:  document.getElementById("follow-topic-headlines"),
     statusEl:      document.getElementById("follow-topic-status"),
+    listEl:        document.getElementById("follow-topic-list"),
     subscriptions: subs,
     onFollowed: async (shelf, label) => {
       ensureTopicShelf(shelf, label);
       await reloadFeed(shelf);
+      return list.getAllItems().filter(it => it.shelf === shelf).length;
+    },
+    onUnfollowed: async (shelf) => {
+      const btn = railEl.querySelector(`.shelf[data-shelf="${CSS.escape(shelf)}"]`);
+      const wasActive = !!btn && btn.getAttribute("aria-current") === "true";
+      if (btn) { shelves.unregister(btn); btn.remove(); }
+      await reloadFeed(wasActive ? "all" : null);
     },
   });
   void followTopic;
