@@ -47,7 +47,7 @@ test.describe('shelf rail', () => {
     // Every visible row should be a standards-tagged source.
     const sources = await page.locator('.article-row__source').allTextContents();
     for (const s of sources) {
-      expect(['ietf.org', 'jsonfeed.org', 'w3.org', 'opml.org', 'mnot.net']).toContain(s);
+      expect(['ietf.org', 'jsonfeed.org', 'w3.org', 'opml.org', 'mnot.net', 'coda.demo']).toContain(s);
     }
   });
 

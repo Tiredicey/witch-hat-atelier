@@ -27,7 +27,7 @@ export function isOnboarded() {
 
 export function markOnboarded() {
   try { localStorage.setItem(ONBOARDED_KEY, "true"); }
-  catch { /* private mode — proceed anyway */ }
+  catch { /* private mode: proceed anyway */ }
 }
 
 export class Welcome {

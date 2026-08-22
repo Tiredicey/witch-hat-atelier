@@ -4,14 +4,14 @@
 //   j/k        next / prev article
 //   o / Enter  open
 //   m          mark read / unread
-//   s          star (visual stub)
-//   n          add note (no-op stub; real impl in v1)
+//   s          star
+//   n          add note
 //   u          summarise (only fires when an intelligence surface is enabled)
 //   a          atelier mode
 //   c          summon the copilot (global, §18 owner directive)
 //   g g        go to All
 //   g s        go to Starred
-//   /          quick filter (no-op stub)
+//   /          quick filter over the current shelf
 //   ?          show shortcuts panel
 //   Esc        close panel
 
@@ -30,6 +30,7 @@ export class Shortcuts {
    *   handlers.openFirstIfNone(): void
    *   handlers.markToggle(): void
    *   handlers.starToggle(): void
+   *   handlers.quickFilter(): void
    *   handlers.goShelf(id): void   // "all" or "starred"
    */
   constructor({ scrimEl, handlers }) {
@@ -51,6 +52,7 @@ export class Shortcuts {
 
       if (e.key === "Escape") { this.h.closeHelp(); return; }
       if (e.key === "?")      { e.preventDefault(); this.h.openHelp(); return; }
+      if (e.key === "/")      { e.preventDefault(); if (this.h.quickFilter) this.h.quickFilter(); return; }
       if (e.key === "a")      { this.h.toggleAtelier(); return; }
 
       if (e.key === "j") { e.preventDefault(); this.h.selectNext(); return; }

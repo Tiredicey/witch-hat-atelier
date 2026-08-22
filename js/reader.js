@@ -225,7 +225,7 @@ export class Reader {
 
     if (a.orphan && a.link) {
       const intro = document.createElement("p");
-      intro.textContent = "Imported star — the original article lives at the source.";
+      intro.textContent = "Imported star. The original article lives at the source.";
       article.appendChild(intro);
       const linkPara = document.createElement("p");
       const anchor = document.createElement("a");

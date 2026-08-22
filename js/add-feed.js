@@ -361,7 +361,7 @@ export class AddFeed {
 
     const heading = document.createElement("p");
     heading.className = "add-feed__refused-head";
-    heading.textContent = `${result.platform} — no public RSS feed`;
+    heading.textContent = `${result.platform}: no public RSS feed`;
     this.refusedEl.appendChild(heading);
 
     const reason = document.createElement("p");
