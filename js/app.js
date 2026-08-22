@@ -214,11 +214,24 @@ async function boot() {
       }
     });
   }
+  // Quick filter (`/`). Narrows the active shelf by title, source or excerpt.
+  // It never crosses shelves, so the rail counts and the list stay consistent.
+  const filterWrap = document.getElementById("listFilterWrap");
+  const filterInput = document.getElementById("listFilter");
+  const filterClear = document.getElementById("listFilterClear");
+  let quickTerm = "";
+  const quickPredicate = (it) => {
+    if (!quickTerm) return true;
+    const hay = `${it.title || ""} ${it.source || ""} ${it.excerpt || ""}`.toLowerCase();
+    return hay.includes(quickTerm);
+  };
   function applyShelf(shelfId) {
-    list.setFilter(shelfPredicate(shelfId));
+    const inShelf = shelfPredicate(shelfId);
+    list.setFilter((it) => inShelf(it) && quickPredicate(it));
     if (metaEl) {
       const n = list.getIds().length;
-      metaEl.textContent = n === 1 ? "1 item" : `${n} items`;
+      const noun = n === 1 ? "1 item" : `${n} items`;
+      metaEl.textContent = quickTerm ? `${noun} matching` : noun;
     }
     if (briefingSurface) briefingSurface.refreshRestore();
   }
@@ -228,6 +241,30 @@ async function boot() {
     onSwitch: (shelfId) => applyShelf(shelfId)
   });
   applyShelf("all"); // align the list-header meta with the actual sample-item count
+
+  function setQuickTerm(term) {
+    quickTerm = term.trim().toLowerCase();
+    applyShelf(currentShelf());
+  }
+  function openQuickFilter() {
+    if (!filterWrap || !filterInput) return;
+    filterWrap.hidden = false;
+    filterInput.focus();
+    filterInput.select();
+  }
+  function closeQuickFilter() {
+    if (!filterWrap || !filterInput) return;
+    filterInput.value = "";
+    filterWrap.hidden = true;
+    if (quickTerm) setQuickTerm("");
+  }
+  if (filterInput) {
+    filterInput.addEventListener("input", () => setQuickTerm(filterInput.value));
+    filterInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); closeQuickFilter(); }
+    });
+  }
+  if (filterClear) filterClear.addEventListener("click", () => closeQuickFilter());
 
   function ensureTopicShelf(shelf, label) {
     if (!shelf) return null;
@@ -354,6 +391,7 @@ async function boot() {
       },
       markToggle: () => markBtn.click(),
       starToggle: () => starBtn.click(),
+      quickFilter: () => openQuickFilter(),
       addNote:    () => {
         if (!list.getSelectedId()) return;
         notes.open();

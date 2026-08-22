@@ -16,7 +16,7 @@ export const SAMPLE = [
     title: "Web Feeds in 2026: a quieter conclusion",
     age: "2h",
     read: false,
-    excerpt: "Of 196,598 sites scanned, 35.9% still expose an autodiscovery link. Of those feeds, 22.6% clear a basic quality bar. The web didn't die — its tooling did.",
+    excerpt: "Of 196,598 sites scanned, 35.9% still expose an autodiscovery link. Of those feeds, 22.6% clear a basic quality bar. The web didn't die; its tooling did.",
     body: [
       "Of 196,598 sites scanned across the Tranco top 500,000, 35.9% still expose a feed autodiscovery link. That number alone is not the story.",
       "The story is the gap between exposure and quality. Of 543,577 feed URLs probed, the parse success rate sits at 98.3%. The web's plumbing works. But only 22.6% of parsed feeds clear a basic recency-plus-content quality bar.",
@@ -59,7 +59,7 @@ export const SAMPLE = [
     title: "JSON Feed 1.1, six years on",
     age: "yesterday",
     read: true,
-    excerpt: "The spec did what it set out to do — make feeds writable by humans without an XML library. The adoption story is more complicated.",
+    excerpt: "The spec did what it set out to do: make feeds writable by humans without an XML library. The adoption story is more complicated.",
     body: [
       "The spec did what it set out to do. You can write a valid JSON Feed by hand in a text editor, which is not true of any flavour of Atom.",
       "Adoption is roughly 4% of feeds that publish at all. The big platforms (WordPress, Substack, Ghost) emit both Atom and JSON Feed; the long tail emits whatever their generator emits.",
@@ -73,7 +73,7 @@ export const SAMPLE = [
     title: "WebSub: still the only push spec that shipped",
     age: "2d",
     read: false,
-    excerpt: "Eight years after Recommendation status, WebSub is supported by roughly 4% of feeds — but those 4% include almost every high-volume publisher.",
+    excerpt: "Eight years after Recommendation status, WebSub is supported by roughly 4% of feeds, and those 4% include almost every high-volume publisher.",
     body: [
       "WebSub reached Recommendation status in January 2018. Eight years on, support sits at about 4% of feeds.",
       "The 4% is not the long tail. It is the head: WordPress.com, Tumblr, Medium, every Substack. A reader that subscribes to ten Substacks via WebSub will see new posts within seconds, no polling cost.",
@@ -87,10 +87,10 @@ export const SAMPLE = [
     title: "Obsidian BYOC: bring your own cloud, twelve providers",
     age: "3d",
     read: false,
-    excerpt: "An architectural precedent for sync that doesn't lock the user into the vendor. Dropbox, Google Drive, OneDrive, S3, R2, B2, WebDAV — the user picks.",
+    excerpt: "An architectural precedent for sync that doesn't lock the user into the vendor. Dropbox, Google Drive, OneDrive, S3, R2, B2, WebDAV. The user picks.",
     body: [
       "The architecture is straightforward. An event log written to a folder. A materialised snapshot updated periodically. The backend is whatever the user wired up.",
-      "Encryption is optional — rclone-crypt or in-app AES-256 — and lives on the client. The provider never sees plaintext.",
+      "Encryption is optional (rclone-crypt or in-app AES-256) and lives on the client. The provider never sees plaintext.",
       "This is the model CODA is borrowing. Not because it is novel, but because it is correct."
     ]
   },
@@ -104,7 +104,7 @@ export const SAMPLE = [
     excerpt: "OPML is the only thing standing between the user and lock-in. Every reader exports it; every reader imports it. The friction is what to do with the import once it arrives.",
     body: [
       "OPML is older than half its users. It has no business still being the export format. And yet, every reader from Google Reader onward has implemented it, because the alternative is lock-in.",
-      "The interesting problem is not the import — it is the triage. A typical OPML export contains 89 feeds; 17 of them have not published in two years. A reader that imports everything wholesale is doing the user a quiet harm."
+      "The interesting problem is not the import; it is the triage. A typical OPML export contains 89 feeds; 17 of them have not published in two years. A reader that imports everything wholesale is doing the user a quiet harm."
     ]
   }
 ];

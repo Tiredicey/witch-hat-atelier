@@ -40,6 +40,26 @@ test.describe('accessibility basics', () => {
     await page.keyboard.press('Enter');
     await expect(page.locator('.reader article h1')).toBeVisible();
   });
+  test('a keyboard-focused article row paints a visible outline', async ({ page }) => {
+    await page.goto('/');
+    // :focus-visible only matches when the focus came from the keyboard, so
+    // walk Tab until a row is the active element rather than calling focus().
+    const first = page.locator('.article-row').first();
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab');
+      const onRow = await page.evaluate(() =>
+        document.activeElement?.classList.contains('article-row'));
+      if (onRow) break;
+    }
+    await expect(first).toBeFocused();
+    const ring = await first.evaluate(el => {
+      const s = getComputedStyle(el);
+      return { style: s.outlineStyle, width: parseFloat(s.outlineWidth) };
+    });
+    expect(ring.style).not.toBe('none');
+    expect(ring.width).toBeGreaterThanOrEqual(2);
+  });
+
   test('shortcuts overlay is a labelled modal dialog', async ({ page }, info) => {
     await page.goto('/');
     // Click the appropriate help affordance for this viewport.

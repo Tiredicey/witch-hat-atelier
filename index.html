@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CODA — the calm after the noise feed</title>
+  <title>CODA: the calm after the noise feed</title>
   <meta name="description" content="An RSS reader that respects the open web and the reader's hard drive. Three-pane shell, no telemetry, sample content only." />
   <meta name="color-scheme" content="light dark" />
 
@@ -89,7 +89,7 @@
       <span class="shelf__label">Copilot</span>
     </button>
 
-    <button class="shelf shelf--dmz" id="enterDmzBtn" aria-label="DMZ — shared board">
+    <button class="shelf shelf--dmz" id="enterDmzBtn" aria-label="DMZ, shared board">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 21 L 5 9 Q 12 3, 19 9 L 19 21"/>
         <path d="M3 21 L 21 21"/>
@@ -113,7 +113,7 @@
       <span class="shelf__label">Trash</span>
     </button>
 
-    <button class="shelf shelf--vault" id="enterVaultBtn" aria-label="Vault — file storage">
+    <button class="shelf shelf--vault" id="enterVaultBtn" aria-label="Vault, file storage">
       <svg class="sigil" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 19 L 3 7 L 9 7 L 11 9 L 21 9 L 21 19 Z"/>
         <path d="M3 13 L 21 13"/>
@@ -145,12 +145,21 @@
   <section class="list" id="list" data-density="comfortable" aria-label="Articles">
     <header class="list__header">
       <h2 class="list__title" id="shelf-title">All</h2>
-      <span class="list__meta smallcaps" id="shelf-meta">42 unread</span>
+      <span class="list__meta smallcaps" id="shelf-meta"></span>
     </header>
     <div class="list__density" role="group" aria-label="Density">
       <button data-density="comfortable" aria-pressed="true">Comfortable</button>
       <button data-density="compact" aria-pressed="false">Compact</button>
       <button data-density="preview" aria-pressed="false">Preview</button>
+    </div>
+
+    <!-- Quick filter. Hidden until `/` opens it (ROADMAP §7); Esc clears and
+         hides it again. Narrows the current shelf, never crosses shelves. -->
+    <div class="list__filter" id="listFilterWrap" hidden>
+      <input type="search" id="listFilter" class="list__filter-input"
+             placeholder="Filter this shelf" aria-label="Filter items in this shelf"
+             autocomplete="off" spellcheck="false">
+      <button type="button" id="listFilterClear" class="list__filter-clear">Clear</button>
     </div>
     <div class="divider-hand" style="margin: 0 var(--gutter-l)"></div>
 
@@ -302,7 +311,7 @@
 </div>
 <div class="copilot-clap-indicator" id="copilotClapIndicator" role="status" aria-live="polite" hidden></div>
 
-<main class="dmz" id="dmzPage" aria-label="DMZ — shared board">
+<main class="dmz" id="dmzPage" aria-label="DMZ, shared board">
   <header class="dmz__header">
     <button type="button" class="dmz__exit" id="exitDmzBtn" aria-label="Back to reader">&larr; Back to reader</button>
     <div class="dmz__title-wrap">
@@ -329,7 +338,7 @@
   </form>
 </main>
 
-<main class="vault" id="vaultPage" aria-label="Vault — file storage">
+<main class="vault" id="vaultPage" aria-label="Vault, file storage">
   <header class="vault__header">
     <button type="button" class="vault__exit" id="exitVaultBtn" aria-label="Back to reader">&larr; Back to reader</button>
     <div class="vault__title-wrap">
@@ -723,7 +732,7 @@
     <section class="welcome-card__pane" data-step-pane="1">
       <h2>Paste your first feed</h2>
       <p class="welcome-card__note">
-        Any URL works — a blog, a YouTube channel, a publication. CODA finds the feed inside it.
+        Any URL works: a blog, a YouTube channel, a publication. CODA finds the feed inside it.
       </p>
       <label class="welcome-card__field">
         <span class="smallcaps">Feed or page URL</span>
@@ -735,7 +744,7 @@
       </div>
       <p class="welcome-card__status" id="welcomeStatus" aria-live="polite"></p>
       <p class="welcome-card__skip-row">
-        <button type="button" class="welcome-card__skip" data-skip="1">Skip — I&rsquo;ll add feeds later</button>
+        <button type="button" class="welcome-card__skip" data-skip="1">Skip, I&rsquo;ll add feeds later</button>
       </p>
     </section>
 

@@ -14,7 +14,10 @@ This repo currently ships only the **shell** described in ROADMAP §7:
 
 - sigil rail · article list · reader pane
 - atelier mode (rails hidden), mobile single-pane swap
-- keyboard shortcuts inherited from Google Reader (j/k/o/m/s/n/a/?/g g/g s)
+- keyboard shortcuts inherited from Google Reader (j/k/o/m/s/n/a/x/u/c/?/g g/g s)
+- quick filter (`/`): narrows the active shelf by title, source or excerpt.
+  Esc or Clear resets it. The filter composes with the shelf predicate, so it
+  never pulls in items from another shelf.
 - empty state ("This shelf is quiet."), error dot on a shelf
 - hand-drawn SVG dividers between rows, watercolour wash on the reader
 - local persistence (read · starred · notes) via a §5 event-log store
@@ -120,7 +123,7 @@ npm test
 
 Tests run against three Playwright projects: `desktop-chromium`,
 `mobile-chromium`, and `reduced-motion`. The `webServer` block in
-`playwright.config.js` starts a static server automatically — you don't
+`playwright.config.js` starts a static server automatically, so you do not
 need to run `npm run dev` first.
 
 To see the HTML report after a run:

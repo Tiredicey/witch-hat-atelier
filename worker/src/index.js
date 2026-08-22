@@ -149,7 +149,6 @@ async function runPoll(env) {
       httpMetadata: { contentType: "application/json" },
     });
   }
-  console.log(`CODA Worker: ${feeds.length} feed(s) polled, ${sorted.length} entries written`);
 }
 
 async function pollOne({ id, url, prev, ua }) {
