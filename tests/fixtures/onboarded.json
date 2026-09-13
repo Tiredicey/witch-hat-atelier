@@ -4,7 +4,14 @@
     {
       "origin": "http://127.0.0.1:4173",
       "localStorage": [
-        { "name": "coda/onboarded", "value": "true" }
+        {
+          "name": "coda/onboarded",
+          "value": "true"
+        },
+        {
+          "name": "coda/examples",
+          "value": "true"
+        }
       ]
     }
   ]

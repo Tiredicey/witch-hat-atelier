@@ -45,6 +45,7 @@ export async function loadFeedFromBrowserEngine({
   signal,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   concurrency = DEFAULT_CONCURRENCY,
+  onReport = () => {},
 } = {}) {
   if (!adapter || typeof adapter.read !== "function") return null;
 
@@ -52,22 +53,25 @@ export async function loadFeedFromBrowserEngine({
   try {
     subsRaw = await adapter.read(SUBS_KEY);
   } catch (e) {
+    onReport({ error: "Could not read subscriptions from storage. Check Settings." });
     console.warn("feed-engine: subscriptions read failed", e);
     return null;
   }
-  if (!subsRaw) return null;
+  if (!subsRaw) { onReport({}); return null; }
 
   let subs;
-  try { subs = JSON.parse(subsRaw); } catch { return null; }
+  try { subs = JSON.parse(subsRaw); } catch { onReport({ error: "Could not parse subscriptions. Reimport a valid OPML file." }); return null; }
   const feeds = Array.isArray(subs?.feeds)
     ? subs.feeds.filter(f => f && typeof f.url === "string" && f.url)
     : [];
-  if (!feeds.length) return null;
+  if (!feeds.length) { onReport({}); return null; }
+  let failed = 0;
 
   const results = await runWithLimit(feeds, concurrency, async (sub) => {
     try {
       return await fetchAndParseOne(sub, { fetchBase, signal, timeoutMs });
     } catch (e) {
+      failed++;
       console.warn(`feed-engine: ${sub.url} failed`, e);
       return [];
     }
@@ -83,6 +87,7 @@ export async function loadFeedFromBrowserEngine({
       }
     }
   }
+  onReport({ total: feeds.length, failed, entries: byId.size });
   return [...byId.values()].sort((a, b) => (b.published || 0) - (a.published || 0));
 }
 
@@ -96,7 +101,7 @@ async function fetchAndParseOne(sub, { fetchBase, signal, timeoutMs }) {
   try {
     const url = feedRequestUrl(sub.url, fetchBase);
     const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) return [];
+    if (!res.ok) throw new Error(`Feed request failed: HTTP ${res.status}`);
     const ct = res.headers.get("content-type") || "";
     const text = await res.text();
     const parsed = parseFeed(text, ct);

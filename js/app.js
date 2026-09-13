@@ -115,28 +115,29 @@ async function boot() {
     store,
   });
 
-  // Try to load real entries. Preference order:
-  //   1. R2 snapshot written by the §4 Worker (S3 adapter only).
-  //   2. Browser-side fetch via the same-origin /fetch proxy, reading the
-  //      subscriptions written by Settings → Import OPML. Works on every
-  //      adapter and is the path that makes OPML imports visible on the
-  //      default LocalAdapter.
-  //   3. SAMPLE, so the shell never boots empty.
-  // Never blocks boot for longer than the per-feed timeout; loadFeedSnapshot
-  // and the browser engine each have their own AbortControllers.
-  let items = SAMPLE;
+  const feedStatus = document.getElementById("feedStatus");
+  const reportFeeds = ({ total = 0, failed = 0, entries = 0, error = "" }) => {
+    feedStatus.dataset.status = failed || error ? "fail" : "ok";
+    feedStatus.textContent = error || (!total ? "Add a feed to begin your library." : failed ? `${failed} of ${total} feeds failed. Check your deployment’s feed proxy. ${entries} articles returned.` : `${entries} articles loaded from ${total} feeds.`);
+  };
+  let items = [];
+  try { if (localStorage.getItem("coda/examples") === "true") items = SAMPLE; } catch {}
+  reportFeeds({});
   try {
     const r2 = await loadFeedSnapshot(settings, adapter);
     if (r2 && r2.length > 0) {
       items = r2;
+      feedStatus.textContent = `${r2.length} articles from your configured snapshot.`;
     } else {
-      const browser = await loadFeedFromBrowserEngine({ adapter });
+      const browser = await loadFeedFromBrowserEngine({ adapter, onReport: reportFeeds });
       if (browser && browser.length > 0) items = browser;
     }
   } catch (e) {
-    console.warn("app: feed load failed, using SAMPLE", e);
+    reportFeeds({ error: "Could not load feeds. Check your connection and storage settings." });
+    console.warn("app: feed load failed", e);
   }
 
+  if (items === SAMPLE) feedStatus.textContent = "Test library: fictional examples, not fetched reporting.";
   let baseFeedItems = items;
   items = mergeStarOrphans(baseFeedItems, store);
 
