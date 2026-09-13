@@ -1,158 +1,107 @@
-# witch-hat-atelier
+# CODA · Reading atelier
 
-[![tests](https://github.com/Tiredicey/witch-hat-atelier/actions/workflows/test.yml/badge.svg)](https://github.com/Tiredicey/witch-hat-atelier/actions/workflows/test.yml)
+An independent RSS reader with a Witch Hat Atelier-inspired parchment-and-ink interface. The illustration and interface linework are original. This is not an official manga service.
 
-CODA — a three-pane shell for a 2026 RSS reader. Static site. Real feed
-fetching, sync, and encryption live in a separate Cloudflare Worker and
-storage adapter layer (see `ROADMAP.md` §4 and §5).
+- Repository: https://github.com/Tiredicey/witch-hat-atelier
+- Existing production address: https://witch-hat-atelier.pages.dev
+- Release status: changes pushed to GitHub. The owner handles Cloudflare deployment; no production deployment was run or verified during this update.
 
-> *"A coda is what closes a piece of music — the calm after the noise feed."*
+## Completed changes
 
-## What's here
+- Labelled desktop shelves and mobile navigation, editorial typography, original sigil illustration and restrained page-opening motion.
+- Native reading-comfort dialog with device/light/dark appearance, three article text sizes and a reduced-motion preference. Device reduced-motion settings take priority.
+- Visible shelf search, synchronized expanded state, Escape-to-clear with focus restoration, feed-settings shortcut and working brand return to the desk.
+- Normal startup no longer substitutes fictional articles for missing feeds. Feed-fetch failures and subscription-storage problems have visible status messages. The fake feed-error dot was removed.
+- Reproducible static build, patched development dependencies and additional browser regression tests.
 
-This repo currently ships only the **shell** described in ROADMAP §7:
+Existing article reading, stars, read-state, notes, OPML import/export, shared-board, file-vault and storage-adapter modules remain. This update does not certify all optional integrations.
 
-- sigil rail · article list · reader pane
-- atelier mode (rails hidden), mobile single-pane swap
-- keyboard shortcuts inherited from Google Reader (j/k/o/m/s/n/a/x/u/c/?/g g/g s)
-- quick filter (`/`): narrows the active shelf by title, source or excerpt.
-  Esc or Clear resets it. The filter composes with the shelf predicate, so it
-  never pulls in items from another shelf.
-- empty state ("This shelf is quiet."), error dot on a shelf
-- hand-drawn SVG dividers between rows, watercolour wash on the reader
-- local persistence (read · starred · notes) via a §5 event-log store
-  backed by a `LocalAdapter` writing to `localStorage`. Cloud adapters
-  (Dropbox / R2 / WebDAV) and encryption land in a follow-up PR.
-- DMZ page (§15): a shared, unencrypted scratch-board for family use.
-  Sibling storage path `coda/dmz/...`, never co-mingled with the private
-  reader. Reachable in one click from the rail; one click back.
-- Storage adapters (§8.2, opt-in): Settings page (rail → cog sigil) lets you
-  switch the private reader and DMZ from `LocalAdapter` to **WebDAV**,
-  **Dropbox**, or **S3-compatible** (R2 / B2 / Wasabi). Enabling any cloud
-  adapter requires typing `PLAINTEXT` into a confirmation field — encryption
-  lands in a follow-up PR. Default remains `LocalAdapter`.
-  Bucket-side CORS configuration is required for the S3-compatible and
-  WebDAV adapters; see [`docs/cors.md`](docs/cors.md) for per-provider recipes
-  (Cloudflare R2, Dropbox, Nextcloud / generic WebDAV).
-- Universal CORS proxy at `/fetch?url=<feed>` (ROADMAP §4 follow-up). The
-  deployed site at `https://witch-hat-atelier.pages.dev/` ships a Cloudflare
-  Pages Function (`functions/fetch.js`) that re-exports the existing Worker
-  handler, so the proxy lives on the same origin as the site — no separate
-  Worker deploy required. The route is closed by default; set the
-  `PROXY_ALLOW` env var to `*` or a comma-separated URL-prefix allowlist to
-  open it. Size-capped (5 MB), timeout-bounded (15 s), SSRF-guarded (loopback
-  and RFC-1918 hosts blocked). The same handler runs on Workers, Vercel Edge,
-  Netlify Edge, Deno Deploy, and plain Node — see
-  [`docs/deploy-anywhere.md`](docs/deploy-anywhere.md) for the shims.
+## Quick guide
 
-The sample articles in `js/sample-data.js` are hand-written demo content,
-not fetched from real feeds. Every quantitative claim in the sample
-excerpts cites the roadmap's `[S1]–[S8]` anchors.
+1. Complete or skip first-visit setup.
+2. Choose **+ Add a feed** to open Settings. Add a direct feed, discover one from a website or import OPML.
+3. Return to the reading desk and select an article. Search stays within the current shelf.
+4. Choose **Reading comfort** for appearance, text size and motion. **Atelier** hides the navigation panes.
+5. Save stars and notes to return to articles. Clearing browser data removes local reading state in the default configuration.
 
-## File layout
+Saving a subscription does not prove its feed is reachable. Loading remote feeds requires the deployment's feed proxy.
 
-```
-.
-├── index.html              ← markup only (rails, list, reader, overlay)
-├── tokens.css              ← design tokens (Witch Hat Atelier palette + type scale)
-├── styles/
-│   └── shell.css           ← three-pane layout, atelier mode, mobile rules
-├── js/
-│   ├── app.js              ← entry point; wires modules together
-│   ├── sample-data.js      ← fixture content (NOT real feeds)
-│   ├── article-list.js     ← class ArticleList — middle pane
-│   ├── reader.js           ← class Reader — reader pane (empty / article states)
-│   ├── shelves.js          ← class Shelves — rail active-state
-│   ├── atelier.js          ← class Atelier — rails-hidden toggle
-│   ├── mobile.js           ← class Mobile — single-pane swap at ≤768px
-│   ├── help.js             ← class Help — shortcuts overlay
-│   ├── shortcuts.js        ← class Shortcuts — keyboard bindings + g g prefix
-│   ├── storage.js          ← StorageAdapter interface + LocalAdapter (localStorage)
-│   ├── store.js            ← §5 event log + materialised snapshot store
-│   ├── notes.js            ← class Notes — note pane bound to current article
-│   ├── dmz.js              ← class Dmz + mountRouter — the §15 shared board page
-│   ├── settings.js         ← class Settings — adapter configuration page
-│   └── adapters/
-│       ├── index.js        ← makeAdapter factory + settings load/save
-│       ├── webdav.js       ← WebDAV adapter (PUT/GET/DELETE)
-│       ├── dropbox.js      ← Dropbox adapter (paste-token)
-│       ├── s3.js           ← S3-compatible adapter (R2 / B2 / Wasabi)
-│       └── sigv4.js        ← browser SigV4 signer (SubtleCrypto)
-├── tests/
-│   ├── shell.spec.js
-│   ├── empty-and-reader.spec.js
-│   ├── keyboard.spec.js
-│   ├── shelves-and-density.spec.js
-│   ├── atelier-and-mobile.spec.js
-│   ├── motion-and-contrast.spec.js
-│   ├── a11y-basics.spec.js
-│   ├── persistence-and-notes.spec.js
-│   ├── dmz.spec.js
-│   └── adapters.spec.js
-├── functions/
-│   └── fetch.js           ← Cloudflare Pages Function: same-origin /fetch proxy
-├── docs/
-│   ├── cors.md            ← per-provider bucket CORS recipes
-│   ├── deploy-anywhere.md ← Workers / Pages / Vercel / Netlify / Deno / Node shims
-│   └── import-export.md   ← OPML / Inoreader Stars
-├── playwright.config.js    ← desktop + mobile + reduced-motion projects
-├── package.json
-└── README.md
+## Entry points and data
+
+| Entry | Purpose |
+| --- | --- |
+| `/` | Reader; controls switch to Settings, shared board and file vault |
+| `/fetch?url=<encoded-feed-url>` | Existing Pages feed proxy |
+| `/discover?url=<encoded-site-url>` | Existing feed discovery function |
+| `/scrape`, `/ogimage` | Existing feed-synthesis and image-metadata functions; see implementations for parameters |
+| `/dmz/*`, `/fb/*` | Optional backend routes requiring their own configuration |
+
+The UI uses in-page state rather than independent HTML routes. Reading comfort includes an About disclosure linking to [UN Goal 17 targets 17.6 and 17.16](https://sdgs.un.org/goals/goal17#targets_and_indicators). The project claims no UN affiliation, certification or measured SDG impact.
+
+`js/store.js` maintains the existing reading-state event log and snapshot. The default `LocalAdapter` uses browser storage; remote adapters retain their existing configuration requirements. Reading comfort uses the browser-only `coda/reading-comfort` preference key.
+
+Tests explicitly enable `coda/examples=true`. Normal startup does not enable these fictional fixtures. Test content is not evidence or reporting.
+
+Client-side encryption is not implemented. Do not treat cloud-adapter storage as encrypted by CODA. Optional credentials and integrations were not tested against live user accounts. Review legacy adapter credential handling before enabling it for sensitive data. Keep deployment secrets outside the repository.
+
+## Build and preview
+
+Requires Node.js, npm and PM2 for the included preview-start command.
+
+```sh
+npm ci
+npm run build
+npm run preview:start
 ```
 
-## Run locally
+Preview: `http://localhost:3000`. `npm run dev` provides conventional Vite development. The sandbox uses PM2.
 
-The site is static. Anything that serves a directory will do:
+`build.mjs` copies the application and shared parser modules into `dist/`, excluding tests, repository metadata, environment files and deployment configuration. The Vite preview serves static assets; it does not execute Pages functions.
 
-```bash
-npm run dev
-# → http://127.0.0.1:4173/
+## Manual Cloudflare update
+
+For the existing Git-connected Pages project:
+
+1. Deploy the latest `main` commit from this repository.
+2. Use repository root, build command `npm run build`, output directory `dist`.
+3. Preserve existing environment variables and bindings. Keep the root `functions/` directory for Pages functions.
+4. Verify the home page, feed discovery and a real subscription after deployment.
+
+The proxy is closed unless `PROXY_ALLOW` permits the feed. Prefer an explicit URL-prefix allowlist. See [deployment notes](docs/deploy-anywhere.md), [CORS configuration](docs/cors.md), [import/export](docs/import-export.md) and [Worker documentation](worker/README.md).
+
+A dashboard drag-and-drop upload of `dist/` alone does not deploy the backend functions. Use the Git integration or an appropriate Pages deployment from the repository root.
+
+## Verification record
+
+| Executed batch | Result |
+| --- | --- |
+| Desktop: atelier UI, shell, reader states and quick filter | 22 passed |
+| Mobile and reduced motion: atelier UI, atelier/mobile behavior and motion/contrast | 22 passed; 8 conditional skips |
+| Desktop: feed engine and keyboard checks | 14 passed |
+| Desktop: persistence and notes after correcting fixture setup | 6 passed |
+
+**64 passing checks across the executed batches**, with 8 viewport-specific skips. The complete legacy suite was not run. Scoped axe checks cover the reading-preferences dialog in light and dark modes, not whole-site WCAG certification. Responsive checks include 320, 390, 768, 1024 and 1440 CSS-pixel widths.
+
+```sh
+npx playwright install chromium
+npm run build
+npm run preview:start
+npx playwright test tests/atelier-ui.spec.js tests/shell.spec.js tests/empty-and-reader.spec.js tests/quick-filter.spec.js --project=desktop-chromium --workers=2
+npx playwright test tests/atelier-ui.spec.js tests/atelier-and-mobile.spec.js tests/motion-and-contrast.spec.js --project=mobile-chromium --project=reduced-motion --workers=2
+npx playwright test tests/feed-engine.spec.js tests/keyboard.spec.js tests/persistence-and-notes.spec.js --project=desktop-chromium --workers=1
 ```
 
-(`npm run dev` is just a thin alias for `python3 -m http.server 4173` — no
-node runtime is needed to view the site. The `node_modules` setup below is
-only for running tests.)
+Persistence tests clear reading state and restore explicit onboarding/example fixture flags. They do not rely on fictional content appearing in normal production startup.
 
-## Run the test suite
+## Remaining work
 
-```bash
-npm install
-npx playwright install chromium    # one-time, downloads the browser
-npm test
-```
+- Verify the owner's production deployment, real feed-proxy configuration and optional remote storage accounts.
+- Run the complete legacy suite. Older tests that clear all browser storage may need explicit fixture setup.
+- Audit older onboarding/help overlays and optional integrations for accessibility and security beyond the tested scope.
+- Encryption and deployment-specific integration guarantees are outside this completed UI update.
 
-Tests run against three Playwright projects: `desktop-chromium`,
-`mobile-chromium`, and `reduced-motion`. The `webServer` block in
-`playwright.config.js` starts a static server automatically, so you do not
-need to run `npm run dev` first.
-
-To see the HTML report after a run:
-
-```bash
-npm run test:report
-```
-
-## Real feed fetching (§4 Worker)
-
-A minimum-viable §4 Cloudflare Worker lives in [`worker/`](worker/README.md). It polls the feeds you configure, parses Atom / RSS 2.0 / JSON Feed, applies the §1 quality heuristic, and writes a merged entries snapshot to your R2 bucket every 30 minutes. The browser site reads that snapshot via `js/feed-source.js` and replaces the sample data when entries are available.
-
-The Worker is opt-in. Without it, the deployed site keeps using the hand-written sample articles. To deploy: `cd worker && npm install && npx wrangler login && npx wrangler deploy` after editing `worker/wrangler.toml` to point at your R2 bucket and feed list. See [`worker/README.md`](worker/README.md) for the full walkthrough and known limitations.
-
-Settings → Subscriptions now supports **OPML 2.0 import and export** — you no longer need to edit `wrangler.toml` to change your feed list. See [`docs/import-export.md`](docs/import-export.md) for the walkthrough.
-
-## What's *not* here (and where it lives in the roadmap)
-
-| Capability                          | Roadmap section | Status |
-|-------------------------------------|-----------------|--------|
-| Feed fetching, parse, quality score | §4 (Worker)     | **MVP shipped** in `worker/` — poll/parse/quality; websub/opml/discover deferred |
-| Storage adapters (Dropbox/R2/WebDAV)| §5 + §8.2       | **all three shipped (opt-in, plaintext)**; cloud-DMZ split deferred |
-| AES-256-GCM client encryption       | §5              | not built (PR #7 — required before cloud adapters become default) |
-| OPML 2.0 import + triage screen     | §8.1            | not built |
-| WebSub subscriber                   | §8.10           | not built |
-| AI summarisation                    | explicitly punted (§8 "does NOT ship") | won't build in v1 |
-| The full 24-sigil set               | §14 step 4      | 8 of 24 included as stand-ins |
-| Compliant Facebook connector (OAuth)| §19             | **design only** in `docs/facebook-connect.md`; connector PR queued |
+`ROADMAP.md` records historical plans, not current completion status. Supporting documents remain in `docs/`.
 
 ## License
 
-See `LICENSE`.
+See [LICENSE](LICENSE).
