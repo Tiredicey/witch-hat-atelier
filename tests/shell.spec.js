@@ -34,9 +34,8 @@ test.describe('three-pane shell', () => {
   test('rail width matches token --rail-w on desktop', async ({ page }, info) => {
     test.skip(info.project.name === 'mobile-chromium', 'mobile rail is horizontal');
     const w = await page.locator('nav.rail').evaluate(el => el.getBoundingClientRect().width);
-    // tokens.css sets --rail-w: 56px
-    expect(w).toBeGreaterThanOrEqual(55);
-    expect(w).toBeLessThanOrEqual(57);
+    const token = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')));
+    expect(Math.abs(w - token)).toBeLessThanOrEqual(1);
   });
 
   test('list width matches token --list-w on desktop', async ({ page }, info) => {

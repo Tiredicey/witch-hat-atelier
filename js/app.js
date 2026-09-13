@@ -250,6 +250,7 @@ async function boot() {
   function openQuickFilter() {
     if (!filterWrap || !filterInput) return;
     filterWrap.hidden = false;
+    document.getElementById("searchShelfBtn").setAttribute("aria-expanded", "true");
     filterInput.focus();
     filterInput.select();
   }
@@ -257,7 +258,9 @@ async function boot() {
     if (!filterWrap || !filterInput) return;
     filterInput.value = "";
     filterWrap.hidden = true;
+    document.getElementById("searchShelfBtn").setAttribute("aria-expanded", "false");
     if (quickTerm) setQuickTerm("");
+    document.getElementById("searchShelfBtn").focus();
   }
   if (filterInput) {
     filterInput.addEventListener("input", () => setQuickTerm(filterInput.value));
