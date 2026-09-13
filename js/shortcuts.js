@@ -48,7 +48,8 @@ export class Shortcuts {
 
   #bind() {
     document.addEventListener("keydown", e => {
-      if (e.target.matches("input, textarea")) return;
+      if (e.target.closest("dialog[open]")) return;
+      if (e.target.matches("input, textarea, select") || e.target.isContentEditable) return;
 
       if (e.key === "Escape") { this.h.closeHelp(); return; }
       if (e.key === "?")      { e.preventDefault(); this.h.openHelp(); return; }

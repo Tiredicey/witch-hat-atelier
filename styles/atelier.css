@@ -1,0 +1,38 @@
+:root { --header-h:76px; --radius-s:6px; --radius-m:12px; --radius-l:18px; }
+:root[data-theme="light"] { color-scheme:light; }
+:root[data-theme="dark"] { color-scheme:dark; --bg:#14171f; --surface:#1a1f2a; --surface-raised:#222836; --ink:#ece2c8; --ink-soft:#b6ae96; --ink-faint:#aba38f; --sepia:#d2b378; --sepia-bright:#e0b563; --sigil-red:#e4838b; --wash:#ece2c80f; --wash-strong:#ece2c81a; --line:#ece2c82e; --line-soft:#ece2c814; }
+:root[data-reading-size="large"] { --article-size:1.25rem; }
+:root[data-reading-size="larger"] { --article-size:1.5rem; }
+[hidden] { display:none !important; }
+:focus-visible { outline:2px solid var(--sepia); outline-offset:4px; }
+button:disabled { cursor:not-allowed; opacity:.55; }
+.atelier-header { height:var(--header-h); display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 28px; border-bottom:1px solid var(--line); background:var(--surface); }
+.atelier-brand { display:flex; align-items:center; gap:12px; text-decoration:none; flex:none; }
+.atelier-brand > svg { width:44px; height:44px; fill:none; stroke:var(--ink); stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+.atelier-brand > span { font:600 28px/1 var(--font-display); letter-spacing:.12em; }
+.atelier-brand small { display:block; font:11px/1.6 var(--font-ui); letter-spacing:.025em; color:var(--ink-faint); }
+.atelier-motto { font:italic 18px var(--font-display); color:var(--ink-soft); margin:0; }
+#readingPrefsBtn { min-height:44px; font-size:12px; border-color:transparent; }
+#readingPrefsBtn > span { margin-left:12px; font:20px Georgia,serif; }
+.app,.dmz,.settings,.vault { height:calc(100dvh - var(--header-h)); }
+.reader article > p:not(.byline) { font-size:var(--article-size,1.0625rem); line-height:1.85; }
+.reader p + p { text-indent:0; }
+.reading-dialog { color:var(--ink); background:var(--surface-raised); border:1px solid var(--line); border-radius:16px; padding:clamp(20px,4vw,36px); width:min(510px,calc(100% - 28px)); max-height:calc(100dvh - 36px); overflow:auto; box-shadow:0 20px 80px #14171f30; }
+.reading-dialog::backdrop { background:#14171f66; backdrop-filter:blur(3px); }
+.reading-dialog h2 { font-size:36px; margin:12px 0 26px; }
+.reading-dialog h3 { margin:22px 0 8px; }
+.dialog-close { float:right; min-height:36px; padding:6px 12px; font-size:11px; }
+.preference-field { display:flex; flex-direction:column; gap:10px; margin-bottom:22px; font:13px var(--font-ui); }
+.preference-field select { min-height:44px; width:100%; }
+.preference-check { display:flex; gap:12px; align-items:center; font:13px var(--font-ui); min-height:44px; }
+.preference-check input { width:18px; height:18px; accent-color:var(--sepia); }
+.reading-dialog .preference-note,.atelier-about { font:12px/1.65 var(--font-ui); color:var(--ink-soft); }
+.atelier-about { margin-top:24px; padding-top:18px; border-top:1px solid var(--line); }
+.atelier-about summary { cursor:pointer; min-height:32px; }
+:root[data-motion="reduce"] { --motion-fast:1ms linear; --motion-base:1ms linear; --motion-slow:1ms linear; }
+:root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+@media (prefers-reduced-motion:no-preference) { .reader article,.reading-dialog[open] { animation:page-unfold 300ms ease-out both; } }
+@keyframes page-unfold { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; scroll-behavior:auto !important; } }
+@media (max-width:768px) { :root { --header-h:70px; } .atelier-header { padding:10px 14px; gap:8px; } .atelier-brand { gap:8px; } .atelier-brand > svg { width:34px; height:34px; } .atelier-brand > span { font-size:23px; } .atelier-brand small { font-size:9px; } .atelier-motto { display:none; } #readingPrefsBtn { padding:7px; font-size:11px; } #readingPrefsBtn > span { margin-left:6px; } }
+@media (max-width:359px) { .atelier-brand > svg { display:none; } }
