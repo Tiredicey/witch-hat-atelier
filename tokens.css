@@ -1,11 +1,11 @@
 :root {
-  --bg: #F2E9D2;
-  --surface: #FAF4E2;
-  --surface-raised: #FFFAEC;
+  --bg: #F0EBDD;
+  --surface: #FAF7EE;
+  --surface-raised: #FFFDF6;
   --ink: #1B2438;
   --ink-soft: #3F4A65;
   --ink-faint: #63687B;
-  --sepia: #9C7B3F;
+  --sepia: #796032;
   --sepia-bright: #C29A4E;
   --sigil-red: #8B2A3A;
   --wash: rgba(28, 36, 56, 0.04);
@@ -18,9 +18,9 @@
   --stroke-3: 2px;
 
   --font-display: "Cormorant Garamond", "EB Garamond", Georgia, serif;
-  --font-body: "Source Serif 4", "Source Serif Pro", Georgia, serif;
-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  --font-body: Georgia, "Times New Roman", serif;
+  --font-ui: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", Consolas, monospace;
 
   --size-display-xl: 2.625rem;
   --size-display-l: 2rem;
@@ -72,10 +72,10 @@
     --surface-raised: #222836;
     --ink: #ECE2C8;
     --ink-soft: #B6AE96;
-    --ink-faint: #968F78;
+    --ink-faint: #ABA38F;
     --sepia: #C29A4E;
     --sepia-bright: #E0B563;
-    --sigil-red: #C7565E;
+    --sigil-red: #E4838B;
     --wash: rgba(236, 226, 200, 0.06);
     --wash-strong: rgba(236, 226, 200, 0.10);
     --line: rgba(236, 226, 200, 0.18);

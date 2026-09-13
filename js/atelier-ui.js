@@ -31,3 +31,17 @@ dialog.addEventListener('change', () => {
   } catch { dialog.querySelector('#readingPrefsStatus').textContent = 'Applied for this visit. Your browser blocked saving preferences.'; }
 });
 document.getElementById('readingPrefsBtn').addEventListener('click', () => dialog.showModal());
+
+const skip = document.createElement('a'); skip.className = 'skip-link'; skip.href = '#list'; skip.textContent = 'Skip to articles'; document.body.prepend(skip);
+document.getElementById('list').tabIndex = -1;
+document.querySelector('.atelier-brand').addEventListener('click', event => { event.preventDefault(); document.getElementById('exitSettingsBtn').click(); document.getElementById('mobileBack').click(); document.getElementById('list').focus(); });
+const tools = document.createElement('div'); tools.className = 'desk-tools';
+tools.innerHTML = `<button type="button" id="searchShelfBtn" aria-expanded="false" aria-controls="listFilterWrap">Search this shelf <kbd>/</kbd></button><button type="button" id="quickAddFeedBtn">+ Add a feed</button>`;
+document.querySelector('.list__header').after(tools);
+document.getElementById('searchShelfBtn').addEventListener('click', () => { document.getElementById('listFilterWrap').hidden = false; document.getElementById('searchShelfBtn').setAttribute('aria-expanded', 'true'); document.getElementById('listFilter').focus(); });
+const openFeeds = () => { document.getElementById('enterSettingsBtn').click(); document.getElementById('add-feed-input').focus(); };
+document.getElementById('quickAddFeedBtn').addEventListener('click', openFeeds);
+document.getElementById('reader').addEventListener('click', event => {
+  if (event.target.closest('[data-reader-action="add"]')) openFeeds();
+  if (event.target.closest('[data-reader-action="import"]')) { document.getElementById('enterSettingsBtn').click(); document.getElementById('opml-import-file').focus(); }
+});

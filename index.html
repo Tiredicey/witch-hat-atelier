@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>CODA · Your reading atelier</title>
-  <meta name="description" content="An RSS reader that respects the open web and the reader's hard drive. Three-pane shell, no telemetry, sample content only." />
+  <meta name="description" content="A personal reading atelier for the open web. Follow feeds, keep notes, and read at your own pace." />
   <meta name="color-scheme" content="light dark" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Source+Serif+4:wght@400;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="tokens.css" />
   <link rel="stylesheet" href="styles/shell.css" />
@@ -57,7 +57,6 @@
         <path d="M12 8 L 12 16 M 8 10 L 16 10 M 8 14 L 16 14"/>
       </svg>
       <span class="count" hidden></span>
-      <span class="err" aria-label="One feed has a fetch error" title="one feed has a fetch error"></span>
       <span class="shelf__label">Engineering blogs</span>
     </button>
 
@@ -95,7 +94,7 @@
         <path d="M5 21 L 5 9 Q 12 3, 19 9 L 19 21"/>
         <path d="M3 21 L 21 21"/>
       </svg>
-      <span class="shelf__label">DMZ &mdash; shared board</span>
+      <span class="shelf__label">Shared board</span>
     </button>
 
     <button class="shelf" data-shelf="starred" aria-label="Starred">
@@ -119,7 +118,7 @@
         <path d="M3 19 L 3 7 L 9 7 L 11 9 L 21 9 L 21 19 Z"/>
         <path d="M3 13 L 21 13"/>
       </svg>
-      <span class="shelf__label">Vault &mdash; files</span>
+      <span class="shelf__label">File vault</span>
     </button>
 
     <button class="shelf" id="enterSettingsBtn" aria-label="Settings">

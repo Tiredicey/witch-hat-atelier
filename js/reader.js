@@ -117,17 +117,16 @@ export class Reader {
     this.readerEl.replaceChildren();
     const wrap = document.createElement("div");
     wrap.className = "reader__empty";
-    wrap.innerHTML = `
-      <div>
-        <svg width="48" height="48" viewBox="0 0 24 24"
-             style="stroke: var(--sepia); stroke-width: 1.2; fill: none;
-                    stroke-linecap: round; stroke-linejoin: round;"
-             aria-hidden="true">
-          <path d="M4 18 Q 8 6, 12 12 T 20 6"/>
-          <path d="M4 21 L 20 21"/>
-        </svg>
-        <p>This shelf is quiet.</p>
-      </div>`;
+    wrap.innerHTML = `<div>
+      <svg class="atelier-emblem" viewBox="0 0 300 300" aria-hidden="true">
+        <g class="emblem-orbit"><circle cx="150" cy="150" r="132"/><circle cx="150" cy="150" r="124" stroke-dasharray="1 9"/><path d="M150 9v27 M150 264v27 M9 150h27 M264 150h27 M52 52l18 18 M230 230l18 18 M52 248l18-18 M230 70l18-18"/><path d="M150 30 270 210H30Z" opacity=".3"/></g>
+        <path d="M77 204q32-18 73 3 41-21 73-3v32q-38-14-73 3-35-17-73-3Z M150 207v32 M85 211q26-10 55 2 M160 213q29-12 55-2 M85 221q26-10 55 2 M160 223q29-12 55-2"/>
+        <path d="M80 181q70 22 140-1l-41-19-26-86-19 30-23 58Z M111 163q32 16 68-2 M134 105l29 18" stroke-width="1.6"/><circle cx="148" cy="147" r="9"/><path d="M145 147h6 M148 144v6 M108 90v12 M102 96h12 M207 118v16 M199 126h16"/>
+      </svg>
+      <h1>A little room<br>for what matters.</h1>
+      <p class="empty-copy">This shelf is quiet.</p>
+      <div class="empty-actions"><button type="button" data-reader-action="add" data-variant="primary">+ Add a feed</button><button type="button" data-reader-action="import">Import subscriptions</button></div>
+    </div>`;
     this.readerEl.appendChild(wrap);
     this.wrapEl.classList.remove("has-selection");
     this.currentArticle = null;
