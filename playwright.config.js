@@ -7,7 +7,7 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+const PORT = 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
@@ -30,7 +30,7 @@ export default defineConfig({
 
   webServer: {
     // Static-file serving via Python's stdlib — no extra deps to install.
-    command: `python3 -m http.server ${PORT}`,
+    command: 'npm run preview:start',
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 10_000,

@@ -1,0 +1,1 @@
+module.exports = { apps: [{ name: 'webapp', cwd: __dirname, script: 'node_modules/vite/bin/vite.js', args: 'dist --host 0.0.0.0 --port 3000 --strictPort', watch: false, instances: 1, exec_mode: 'fork' }] };

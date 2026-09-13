@@ -4,3 +4,12 @@ playwright-report/
 playwright/.cache/
 .DS_Store
 .smoke-*.png
+
+dist/
+.env*
+.dev.vars*
+.wrangler/
+*.log
+*.zip
+*.tar.gz
+artifacts/

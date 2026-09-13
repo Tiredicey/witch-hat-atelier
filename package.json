@@ -2,15 +2,19 @@
   "name": "witch-hat-atelier",
   "version": "0.1.0",
   "private": true,
-  "description": "CODA — three-pane shell for a 2026 RSS reader. Static site; real feed fetching lives in a separate Cloudflare Worker per ROADMAP §4.",
+  "description": "CODA \u2014 three-pane shell for a 2026 RSS reader. Static site; real feed fetching lives in a separate Cloudflare Worker per ROADMAP \u00a74.",
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 4173",
+    "dev": "vite --host 0.0.0.0 --port 3000 --strictPort",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "build": "node build.mjs",
+    "preview:start": "pm2 start ecosystem.config.cjs --only webapp"
   },
   "devDependencies": {
-    "@playwright/test": "1.52.0"
+    "@playwright/test": "1.63.0",
+    "@axe-core/playwright": "4.10.2",
+    "vite": "6.4.3"
   }
 }
