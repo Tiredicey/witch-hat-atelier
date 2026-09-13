@@ -3,7 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('store persistence + notes (§5)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem("coda/onboarded", "true");
+      localStorage.setItem("coda/examples", "true");
+    });
     await page.reload();
   });
 
