@@ -6,6 +6,14 @@ An independent RSS reader with a Witch Hat Atelier-inspired parchment-and-ink in
 - Existing production address: https://witch-hat-atelier.pages.dev
 - Release status: changes pushed to GitHub. The owner handles Cloudflare deployment; no production deployment was run or verified during this update.
 
+## Philippines source endpoint
+
+`GET /philippines?source=trends` fetches Google’s Philippines RSS. Other built-in source IDs are `8list`, `weird`, `health`, `learning`, `movies`, `music`, `style`, `beauty`, and `tech`. 8List disables RSS, so these sources extract headline links and original publication dates from its public listing pages. No full article copy is stored.
+
+The endpoint accepts only fixed catalog sources, rejects redirects, caps responses at 1 MB, times out after 12 seconds, caches successful results for five minutes, and reports unavailable sources without fabricated results. It needs no API key or `PROXY_ALLOW` change. Existing user-configured proxy routes keep their previous policy.
+
+Verification: `node --test tests/philippines-backend.test.mjs` passed 8 checks. A live handler check returned HTTP 200 and readable items for all 10 catalog sources. These checks do not confirm production deployment or the truth of publisher claims.
+
 ## Completed changes
 
 - Labelled desktop shelves and mobile navigation, editorial typography, original sigil illustration and restrained page-opening motion.
