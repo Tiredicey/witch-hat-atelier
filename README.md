@@ -6,6 +6,12 @@ An independent RSS reader with a Witch Hat Atelier-inspired parchment-and-ink in
 - Existing production address: https://witch-hat-atelier.pages.dev
 - Release status: changes pushed to GitHub. The owner handles Cloudflare deployment; no production deployment was run or verified during this update.
 
+## Eureka interface checkpoint
+
+The built-in Philippines discovery panel opens from the library rail, shared board, or first-visit setup. It includes Google RSS trends, nine 8List views (home and eight requested categories), search, refresh/retry, source dates, filtered CSV export, five Google Explore search properties, and annual archive links. Google charts and annual lists open on Google; they are not reproduced as live data in CODA.
+
+Checkpoint status: interface authored; browser verification pending. The backend checks below passed independently. Deployment remains the owner's Git-connected automation.
+
 ## Philippines source endpoint
 
 `GET /philippines?source=trends` fetches Google’s Philippines RSS. Other built-in source IDs are `8list`, `weird`, `health`, `learning`, `movies`, `music`, `style`, `beauty`, and `tech`. 8List disables RSS, so these sources extract headline links and original publication dates from its public listing pages. No full article copy is stored.
