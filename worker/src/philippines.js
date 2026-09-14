@@ -61,7 +61,7 @@ async function fetchSource(source, fetcher) {
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const response = await fetcher(source.upstream, {
-      signal: controller.signal, redirect: 'error',
+      signal: controller.signal, redirect: 'manual',
       headers: { Accept: source.kind === 'rss' ? 'application/rss+xml, text/xml' : 'text/html', 'User-Agent': 'CODA/0.1 (+https://github.com/Tiredicey/witch-hat-atelier)' },
     });
     if (!response.ok || !response.body) throw new Error('Upstream unavailable');

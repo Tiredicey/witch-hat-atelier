@@ -57,7 +57,7 @@ test('fixed-source endpoint rejects arbitrary targets and non-GET requests witho
 test('fetches only catalog URL, blocks redirects, and returns provenance', async () => {
   const result = await handlePhilippines(request(), { fetcher: async (url, options) => {
     assert.equal(url, 'https://trends.google.com/trending/rss?geo=PH');
-    assert.equal(options.redirect, 'error');
+    assert.equal(options.redirect, 'manual');
     assert.equal(options.headers.Cookie, undefined);
     return new Response(rss);
   }});
