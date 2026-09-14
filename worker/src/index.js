@@ -253,6 +253,15 @@ async function handleProxy(req, url, env) {
   if (fetched.status === 0) {
     return jsonError(502, fetched.error || "upstream fetch failed");
   }
+  if ([403, 429, 503].includes(fetched.status) && new URL(target).hostname === "news.google.com" && (fetched.contentType || "").includes("text/html")) {
+    const message = new TextDecoder().decode(fetched.body).slice(0, 16000);
+    if (/automated queries|unusual traffic/i.test(message)) {
+      return new Response(JSON.stringify({ code: "google_news_blocked", error: "Google News is blocking automated requests from this server. Open Google News directly or retry later.", upstreamStatus: fetched.status }), {
+        status: fetched.status,
+        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "300" },
+      });
+    }
+  }
   const headers = {
     ...corsHeaders(),
     "Content-Type":  fetched.contentType || "application/octet-stream",

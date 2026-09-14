@@ -66,12 +66,14 @@ export async function loadFeedFromBrowserEngine({
     : [];
   if (!feeds.length) { onReport({}); return null; }
   let failed = 0;
+  const failures = [];
 
   const results = await runWithLimit(feeds, concurrency, async (sub) => {
     try {
       return await fetchAndParseOne(sub, { fetchBase, signal, timeoutMs });
     } catch (e) {
       failed++;
+      failures.push({ message: e.message || "Feed request failed", code: e.code || "feed_failed" });
       console.warn(`feed-engine: ${sub.url} failed`, e);
       return [];
     }
@@ -87,7 +89,7 @@ export async function loadFeedFromBrowserEngine({
       }
     }
   }
-  onReport({ total: feeds.length, failed, entries: byId.size });
+  onReport({ total: feeds.length, failed, entries: byId.size, failures });
   return [...byId.values()].sort((a, b) => (b.published || 0) - (a.published || 0));
 }
 
@@ -101,7 +103,13 @@ async function fetchAndParseOne(sub, { fetchBase, signal, timeoutMs }) {
   try {
     const url = feedRequestUrl(sub.url, fetchBase);
     const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`Feed request failed: HTTP ${res.status}`);
+    if (!res.ok) {
+      if ((res.headers.get("content-type") || "").includes("application/json")) {
+        const details = await res.json().catch(() => ({}));
+        if (details.code === "google_news_blocked") throw Object.assign(new Error("Google News is blocking automated requests from this server. Open Google News directly or retry later."), { code: details.code });
+      }
+      throw new Error(`Feed request failed: HTTP ${res.status}`);
+    }
     const ct = res.headers.get("content-type") || "";
     const text = await res.text();
     const parsed = parseFeed(text, ct);

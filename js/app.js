@@ -116,9 +116,18 @@ async function boot() {
   });
 
   const feedStatus = document.getElementById("feedStatus");
-  const reportFeeds = ({ total = 0, failed = 0, entries = 0, error = "" }) => {
+  const reportFeeds = ({ total = 0, failed = 0, entries = 0, error = "", failures = [] }) => {
     feedStatus.dataset.status = failed || error ? "fail" : "ok";
-    feedStatus.textContent = error || (!total ? "Add a feed to begin your library." : failed ? `${failed} of ${total} feeds failed. Check your deployment’s feed proxy. ${entries} articles returned.` : `${entries} articles loaded from ${total} feeds.`);
+    const reasons = [...new Set(failures.map(item => item.message))].slice(0, 3).join(" ");
+    feedStatus.textContent = error || (!total ? "Add a feed to begin your library." : failed ? `${failed} of ${total} feeds failed. ${entries} articles returned. ${reasons || "Check your connection, source availability and feed proxy settings."}` : `${entries} articles loaded from ${total} feeds.`);
+    if (failures.some(item => item.code === "google_news_blocked")) {
+      const original = document.createElement("a");
+      original.href = "https://news.google.com/?hl=en-PH&gl=PH&ceid=PH:en";
+      original.target = "_blank";
+      original.rel = "noopener noreferrer";
+      original.textContent = " Open Google News ↗";
+      feedStatus.append(original);
+    }
   };
   let items = [];
   try { if (localStorage.getItem("coda/examples") === "true") items = SAMPLE; } catch {}
